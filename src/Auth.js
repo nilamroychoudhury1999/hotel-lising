@@ -46,14 +46,8 @@ function Auth({ onAdminLogin }) {
             if (isLogin) {
                 await signInWithEmailAndPassword(auth, email, password);
             } else {
-                const userCredential = await createUserWithEmailAndPassword(
-                    auth,
-                    email,
-                    password
-                );
-                await setDoc(doc(db, "admins", userCredential.user.uid), {
-                    email: email,
-                });
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                await setDoc(doc(db, "admins", userCredential.user.uid), { email });
             }
         } catch (err) {
             setError(err.message);
@@ -62,19 +56,18 @@ function Auth({ onAdminLogin }) {
 
     if (loading || checkingRole) return <p style={styles.loading}>Loading...</p>;
 
-    if (user)
+    if (user) {
         return (
-            <div style={styles.wrapper}>
-                <div style={styles.card}>
-                    <p style={{ marginBottom: 12 }}>
-                        Signed in as <b>{user.email}</b>
-                    </p>
-                    <button onClick={() => signOut(auth)} style={styles.button}>
-                        Logout
-                    </button>
-                </div>
+            <div style={styles.card}>
+                <p style={{ marginBottom: 12 }}>
+                    Signed in as <b>{user.email}</b>
+                </p>
+                <button onClick={() => signOut(auth)} style={styles.button}>
+                    Logout
+                </button>
             </div>
         );
+    }
 
     return (
         <div style={styles.wrapper}>
@@ -97,10 +90,7 @@ function Auth({ onAdminLogin }) {
                 <button onClick={handleSubmit} style={styles.button}>
                     {isLogin ? "Login" : "Sign Up"}
                 </button>
-                <p
-                    style={styles.toggleText}
-                    onClick={() => setIsLogin(!isLogin)}
-                >
+                <p style={styles.toggleText} onClick={() => setIsLogin(!isLogin)}>
                     {isLogin ? "Create new account" : "Have an account? Login"}
                 </p>
                 {error && <p style={styles.errorText}>{error}</p>}
