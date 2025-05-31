@@ -26,21 +26,22 @@ function Auth({ onAdminLogin }) {
         return docSnap.exists();
     };
 
-    useEffect(() => {
-        if (user) {
-            checkAdmin(user.uid).then((isAdmin) => {
-                if (!isAdmin) {
-                    alert("Access denied. Not an admin.");
-                    signOut(auth);
-                    onAdminLogin(false);
-                } else {
-                    onAdminLogin(true);
-                }
-            });
-        } else {
-            onAdminLogin(false);
-        }
-    }, [user]);
+ useEffect(() => {
+    if (user) {
+        checkAdmin(user.uid).then((isAdmin) => {
+            if (!isAdmin) {
+                alert("Access denied. Not an admin.");
+                signOut(auth);
+                onAdminLogin(false);
+            } else {
+                onAdminLogin(true);
+            }
+        });
+    } else {
+        onAdminLogin(false);
+    }
+}, [user, onAdminLogin]);
+
 
     const handleSubmit = async () => {
         setError("");
