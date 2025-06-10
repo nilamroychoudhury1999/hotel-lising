@@ -17,7 +17,9 @@
     "web-vitals": "^2.1.4",
     "xlsx": "^0.18.5",
      "jspdf": "^2.5.1",
-    "jspdf-autotable": "^3.5.28"
+    "jspdf-autotable": "^3.5.28",
+    "react-helmet-async": "^2.0.5",
+    
   },
   "scripts": {
     "start": "react-scripts start",
