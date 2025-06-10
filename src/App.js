@@ -29,7 +29,6 @@ import {
 } from "react-router-dom";
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 
-// --- Firebase Configuration ---
 const firebaseConfig = {
   apiKey: "AIzaSyCQJ3dX_ZcxVKzlCD8H19JM3KYh7qf8wYk",
   authDomain: "form-ca7cc.firebaseapp.com",
@@ -46,11 +45,9 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
-// --- Cloudinary Configuration ---
 const CLOUDINARY_UPLOAD_PRESET = "unsigned_preset_1";
 const CLOUDINARY_CLOUD_NAME = "dyrmi2zkl";
 
-// --- Geocoding Function ---
 async function geocodeAddress(address) {
   if (!address) return null;
   const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
@@ -70,7 +67,6 @@ async function geocodeAddress(address) {
   }
 }
 
-// --- Inline Styles ---
 const styles = {
   container: {
     maxWidth: 900,
@@ -158,7 +154,7 @@ const styles = {
   categoryButton: {
     padding: "8px 16px",
     fontSize: 14,
-    borderRadius: 20, // Pill shape
+    borderRadius: 20,
     border: "1px solid #007bff",
     backgroundColor: "white",
     color: "#007bff",
@@ -357,7 +353,6 @@ const styles = {
   }
 };
 
-// --- Main Event Listing Component (Home Page) ---
 function EventListingPage({ user, handleLogin, handleLogout, events, loading, toggleInterest }) {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -380,14 +375,13 @@ function EventListingPage({ user, handleLogin, handleLogout, events, loading, to
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
   return (
-    <main> {/* Use semantic main tag */}
+    <main>
       <Helmet>
         <title>Listeve - Discover & List Events in India</title>
         <meta name="description" content="Discover and list upcoming events in India, including music concerts, sports, tech meetups, art exhibitions, food festivals, and more. Find local events near you!" />
-        {/* Add more meta tags like og:title, og:description for social media sharing if needed */}
       </Helmet>
 
-      <header style={styles.authBar}> {/* Use semantic header */}
+      <header style={styles.authBar}>
         {user ? (
           <>
             <div>
@@ -404,10 +398,10 @@ function EventListingPage({ user, handleLogin, handleLogout, events, loading, to
         )}
       </header>
 
-      <section> {/* Use semantic section */}
+      <section>
         <input
           style={styles.searchInput}
-          type="search" // Use search type for better semantics
+          type="search"
           placeholder="Search events by title, city, state, or country..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -415,7 +409,7 @@ function EventListingPage({ user, handleLogin, handleLogout, events, loading, to
         />
 
         {events.length > 0 && (
-          <nav style={styles.categoryFilter}> {/* Use nav for navigation */}
+          <nav style={styles.categoryFilter}>
             {categories.map((category) => (
               <button
                 key={category}
@@ -434,8 +428,8 @@ function EventListingPage({ user, handleLogin, handleLogout, events, loading, to
         )}
       </section>
 
-      <section> {/* Section for event listings */}
-        <h2 style={{...styles.formTitle, marginTop: 0}}>Upcoming Events</h2> {/* Subheading */}
+      <section>
+        <h2 style={{...styles.formTitle, marginTop: 0}}>Upcoming Events</h2>
         <ul style={styles.eventList}>
           {filteredEvents.length === 0 && (
             <li style={{ textAlign: "center", color: "#777", fontSize: 16 }}>
@@ -451,25 +445,24 @@ function EventListingPage({ user, handleLogin, handleLogout, events, loading, to
                 {event.imageUrl && (
                   <img
                     src={event.imageUrl}
-                    alt={`${event.title} event image ${event.category ? `(${event.category})` : ''}`} {/* SEO: descriptive alt text */}
+                    alt={`${event.title} event image ${event.category ? `(${event.category})` : ''}`}
                     title={event.title}
                     style={styles.eventImage}
                     loading="lazy"
-                     
                   />
                 )}
-                <article style={styles.eventContent}> {/* Use article for self-contained content */}
+                <article style={styles.eventContent}>
                   <Link to={`/events/${event.id}`} style={{ textDecoration: 'none' }}>
-                    <h3 style={styles.eventTitle}>{event.title}</h3> {/* Use h3 for event title */}
+                    <h3 style={styles.eventTitle}>{event.title}</h3>
                   </Link>
                   <div style={styles.eventDetails}>
-                      <time dateTime={event.date} style={styles.eventDate}> {/* Use time tag for dates */}
+                      <time dateTime={event.date} style={styles.eventDate}>
                           Date: {new Date(event.date).toLocaleDateString('en-IN', {
                               year: 'numeric', month: 'long', day: 'numeric'
                           })}
                       </time>
                       {(event.city || event.state || event.country) && (
-                          <address style={styles.eventLocation}> {/* Use address tag for location */}
+                          <address style={styles.eventLocation}>
                               Location: {[event.city, event.state, event.country].filter(Boolean).join(", ")}
                           </address>
                       )}
@@ -480,7 +473,7 @@ function EventListingPage({ user, handleLogin, handleLogout, events, loading, to
                       )}
                   </div>
                   {event.description && (
-                    <p style={styles.eventDesc}> {/* Use p tag for paragraphs */}
+                    <p style={styles.eventDesc}>
                       {event.description.length > 150
                         ? `${event.description.substring(0, 150)}... `
                         : event.description}
@@ -515,7 +508,6 @@ function EventListingPage({ user, handleLogin, handleLogout, events, loading, to
   );
 }
 
-// --- Event Detail Page Component ---
 function EventDetailPage({ user, toggleInterest }) {
   const { id } = useParams();
   const [event, setEvent] = useState(null);
@@ -533,7 +525,7 @@ function EventDetailPage({ user, toggleInterest }) {
           setEvent({ id: eventSnap.id, ...eventSnap.data() });
         } else {
           console.log("No such document!");
-          navigate('/not-found'); // Redirect to a 404 page if event not found
+          navigate('/not-found');
         }
       } catch (error) {
         console.error("Error fetching event:", error);
@@ -564,65 +556,49 @@ function EventDetailPage({ user, toggleInterest }) {
     ? event.description.substring(0, 160) + ` Find event details, date, and location in ${locationString}.`
     : `Details about the event "${event.title}" happening on ${eventDateFormatted} in ${locationString}. Join us!`;
 
-
-  // Schema Markup (JSON-LD) - Enhanced to be more comprehensive like AllEvents.in
   const eventSchema = {
     "@context": "https://schema.org",
     "@type": "Event",
     "name": event.title,
-    "startDate": event.date, // YYYY-MM-DD format
-    "endDate": event.date,   // Assuming single-day events, adjust if multi-day
+    "startDate": event.date,
+    "endDate": event.date,
     "eventStatus": "https://schema.org/EventScheduled",
-    "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode", // Assuming physical event
+    "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
     "location": {
       "@type": "Place",
-      "name": locationString || event.title, // Venue name or general location
+      "name": locationString || event.title,
       "address": {
         "@type": "PostalAddress",
         "addressLocality": event.city,
         "addressRegion": event.state,
-        "addressCountry": "IN" // Assuming India based on context
+        "addressCountry": "IN"
       }
     },
     "description": event.description,
-    "image": event.imageUrl || "URL_TO_DEFAULT_EVENT_IMAGE.jpg", // Fallback image needed
+    "image": event.imageUrl || "URL_TO_DEFAULT_EVENT_IMAGE.jpg",
     "organizer": {
-      "@type": event.createdByName ? "Person" : "Organization", // Dynamically set based on creator name
+      "@type": event.createdByName ? "Person" : "Organization",
       "name": event.createdByName || "Listeve Community"
-      // "url": `https://your-event-app.com/organizer/${event.createdBy}` // If you had organizer profile pages
     },
-    // Example 'offers' if you were to have tickets (even if free)
-    // "offers": {
-    //   "@type": "Offer",
-    //   "price": "0", // Or actual price like "100"
-    //   "priceCurrency": "INR",
-    //   "availability": "https://schema.org/InStock", // or SoldOut, Discontinued, etc.
-    //   "validFrom": new Date().toISOString(),
-    //   "url": window.location.href // Link to where tickets can be acquired or interest shown
-    // },
-    "url": window.location.href // Canonical URL for the page
+    "url": window.location.href
   };
 
   return (
-    <article style={styles.detailContainer}> {/* Use article for event content */}
+    <article style={styles.detailContainer}>
       <Helmet>
         <title>{pageTitle}</title>
         <meta name="description" content={metaDescription} />
-        {/* Add canonical link for SEO */}
         <link rel="canonical" href={window.location.href} />
-        {/* Open Graph Tags for social sharing */}
         <meta property="og:title" content={pageTitle} />
         <meta property="og:description" content={metaDescription} />
-        <meta property="og:image" content={event.imageUrl || 'URL_TO_DEFAULT_EVENT_IMAGE.jpg'} /> {/* Replace with a default if no image */}
+        <meta property="og:image" content={event.imageUrl || 'URL_TO_DEFAULT_EVENT_IMAGE.jpg'} />
         <meta property="og:url" content={window.location.href} />
         <meta property="og:type" content="event" />
-        {/* Twitter Card Tags */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={pageTitle} />
         <meta name="twitter:description" content={metaDescription} />
         <meta name="twitter:image" content={event.imageUrl || 'URL_TO_DEFAULT_EVENT_IMAGE.jpg'} />
 
-        {/* Schema Markup */}
         <script type="application/ld+json">
           {JSON.stringify(eventSchema)}
         </script>
@@ -632,7 +608,7 @@ function EventDetailPage({ user, toggleInterest }) {
       {event.imageUrl && (
         <img
           src={event.imageUrl}
-          alt={`Image for ${event.title} event in ${locationString}`} {/* SEO: highly descriptive alt text */}
+          alt={`Image for ${event.title} event in ${locationString}`}
           title={`Click to view ${event.title}`}
           style={styles.detailImage}
         />
@@ -671,11 +647,10 @@ function EventDetailPage({ user, toggleInterest }) {
   );
 }
 
-// --- Add Event Form Component ---
 function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, handleImageChange, loading }) {
   const categories = ["All", "Music", "Sports", "Art", "Tech", "Food", "Other"];
   return (
-    <section style={styles.formContainer}> {/* Use section for form */}
+    <section style={styles.formContainer}>
       <Helmet>
         <title>Add New Event - List Your Event on Listeve</title>
         <meta name="description" content="Add your event to Listeve, the best platform to discover and promote local events in India. List your music, sports, art, tech, or food event for free." />
@@ -813,7 +788,6 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
   );
 }
 
-// --- Main App Component with Routing ---
 export default function EventListingApp() {
   const [user, setUser] = useState(null);
   const [events, setEvents] = useState([]);
@@ -831,13 +805,11 @@ export default function EventListingApp() {
   });
   const [imageFile, setImageFile] = useState(null);
 
-  // --- Auth State Listener ---
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((u) => setUser(u));
     return () => unsubscribe();
   }, []);
 
-  // --- Fetch Events from Firestore ---
   useEffect(() => {
     const q = query(collection(db, "events"), orderBy("date", "asc"));
     const unsub = onSnapshot(q, (snapshot) => {
@@ -851,7 +823,6 @@ export default function EventListingApp() {
     return () => unsub();
   }, []);
 
-  // --- Authentication Handlers ---
   async function handleLogin() {
     try {
       await signInWithPopup(auth, provider);
@@ -870,7 +841,6 @@ export default function EventListingApp() {
     }
   }
 
-  // --- Form Handlers ---
   function handleChange(e) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }
@@ -879,7 +849,6 @@ export default function EventListingApp() {
     setImageFile(e.target.files[0]);
   }
 
-  // --- Upload Image to Cloudinary ---
   async function uploadImage() {
     if (!imageFile) return null;
 
@@ -907,7 +876,6 @@ export default function EventListingApp() {
     }
   }
 
-  // --- Add Event Handler ---
   async function handleAddEvent(e) {
     e.preventDefault();
     if (!user) {
@@ -971,7 +939,6 @@ export default function EventListingApp() {
     setLoading(false);
   }
 
-  // --- Toggle Interest Handler ---
   async function toggleInterest(event) {
     if (!user) {
       alert("Please login to show interest.");
@@ -993,7 +960,7 @@ export default function EventListingApp() {
   }
 
   return (
-    <HelmetProvider> {/* Wrap your app with HelmetProvider */}
+    <HelmetProvider>
       <Router>
         <div style={styles.container}>
           <h1 style={styles.header}>
