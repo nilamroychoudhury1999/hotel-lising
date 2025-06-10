@@ -452,9 +452,10 @@ function EventListingPage({ user, handleLogin, handleLogout, events, loading, to
                   <img
                     src={event.imageUrl}
                     alt={`${event.title} event image ${event.category ? `(${event.category})` : ''}`} {/* SEO: descriptive alt text */}
-                    title={event.title} {/* SEO: title attribute for hover */}
+                    title={event.title}
                     style={styles.eventImage}
-                    loading="lazy" {/* Lazy load images for performance */}
+                    loading="lazy"
+                     
                   />
                 )}
                 <article style={styles.eventContent}> {/* Use article for self-contained content */}
