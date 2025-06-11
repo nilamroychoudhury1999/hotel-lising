@@ -353,7 +353,39 @@ const styles = {
   }
 };
 
-function EventListingPage({ user, handleLogin, handleLogout, events, loading, toggleInterest }) {
+function AuthBar({ user, handleLogin, handleLogout }) {
+  return (
+    <header style={styles.authBar}>
+      {user ? (
+        <>
+          <div>
+            Welcome, <strong>{user.displayName}</strong>
+          </div>
+          <div style={{display: 'flex', gap: 10}}>
+            <Link to="/add-event" style={{ ...styles.button, ...styles.btnSuccess }}>
+              + Add New Event
+            </Link>
+            <button style={{ ...styles.button, ...styles.btnDanger }} onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
+        </>
+      ) : (
+        <div style={{display: 'flex', gap: 10}}>
+          <Link to="/add-event" style={{ ...styles.button, ...styles.btnSuccess }}>
+            + Add New Event
+          </Link>
+          <button style={{ ...styles.button, ...styles.btnPrimary }} onClick={handleLogin}>
+            Login with Google
+          </button>
+        </div>
+      )}
+    </header>
+  );
+}
+
+
+function EventListingPage({ user, events, loading, toggleInterest }) {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const categories = ["All", "Music", "Sports", "Art", "Tech", "Food", "Other"];
@@ -380,23 +412,6 @@ function EventListingPage({ user, handleLogin, handleLogout, events, loading, to
         <title>Listeve - Discover & List Events in India</title>
         <meta name="description" content="Discover and list upcoming events in India, including music concerts, sports, tech meetups, art exhibitions, food festivals, and more. Find local events near you!" />
       </Helmet>
-
-      <header style={styles.authBar}>
-        {user ? (
-          <>
-            <div>
-              Welcome, <strong>{user.displayName}</strong>
-            </div>
-            <button style={{ ...styles.button, ...styles.btnDanger }} onClick={handleLogout}>
-              Logout
-            </button>
-          </>
-        ) : (
-          <button style={{ ...styles.button, ...styles.btnPrimary }} onClick={handleLogin}>
-            Login with Google
-          </button>
-        )}
-      </header>
 
       <section>
         <input
@@ -776,7 +791,7 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
           style={{
             ...styles.button,
             ...styles.btnSuccess,
-            ...(loading ? styles.disabledButton : {}),
+            ...(loading || !user ? styles.disabledButton : {}),
           }}
           disabled={loading || !user}
         >
@@ -969,14 +984,14 @@ export default function EventListingApp() {
             </Link>
           </h1>
 
+          <AuthBar user={user} handleLogin={handleLogin} handleLogout={handleLogout} />
+
           <Routes>
             <Route
               path="/"
               element={
                 <EventListingPage
                   user={user}
-                  handleLogin={handleLogin}
-                  handleLogout={handleLogout}
                   events={events}
                   loading={loading}
                   toggleInterest={toggleInterest}
@@ -1005,11 +1020,6 @@ export default function EventListingApp() {
           </Routes>
 
           <footer style={{ textAlign: 'center', marginTop: 30, padding: '20px 0', borderTop: '1px solid #eee' }}>
-            {user && (
-              <Link to="/add-event" style={{ ...styles.button, ...styles.btnSuccess }}>
-                  + Add New Event
-              </Link>
-            )}
             <p style={{marginTop: 15, fontSize: 14, color: '#777'}}>&copy; {new Date().getFullYear()} Listeve. All rights reserved.</p>
           </footer>
         </div>
