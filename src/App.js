@@ -445,7 +445,7 @@ function EventListingPage({ user, handleLogin, handleLogout, events, loading, to
                 {event.imageUrl && (
                   <img
                     src={event.imageUrl}
-                    alt={`${event.title} event image ${event.category ? `(${event.category})` : ''}`}
+                    alt={`${event.title} event ${event.category ? `(${event.category})` : ''}`}
                     title={event.title}
                     style={styles.eventImage}
                     loading="lazy"
@@ -608,7 +608,7 @@ function EventDetailPage({ user, toggleInterest }) {
       {event.imageUrl && (
         <img
           src={event.imageUrl}
-          alt={`Image for ${event.title} event in ${locationString}`}
+          alt={`${event.title} event in ${locationString}`}
           title={`Click to view ${event.title}`}
           style={styles.detailImage}
         />
