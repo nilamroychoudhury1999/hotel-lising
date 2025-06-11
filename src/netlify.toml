@@ -1,0 +1,9 @@
+[build]
+  command = "npm run build" # Or "yarn build" if you use Yarn
+  publish = "build"         # Or "dist" or whatever your build output directory is
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false # Set to true if you want to force the redirect even for existing files
