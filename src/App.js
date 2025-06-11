@@ -373,10 +373,10 @@ function AuthBar({ user, handleLogin, handleLogout }) {
       ) : (
         <div style={{display: 'flex', gap: 10}}>
           <Link to="/add-event" style={{ ...styles.button, ...styles.btnSuccess }}>
-            + Add New Event
+           Add Event
           </Link>
           <button style={{ ...styles.button, ...styles.btnPrimary }} onClick={handleLogin}>
-            Login with Google
+            Login 
           </button>
         </div>
       )}
