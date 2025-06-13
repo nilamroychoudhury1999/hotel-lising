@@ -29,6 +29,7 @@ import {
 } from "react-router-dom";
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 
+// Your Firebase Config (keep it as is)
 const firebaseConfig = {
   apiKey: "AIzaSyCQJ3dX_ZcxVKzlCD8H19JM3KYh7qf8wYk",
   authDomain: "form-ca7cc.firebaseapp.com",
@@ -67,54 +68,85 @@ async function geocodeAddress(address) {
   }
 }
 
+// --- UPDATED STYLES ---
 const styles = {
+  // Color Palette inspired by modern, clean UIs (like BookMyShow's understated palette)
+  // Primary Blue for actions/highlights
+  primaryColor: '#e50914', // A bold, attention-grabbing red, similar to BMS's
+  primaryDark: '#b2070f',
+  // Secondary color for accents or less critical buttons
+  secondaryColor: '#007bff',
+  secondaryDark: '#0056b3',
+  // Neutrals for background, text, borders
+  backgroundColor: '#f5f5f5', // Light grey background
+  cardBackground: '#ffffff', // White cards
+  textColor: '#333333', // Dark text for readability
+  lightTextColor: '#666666', // Lighter text for descriptions/details
+  borderColor: '#e0e0e0', // Subtle border color
+
+  // Typography
+  fontFamily: "'Roboto', 'Helvetica Neue', Arial, sans-serif", // Modern, readable font
+  headerFontFamily: "'Montserrat', sans-serif", // More impactful font for headings
+
   container: {
-    maxWidth: 1000,
+    maxWidth: 1200, // Slightly wider container
     margin: "40px auto",
-    fontFamily: "'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-    color: "#333",
+    fontFamily: "var(--fontFamily)",
+    color: "var(--textColor)",
     padding: 20,
-    backgroundColor: "#f0f2f5",
-    borderRadius: 12,
-    boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+    backgroundColor: "var(--backgroundColor)",
+    borderRadius: 16, // More rounded corners
+    boxShadow: "0 8px 30px rgba(0,0,0,0.1)", // More pronounced shadow
   },
   header: {
     textAlign: "center",
     marginBottom: 40,
-    fontSize: 42,
-    fontWeight: "900",
-    color: "#2c3e50",
-    letterSpacing: "1px",
-    textShadow: "1px 1px 2px rgba(0,0,0,0.05)",
+    fontSize: 48, // Larger header
+    fontWeight: "800", // Bolder
+    color: "var(--primaryColor)", // Primary color for header
+    letterSpacing: "1.5px",
+    textShadow: "2px 2px 4px rgba(0,0,0,0.08)",
+    fontFamily: "var(--headerFontFamily)",
   },
   authBar: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 30,
-    padding: "18px 25px",
-    backgroundColor: "#ffffff",
-    borderRadius: 10,
-    boxShadow: "0 3px 12px rgba(0,0,0,0.06)",
+    padding: "20px 30px",
+    backgroundColor: "var(--cardBackground)",
+    borderRadius: 12,
+    boxShadow: "0 4px 15px rgba(0,0,0,0.08)",
   },
   button: {
-    padding: "12px 24px",
-    fontSize: 16,
-    borderRadius: 8,
+    padding: "14px 28px", // Larger buttons
+    fontSize: 17,
+    borderRadius: 10, // More rounded
     cursor: "pointer",
     border: "none",
     fontWeight: "700",
-    transition: "background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease",
+    transition: "all 0.3s ease", // Smooth transitions for all properties
     "&:hover": {
-      transform: "translateY(-2px)",
-      boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+      transform: "translateY(-3px)", // More noticeable lift on hover
+      boxShadow: "0 6px 15px rgba(0,0,0,0.15)",
     },
+    "&:active": {
+      transform: "translateY(0)", // Press down effect
+      boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
+    }
   },
   btnPrimary: {
-    backgroundColor: "#007bff",
+    backgroundColor: "var(--primaryColor)",
     color: "white",
     "&:hover": {
-      backgroundColor: "#0056b3",
+      backgroundColor: "var(--primaryDark)",
+    },
+  },
+  btnSecondary: { // Added a secondary button style
+    backgroundColor: "var(--secondaryColor)",
+    color: "white",
+    "&:hover": {
+      backgroundColor: "var(--secondaryDark)",
     },
   },
   btnDanger: {
@@ -133,135 +165,150 @@ const styles = {
   },
   searchInput: {
     width: "100%",
-    padding: "14px",
-    fontSize: 17,
-    borderRadius: 10,
-    border: "1px solid #ced4da",
+    padding: "16px", // Larger padding
+    fontSize: 18,
+    borderRadius: 12,
+    border: "1px solid var(--borderColor)",
     outline: "none",
     marginBottom: 25,
     boxSizing: "border-box",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
     transition: "border-color 0.3s ease, box-shadow 0.3s ease",
     "&:focus": {
-      borderColor: "#80bdff",
-      boxShadow: "0 0 0 0.3rem rgba(0,123,255,.25)",
+      borderColor: "var(--primaryColor)",
+      boxShadow: "0 0 0 0.3rem rgba(229,9,20,.15)", // Primary color focus shadow
     },
   },
   categoryFilter: {
     display: "flex",
     justifyContent: "center",
     flexWrap: "wrap",
-    gap: 12,
-    marginBottom: 35,
+    gap: 15, // Increased gap
+    marginBottom: 40,
   },
   categoryButton: {
-    padding: "10px 20px",
-    fontSize: 15,
-    borderRadius: 25,
-    border: "1px solid #007bff",
-    backgroundColor: "white",
-    color: "#007bff",
+    padding: "12px 25px",
+    fontSize: 16,
+    borderRadius: 30, // More pill-shaped
+    border: `1px solid var(--primaryColor)`,
+    backgroundColor: "var(--cardBackground)",
+    color: "var(--primaryColor)",
     cursor: "pointer",
-    transition: "background-color 0.3s, color 0.3s, transform 0.2s",
+    transition: "all 0.3s ease",
     "&:hover": {
-      backgroundColor: "#e7f2ff",
-      transform: "translateY(-1px)",
+      backgroundColor: "var(--primaryColor)",
+      color: "white",
+      transform: "translateY(-2px)",
+      boxShadow: "0 3px 10px rgba(0,123,255,0.2)",
     },
   },
   categoryButtonActive: {
-    backgroundColor: "#007bff",
+    backgroundColor: "var(--primaryColor)",
     color: "white",
     fontWeight: "600",
-    boxShadow: "0 2px 8px rgba(0,123,255,0.2)",
+    boxShadow: "0 4px 12px rgba(229,9,20,0.25)",
   },
   eventList: {
     listStyle: "none",
     paddingLeft: 0,
     marginBottom: 40,
+    display: 'grid', // Use CSS Grid for a modern layout
+    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', // Responsive grid
+    gap: 30, // Gap between cards
   },
   eventItem: {
-    backgroundColor: "white",
-    marginBottom: 20,
-    padding: 25,
-    borderRadius: 12,
-    boxShadow: "0 4px 15px rgba(0,0,0,0.07)",
+    backgroundColor: "var(--cardBackground)",
+    borderRadius: 16,
+    boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+    overflow: 'hidden', // Ensures rounded corners clip images
     display: "flex",
-    gap: 25,
-    alignItems: "flex-start",
+    flexDirection: "column", // Stack image and content vertically
     transition: "transform 0.2s ease, box-shadow 0.2s ease",
     "&:hover": {
-      transform: "translateY(-3px)",
-      boxShadow: "0 8px 25px rgba(0,0,0,0.12)",
+      transform: "translateY(-5px)", // More lift
+      boxShadow: "0 12px 30px rgba(0,0,0,0.15)",
     },
   },
   eventImage: {
-    width: 180,
-    height: 120,
+    width: "100%",
+    height: 200, // Fixed height for consistency
     objectFit: "cover",
-    borderRadius: 10,
-    flexShrink: 0,
+    borderRadius: "16px 16px 0 0", // Rounded top corners
     boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
   },
   eventContent: {
-    flexGrow: 1,
-    display: 'flex', // Added flex for content to control inner layout
+    padding: 20, // Increased padding
+    display: 'flex',
     flexDirection: 'column',
-    justifyContent: 'space-between', // Distribute space
-  },
-  eventDetailsAndDesc: { // Grouping details and description
-    marginBottom: 10, // Add a bit of space below the main content block
+    flexGrow: 1, // Allow content to grow and push interested section down
   },
   eventTitle: {
-    fontSize: 24,
-    marginBottom: 8,
-    color: "#2c3e50",
+    fontSize: 22, // Slightly smaller for card, but still prominent
+    marginBottom: 10,
+    color: "var(--textColor)",
     fontWeight: "700",
+    lineHeight: 1.3,
+    minHeight: '2.6em', // Ensure consistent height for titles across cards
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
   },
   eventDetails: {
     display: "flex",
     flexDirection: "column",
-    gap: 6,
-    marginBottom: 12,
-  },
-  eventDate: {
-    color: "#5a6268",
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  eventLocation: {
-    color: "#5a6268",
-    fontSize: 16,
-    fontStyle: "normal",
-  },
-  eventCategory: {
-    color: "#5a6268",
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  eventDesc: {
-    marginTop: 10,
-    fontSize: 16,
-    color: "#555",
-    lineHeight: 1.6,
-  },
-  eventContact: {
+    gap: 8, // More spacing for details
+    marginBottom: 15,
     fontSize: 15,
-    color: "#007bff",
-    marginTop: 8,
-    fontWeight: "500",
+    color: "var(--lightTextColor)",
   },
-  interestedSection: { // New style for the button and count wrapper
+  eventDetailLine: { // Generic style for detail lines
     display: 'flex',
     alignItems: 'center',
-    marginTop: 'auto', // Push to bottom if eventContent is a flex column
-    paddingTop: 10, // Add a little padding from content above
+    gap: 8,
+    fontWeight: '500',
+  },
+  eventIcon: { // Placeholder for icons
+    fontSize: 18,
+    color: "var(--primaryColor)",
+  },
+  eventDesc: {
+    marginTop: 5,
+    fontSize: 15,
+    color: "var(--lightTextColor)",
+    lineHeight: 1.6,
+    marginBottom: 15,
+    minHeight: '4.8em', // Consistent height for descriptions
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    display: '-webkit-box',
+    WebkitLineClamp: 3,
+    WebkitBoxOrient: 'vertical',
+  },
+  eventContact: {
+    fontSize: 14,
+    color: "var(--lightTextColor)",
+    marginTop: 5,
+    fontWeight: "500",
+  },
+  interestedSection: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between', // Push button to left, count to right
+    marginTop: 'auto', // Push to bottom of flex column
+    paddingTop: 15,
+    borderTop: `1px solid var(--borderColor)`, // Separator line
+    margin: '10px -20px -20px -20px', // Adjust margins to align with card padding
+    padding: '15px 20px 20px 20px', // Adjust padding for the section
   },
   interestedBtn: {
-    padding: "10px 20px",
+    padding: "10px 18px",
     borderRadius: 8,
     fontWeight: "600",
     cursor: "pointer",
     border: "none",
-    transition: "background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease",
+    transition: "all 0.3s ease",
     "&:hover": {
       transform: "translateY(-1px)",
       boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
@@ -270,21 +317,22 @@ const styles = {
   interestedCount: {
     marginLeft: 12,
     fontSize: 15,
-    color: "#555",
+    color: "var(--lightTextColor)",
     fontWeight: "500",
   },
   formContainer: {
-    backgroundColor: "#ffffff",
-    padding: 35,
-    borderRadius: 12,
-    boxShadow: "0 4px 15px rgba(0,0,0,0.07)",
+    backgroundColor: "var(--cardBackground)",
+    padding: 40, // More padding
+    borderRadius: 16,
+    boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
   },
   formTitle: {
-    fontSize: 28,
-    marginBottom: 30,
-    color: "#2c3e50",
+    fontSize: 32, // Larger form title
+    marginBottom: 35,
+    color: "var(--textColor)",
     fontWeight: "700",
     textAlign: "center",
+    fontFamily: "var(--headerFontFamily)",
   },
   formGroup: {
     marginBottom: 25,
@@ -295,46 +343,50 @@ const styles = {
     marginBottom: 10,
     fontWeight: "600",
     fontSize: 16,
-    color: "#333",
+    color: "var(--textColor)",
   },
   input: {
     padding: 14,
     fontSize: 16,
     borderRadius: 8,
-    border: "1px solid #ced4da",
+    border: "1px solid var(--borderColor)",
     outline: "none",
     transition: "border-color 0.3s ease, box-shadow 0.3s ease",
     "&:focus": {
-      borderColor: "#80bdff",
-      boxShadow: "0 0 0 0.25rem rgba(0,123,255,.25)",
+      borderColor: "var(--primaryColor)",
+      boxShadow: "0 0 0 0.25rem rgba(229,9,20,.15)",
     },
   },
   textarea: {
     padding: 14,
     fontSize: 16,
     borderRadius: 8,
-    border: "1px solid #ced4da",
+    border: "1px solid var(--borderColor)",
     outline: "none",
     resize: "vertical",
     minHeight: 120,
     transition: "border-color 0.3s ease, box-shadow 0.3s ease",
     "&:focus": {
-      borderColor: "#80bdff",
-      boxShadow: "0 0 0 0.25rem rgba(0,123,255,.25)",
+      borderColor: "var(--primaryColor)",
+      boxShadow: "0 0 0 0.25rem rgba(229,9,20,.15)",
     },
   },
   select: {
     padding: 14,
     fontSize: 16,
     borderRadius: 8,
-    border: "1px solid #ced4da",
+    border: "1px solid var(--borderColor)",
     outline: "none",
     backgroundColor: "white",
     cursor: "pointer",
     transition: "border-color 0.3s ease",
+    "&:focus": {
+      borderColor: "var(--primaryColor)",
+      boxShadow: "0 0 0 0.25rem rgba(229,9,20,.15)",
+    },
   },
   disabledButton: {
-    opacity: 0.5,
+    opacity: 0.6, // Slightly more opaque for disabled
     cursor: "not-allowed",
   },
   backButton: {
@@ -353,58 +405,129 @@ const styles = {
     }
   },
   detailContainer: {
-    backgroundColor: "white",
-    padding: 35,
-    borderRadius: 12,
-    boxShadow: "0 4px 15px rgba(0,0,0,0.07)",
+    backgroundColor: "var(--cardBackground)",
+    padding: 40,
+    borderRadius: 16,
+    boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
     marginTop: 25,
   },
   detailImage: {
     width: '100%',
-    maxHeight: 450,
+    maxHeight: 500, // Larger image for details
     objectFit: 'cover',
     borderRadius: 12,
-    marginBottom: 25,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+    marginBottom: 30,
+    boxShadow: "0 6px 15px rgba(0,0,0,0.1)",
   },
   detailTitle: {
-    fontSize: 36,
-    color: "#2c3e50",
-    marginBottom: 18,
+    fontSize: 40, // Larger detail title
+    color: "var(--textColor)",
+    marginBottom: 20,
     fontWeight: "800",
+    fontFamily: "var(--headerFontFamily)",
   },
   detailInfo: {
     fontSize: 18,
-    color: "#555",
+    color: "var(--lightTextColor)",
     marginBottom: 10,
-    lineHeight: 1.5,
+    lineHeight: 1.6,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
   },
   detailDescription: {
     fontSize: 17,
-    lineHeight: 1.7,
-    color: "#444",
-    marginTop: 25,
-    marginBottom: 25,
+    lineHeight: 1.8, // Increased line height for readability
+    color: "var(--textColor)",
+    marginTop: 30,
+    marginBottom: 30,
+    whiteSpace: 'pre-wrap', // Preserve newlines
   },
   footer: {
     textAlign: 'center',
     marginTop: 40,
     padding: '25px 0',
-    borderTop: '1px solid #e0e0e0',
-    backgroundColor: '#ffffff',
-    borderRadius: '0 0 12px 12px',
+    borderTop: `1px solid var(--borderColor)`,
+    backgroundColor: 'var(--cardBackground)',
+    borderRadius: '0 0 16px 16px',
+    fontSize: 14,
+    color: 'var(--lightTextColor)',
   },
+  // Responsive Adjustments (Media Queries within JSX are tricky, often done in external CSS or styled-components)
+  // For simplicity here, we'll use inline style adjustments for key elements that need it
+  // In a real app, use a CSS-in-JS library like styled-components or a global CSS file.
+  responsiveEventList: {
+    '@media (max-width: 768px)': {
+      gridTemplateColumns: '1fr', // Stack cards on smaller screens
+    }
+  },
+  responsiveHeader: {
+    '@media (max-width: 600px)': {
+      fontSize: 36,
+      marginBottom: 30,
+    }
+  },
+  responsiveAuthBar: {
+    '@media (max-width: 600px)': {
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+      padding: '15px 20px',
+      gap: 15,
+    },
+    '@media (max-width: 600px) and (min-width: 320px)': {
+        '> div:last-child': { // Target the button container
+            width: '100%', // Make buttons full width
+            flexDirection: 'column',
+            gap: 10,
+        },
+        'button, a': { // Target buttons and links within AuthBar
+            width: '100%',
+            textAlign: 'center',
+        }
+    }
+  },
+  responsiveDetailTitle: {
+    '@media (max-width: 600px)': {
+      fontSize: 32,
+    }
+  }
 };
 
+// Applying CSS variables for easier theming
+const rootStyles = document.documentElement.style;
+rootStyles.setProperty('--primaryColor', styles.primaryColor);
+rootStyles.setProperty('--primaryDark', styles.primaryDark);
+rootStyles.setProperty('--secondaryColor', styles.secondaryColor);
+rootStyles.setProperty('--secondaryDark', styles.secondaryDark);
+rootStyles.setProperty('--backgroundColor', styles.backgroundColor);
+rootStyles.setProperty('--cardBackground', styles.cardBackground);
+rootStyles.setProperty('--textColor', styles.textColor);
+rootStyles.setProperty('--lightTextColor', styles.lightTextColor);
+rootStyles.setProperty('--borderColor', styles.borderColor);
+rootStyles.setProperty('--fontFamily', styles.fontFamily);
+rootStyles.setProperty('--headerFontFamily', styles.headerFontFamily);
+
+
+// --- COMPONENTS WITH REVISED STYLES AND STRUCTURE ---
+
 function AuthBar({ user, handleLogin, handleLogout }) {
+    // Add a state for small screen to apply dynamic styles
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 600);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 600);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
   return (
-    <header style={styles.authBar}>
+    <header style={{ ...styles.authBar, ...(isMobile ? styles.responsiveAuthBar : {}) }}>
       {user ? (
         <>
-          <div style={{ fontSize: 16, color: '#333' }}>
+          <div style={{ fontSize: 16, color: 'var(--textColor)', fontWeight: '500' }}>
             Welcome, <strong>{user.displayName}</strong>
           </div>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}> {/* Added alignItems: 'center' */}
+          <div style={{ display: 'flex', gap: 15, alignItems: 'center', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-end' }}>
             <Link to="/add-event" style={{ ...styles.button, ...styles.btnSuccess }}>
               + Add New Event
             </Link>
@@ -414,8 +537,8 @@ function AuthBar({ user, handleLogin, handleLogout }) {
           </div>
         </>
       ) : (
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}> {/* Added alignItems: 'center' */}
-          <Link to="/add-event" style={{ ...styles.button, ...styles.btnSuccess }}>
+        <div style={{ display: 'flex', gap: 15, alignItems: 'center', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-end' }}>
+          <Link to="/add-event" style={{ ...styles.button, ...styles.btnSecondary }}> {/* Changed to secondary for 'Add Event' when not logged in */}
             Add Event
           </Link>
           <button style={{ ...styles.button, ...styles.btnPrimary }} onClick={handleLogin}>
@@ -440,7 +563,8 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
         event.title.toLowerCase().includes(lowerSearch) ||
         (event.city?.toLowerCase().includes(lowerSearch) ?? false) ||
         (event.state?.toLowerCase().includes(lowerSearch) ?? false) ||
-        (event.country?.toLowerCase().includes(lowerSearch) ?? false);
+        (event.country?.toLowerCase().includes(lowerSearch) ?? false) ||
+        (event.description?.toLowerCase().includes(lowerSearch) ?? false); // Search description too
 
       const matchesCategory =
         selectedCategory === "All" || event.category === selectedCategory;
@@ -460,7 +584,7 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
         <input
           style={styles.searchInput}
           type="search"
-          placeholder="Search events by title, city, state, or country..."
+          placeholder="Search events by title, location, or keywords..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           disabled={!events.length && !loading}
@@ -489,10 +613,10 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
       </section>
 
       <section>
-        <h2 style={{ ...styles.formTitle, marginTop: 0 }}>Upcoming Events</h2>
-        <ul style={styles.eventList}>
+        <h2 style={{ ...styles.formTitle, marginTop: 0, marginBottom: 30 }}>Upcoming Events</h2>
+        <ul style={{ ...styles.eventList, ...styles.responsiveEventList }}>
           {filteredEvents.length === 0 && (
-            <li style={{ textAlign: "center", color: "#777", fontSize: 18, padding: 30, backgroundColor: 'white', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <li style={{ textAlign: "center", color: "var(--lightTextColor)", fontSize: 18, padding: 30, backgroundColor: 'var(--cardBackground)', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)', gridColumn: '1 / -1' }}>
               No events found matching your criteria. Try adjusting your search or filters.
             </li>
           )}
@@ -502,68 +626,67 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
             const isInterested = user ? event.interestedUsers?.includes(user.uid) : false;
             return (
               <li key={event.id} style={styles.eventItem}>
-                {event.imageUrl && (
-                  <img
-                    src={event.imageUrl}
-                    alt={`${event.title} event ${event.category ? `(${event.category})` : ''}`}
-                    title={event.title}
-                    style={styles.eventImage}
-                    loading="lazy"
-                  />
-                )}
-                <article style={styles.eventContent}>
-                  <Link to={`/events/${event.id}`} style={{ textDecoration: 'none' }}>
+                <Link to={`/events/${event.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  {event.imageUrl && (
+                    <img
+                      src={event.imageUrl}
+                      alt={`${event.title} event ${event.category ? `(${event.category})` : ''}`}
+                      title={event.title}
+                      style={styles.eventImage}
+                      loading="lazy"
+                    />
+                  )}
+                  <article style={styles.eventContent}>
                     <h3 style={styles.eventTitle}>{event.title}</h3>
-                  </Link>
-                  <div style={styles.eventDetailsAndDesc}> {/* Grouping */}
                     <div style={styles.eventDetails}>
-                      <time dateTime={event.date} style={styles.eventDate}>
-                        Date: {new Date(event.date).toLocaleDateString('en-IN', {
-                          year: 'numeric', month: 'long', day: 'numeric'
-                        })}
-                      </time>
-                      {(event.city || event.state || event.country) && (
-                        <address style={styles.eventLocation}>
-                          Location: {[event.city, event.state, event.country].filter(Boolean).join(", ")}
-                        </address>
-                      )}
-                      {event.category && (
-                        <div style={styles.eventCategory}>
-                          Category: <strong>{event.category}</strong>
+                        <div style={styles.eventDetailLine}>
+                            <span style={styles.eventIcon}>🗓️</span>
+                            <time dateTime={event.date}>
+                                {new Date(event.date).toLocaleDateString('en-IN', {
+                                    year: 'numeric', month: 'long', day: 'numeric'
+                                })}
+                            </time>
                         </div>
-                      )}
+                        {(event.city || event.state || event.country) && (
+                            <address style={styles.eventDetailLine}>
+                                <span style={styles.eventIcon}>📍</span>
+                                {[event.city, event.state, event.country].filter(Boolean).join(", ")}
+                            </address>
+                        )}
+                        {event.category && (
+                            <div style={styles.eventDetailLine}>
+                                <span style={styles.eventIcon}>🏷️</span>
+                                <strong>{event.category}</strong>
+                            </div>
+                        )}
                     </div>
                     {event.description && (
                       <p style={styles.eventDesc}>
-                        {event.description.length > 150
-                          ? `${event.description.substring(0, 150)}... `
-                          : event.description}
-                        {event.description.length > 150 && (
-                          <Link to={`/events/${event.id}`} style={{ color: '#007bff', textDecoration: 'none', fontWeight: '500' }}>Read more</Link>
-                        )}
+                        {event.description}
                       </p>
                     )}
-                    {event.contact && (
+                    {/* Contact is better on detail page for privacy and space */}
+                    {/* {event.contact && (
                       <p style={styles.eventContact}>Contact: <a href={`mailto:${event.contact}`} style={{ color: 'inherit', textDecoration: 'none' }}>{event.contact}</a></p>
-                    )}
-                  </div>
-                  <div style={styles.interestedSection}> {/* New wrapper for button and count */}
-                    <button
-                      style={{
-                        ...styles.interestedBtn,
-                        backgroundColor: isInterested ? "#28a745" : "#007bff",
-                        color: "white",
-                        ...(loading ? styles.disabledButton : {}),
-                      }}
-                      onClick={() => toggleInterest(event)}
-                      disabled={loading}
-                      aria-pressed={isInterested}
-                    >
-                      {isInterested ? "Interested ✓" : "Show Interest"}
-                    </button>
-                    <span style={styles.interestedCount}>{interestedCount} interested</span>
-                  </div>
-                </article>
+                    )} */}
+                  </article>
+                </Link>
+                <div style={styles.interestedSection}>
+                  <button
+                    style={{
+                      ...styles.interestedBtn,
+                      backgroundColor: isInterested ? "var(--primaryColor)" : "var(--secondaryColor)", // Use primary for interested, secondary for show interest
+                      color: "white",
+                      ...(loading ? styles.disabledButton : {}),
+                    }}
+                    onClick={(e) => { e.stopPropagation(); toggleInterest(event); }} // Stop propagation to prevent link click
+                    disabled={loading}
+                    aria-pressed={isInterested}
+                  >
+                    {isInterested ? "Interested ✓" : "Show Interest"}
+                  </button>
+                  <span style={styles.interestedCount}>{interestedCount} interested</span>
+                </div>
               </li>
             );
           })}
@@ -602,7 +725,7 @@ function EventDetailPage({ user, toggleInterest }) {
   }, [id, navigate]);
 
   if (loadingEvent) {
-    return <div style={{ textAlign: 'center', fontSize: 20, padding: 50, color: '#555' }}>Loading event details...</div>;
+    return <div style={{ textAlign: 'center', fontSize: 20, padding: 50, color: 'var(--lightTextColor)' }}>Loading event details...</div>;
   }
 
   if (!event) {
@@ -678,27 +801,37 @@ function EventDetailPage({ user, toggleInterest }) {
           style={styles.detailImage}
         />
       )}
-      <h1 style={styles.detailTitle}>{event.title}</h1>
-      <p style={styles.detailInfo}><strong>Date:</strong> <time dateTime={event.date}>{eventDateFormatted}</time></p>
+      <h1 style={{ ...styles.detailTitle, ...(window.innerWidth < 600 ? styles.responsiveDetailTitle : {}) }}>{event.title}</h1>
+      <p style={styles.detailInfo}>
+          <span style={styles.eventIcon}>🗓️</span>
+          <strong>Date:</strong> <time dateTime={event.date}>{eventDateFormatted}</time>
+      </p>
       {(event.city || event.state || event.country) && (
         <p style={styles.detailInfo}>
+          <span style={styles.eventIcon}>📍</span>
           <strong>Location:</strong> <address>{locationString}</address>
         </p>
       )}
       {event.category && (
-        <p style={styles.detailInfo}><strong>Category:</strong> {event.category}</p>
+        <p style={styles.detailInfo}>
+            <span style={styles.eventIcon}>🏷️</span>
+            <strong>Category:</strong> {event.category}
+        </p>
       )}
       {event.contact && (
-        <p style={styles.detailInfo}><strong>Contact:</strong> <a href={`mailto:${event.contact}`} title="Contact event organizer" style={{ color: 'inherit', textDecoration: 'none' }}>{event.contact}</a></p>
+        <p style={styles.detailInfo}>
+            <span style={styles.eventIcon}>✉️</span>
+            <strong>Contact:</strong> <a href={`mailto:${event.contact}`} title="Contact event organizer" style={{ color: 'inherit', textDecoration: 'none' }}>{event.contact}</a>
+        </p>
       )}
       {event.description && (
         <p style={styles.detailDescription}>{event.description}</p>
       )}
-      <div style={styles.interestedSection}> {/* New wrapper for button and count */}
+      <div style={styles.interestedSection}>
         <button
           style={{
             ...styles.interestedBtn,
-            backgroundColor: isInterested ? "#28a745" : "#007bff",
+            backgroundColor: isInterested ? "var(--primaryColor)" : "var(--secondaryColor)",
             color: "white",
             ...(loadingEvent ? styles.disabledButton : {}),
           }}
@@ -715,7 +848,8 @@ function EventDetailPage({ user, toggleInterest }) {
 }
 
 function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, handleImageChange, loading }) {
-  const categories = ["All", "Music", "Sports", "Art", "Tech", "Food", "Other"];
+  const categories = ["Select Category", "Music", "Sports", "Art", "Tech", "Food", "Other"]; // Changed "All" to "Select Category" for a form
+
   return (
     <section style={styles.formContainer}>
       <Helmet>
@@ -765,7 +899,9 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
                 aria-required="true"
             >
                 {categories.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
+                    <option key={cat} value={cat === "Select Category" ? "" : cat} disabled={cat === "Select Category"}>
+                        {cat}
+                    </option>
                 ))}
             </select>
         </div>
@@ -846,9 +982,9 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
           type="submit"
           style={{
             ...styles.button,
-            ...styles.btnSuccess,
+            ...styles.btnPrimary, // Primary color for submit
             ...(loading || !user ? styles.disabledButton : {}),
-            width: '100%', // Make button full width in form for better visual flow
+            width: '100%',
             marginTop: 10,
           }}
           disabled={loading || !user}
@@ -873,7 +1009,7 @@ export default function EventListingApp() {
     country: "",
     description: "",
     contact: "",
-    category: "All",
+    category: "", // Initialize as empty for "Select Category"
     imageUrl: "",
   });
   const [imageFile, setImageFile] = useState(null);
@@ -1000,7 +1136,7 @@ export default function EventListingApp() {
         country: "",
         description: "",
         contact: "",
-        category: "All",
+        category: "", // Reset to empty for "Select Category"
         imageUrl: "",
       });
       setImageFile(null);
@@ -1039,9 +1175,9 @@ export default function EventListingApp() {
     <HelmetProvider>
       <Router>
         <div style={styles.container}>
-          <h1 style={styles.header}>
+          <h1 style={{ ...styles.header, ...(window.innerWidth < 600 ? styles.responsiveHeader : {}) }}>
             <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-              Listeve - Your Event Hub
+              Listeve
             </Link>
           </h1>
 
@@ -1081,7 +1217,11 @@ export default function EventListingApp() {
           </Routes>
 
           <footer style={styles.footer}>
-            <p style={{ marginTop: 15, fontSize: 14, color: '#777' }}>&copy; {new Date().getFullYear()} Listeve. All rights reserved. | <Link to="/privacy" style={{ color: '#007bff', textDecoration: 'none' }}>Privacy Policy</Link> | <Link to="/terms" style={{ color: '#007bff', textDecoration: 'none' }}>Terms of Service</Link></p>
+            <p style={{ margin: 0 }}>&copy; {new Date().getFullYear()} Listeve. All rights reserved.</p>
+            <p style={{ margin: '5px 0 0 0' }}>
+              <Link to="/privacy" style={{ color: 'var(--secondaryColor)', textDecoration: 'none', marginRight: 10 }}>Privacy Policy</Link>
+              <Link to="/terms" style={{ color: 'var(--secondaryColor)', textDecoration: 'none' }}>Terms of Service</Link>
+            </p>
           </footer>
         </div>
       </Router>
