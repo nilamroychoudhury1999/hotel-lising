@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react"; // useRef for better header handling
+import React, { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
 import {
   getFirestore,
@@ -30,15 +30,16 @@ import {
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 
 // --- Firebase Configuration ---
+// IMPORTANT: Replace with your actual Firebase project configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCQJ3dX_ZcxVKzlCD8H19JM3KYh7qf8wYk",
-  authDomain: "form-ca7cc.firebaseapp.com",
-  databaseURL: "https://form-ca7cc-default-rtdb.firebaseio.com",
-  projectId: "form-ca7cc",
-  storageBucket: "form-ca7cc.firebaseapp.com",
-  messagingSenderId: "1054208318782",
-  appId: "1:1054208318782:web:f64f43412902afcd7aa06f",
-  measurementId: "G-CQSLK7PCFQ",
+  apiKey: "YOUR_FIREBASE_API_KEY", // e.g., "AIzaSyC..."
+  authDomain: "YOUR_FIREBASE_AUTH_DOMAIN", // e.g., "your-project-id.firebaseapp.com"
+  databaseURL: "YOUR_FIREBASE_DATABASE_URL", // e.g., "https://your-project-id-default-rtdb.firebaseio.com"
+  projectId: "YOUR_FIREBASE_PROJECT_ID", // e.g., "your-project-id"
+  storageBucket: "YOUR_FIREBASE_STORAGE_BUCKET", // e.g., "your-project-id.appspot.com"
+  messagingSenderId: "YOUR_FIREBASE_MESSAGING_SENDER_ID",
+  appId: "YOUR_FIREBASE_APP_ID",
+  measurementId: "YOUR_FIREBASE_MEASUREMENT_ID", // Optional, if using Google Analytics for Firebase
 };
 
 const app = initializeApp(firebaseConfig);
@@ -47,12 +48,15 @@ const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
 // --- Cloudinary Configuration ---
-const CLOUDINARY_UPLOAD_PRESET = "unsigned_preset_1";
-const CLOUDINARY_CLOUD_NAME = "dyrmi2zkl";
+// IMPORTANT: Replace with your actual Cloudinary upload preset and cloud name
+const CLOUDINARY_UPLOAD_PRESET = "YOUR_CLOUDINARY_UPLOAD_PRESET"; // e.g., "unsigned_preset_1"
+const CLOUDINARY_CLOUD_NAME = "YOUR_CLOUDINARY_CLOUD_NAME"; // e.g., "dyrmi2zkl"
 
 // --- Geocoding Function ---
 async function geocodeAddress(address) {
   if (!address) return null;
+  // Using OpenStreetMap's Nominatim for geocoding. Be mindful of their usage policy.
+  // For production, consider a dedicated geocoding service with higher rate limits/reliability.
   const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
   try {
     const res = await fetch(url);
@@ -66,6 +70,16 @@ async function geocodeAddress(address) {
     console.error("Geocoding failed:", error);
     return null;
   }
+}
+
+// --- Utility: Slug Generation ---
+function generateSlug(title) {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '') // Remove non-alphanumeric, spaces, or hyphens
+    .trim()                       // Trim whitespace from both ends
+    .replace(/\s+/g, '-')        // Replace spaces with hyphens
+    .replace(/-+/g, '-');         // Replace multiple hyphens with single hyphen
 }
 
 // --- Global Styles Definition (CSS Variables) ---
@@ -119,42 +133,40 @@ const styles = {
     margin: 'var(--spacing-xl) auto',
     fontFamily: 'var(--font-family-body)',
     color: 'var(--text-color)',
-    // Removed padding and background here, handled by main/section for more control
-    backgroundColor: 'transparent', // Container itself is transparent
+    backgroundColor: 'transparent',
     borderRadius: 'var(--border-radius-lg)',
-    // box-shadow handled by content areas
   },
-  mainContentArea: { // New style for the main content wrapped inside the container
-    padding: 'var(--spacing-md)', // Padding for the content inside
-    backgroundColor: 'var(--background-color)', // Background for the main content area
+  mainContentArea: {
+    padding: 'var(--spacing-md)',
+    backgroundColor: 'var(--background-color)',
     borderRadius: 'var(--border-radius-lg)',
     boxShadow: '0 8px 30px var(--shadow-medium)',
   },
-  headerWrapper: { // Wrapper for the header itself
-    backgroundColor: 'var(--card-background)', // White background for the fixed header
+  headerWrapper: {
+    backgroundColor: 'var(--card-background)',
     boxShadow: '0 4px 15px var(--shadow-light)',
-    padding: '10px var(--spacing-lg)', // Padding for fixed header
-    position: 'sticky', // Make header sticky
+    padding: '10px var(--spacing-lg)',
+    position: 'sticky',
     top: 0,
-    zIndex: 1000, // Ensure it stays on top
-    width: '100%', // Full width
-    boxSizing: 'border-box', // Include padding in width
-    borderRadius: '0 0 var(--border-radius-md) var(--border-radius-md)', // Rounded bottom corners
+    zIndex: 1000,
+    width: '100%',
+    boxSizing: 'border-box',
+    borderRadius: '0 0 var(--border-radius-md) var(--border-radius-md)',
   },
   headerInner: {
     maxWidth: '1200px',
-    margin: '0 auto', // Center content within the header
+    margin: '0 auto',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   siteTitle: {
-    fontSize: '36px', // Slightly smaller for header
+    fontSize: '36px',
     fontWeight: '800',
     color: 'var(--primary-color)',
     letterSpacing: '1px',
     fontFamily: 'var(--font-family-heading)',
-    textDecoration: 'none', // Remove underline from Link
+    textDecoration: 'none',
   },
   footer: {
     textAlign: 'center',
@@ -165,7 +177,7 @@ const styles = {
     borderRadius: '0 0 var(--border-radius-lg) var(--border-radius-lg)',
     fontSize: '14px',
     color: 'var(--light-text-color)',
-    boxShadow: '0 -4px 15px var(--shadow-light)', // Shadow for footer
+    boxShadow: '0 -4px 15px var(--shadow-light)',
   },
 
   // Auth Bar (now part of header) Styles
@@ -178,21 +190,21 @@ const styles = {
     fontSize: '16px',
     color: 'var(--text-color)',
     fontWeight: '500',
-    marginRight: 'var(--spacing-sm)', // Space before buttons
+    marginRight: 'var(--spacing-sm)',
   },
 
   // Button Base & Variants
   buttonBase: {
-    padding: '12px 24px', // Slightly adjusted for header
+    padding: '12px 24px',
     fontSize: '16px',
     borderRadius: 'var(--border-radius-md)',
     cursor: 'pointer',
     border: 'none',
     fontWeight: '600',
     transition: 'all 0.3s ease',
-    whiteSpace: 'nowrap', // Prevent text wrapping
+    whiteSpace: 'nowrap',
     '&:hover': {
-      transform: 'translateY(-2px)', // Less lift for header
+      transform: 'translateY(-2px)',
       boxShadow: '0 4px 10px var(--shadow-light)',
     },
     '&:active': {
@@ -270,7 +282,7 @@ const styles = {
     padding: 'var(--spacing-xl)',
     borderRadius: 'var(--border-radius-lg)',
     boxShadow: '0 6px 20px var(--shadow-medium)',
-    marginBottom: 'var(--spacing-xl)', // Added margin bottom for spacing
+    marginBottom: 'var(--spacing-xl)',
   },
   formTitle: {
     fontSize: '32px',
@@ -397,6 +409,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     flexGrow: 1,
+    justifyContent: 'space-between',
   },
   eventTitle: {
     fontSize: '22px',
@@ -404,7 +417,7 @@ const styles = {
     color: 'var(--text-color)',
     fontWeight: '700',
     lineHeight: '1.3',
-    minHeight: '2.6em', // For 2 lines of text at 22px font size
+    minHeight: '2.6em',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     display: '-webkit-box',
@@ -435,23 +448,22 @@ const styles = {
     color: 'var(--light-text-color)',
     lineHeight: '1.6',
     marginBottom: 'var(--spacing-md)',
-    minHeight: '4.8em', // For 3 lines of text at 15px font size
+    minHeight: '4.8em',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     display: '-webkit-box',
     WebkitLineClamp: 3,
     WebkitBoxOrient: 'vertical',
   },
-  // Aligning interested section properly
   interestedSection: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 'auto', // Pushes it to the bottom of the flex column
+    marginTop: 'auto',
     paddingTop: 'var(--spacing-sm)',
     borderTop: '1px solid var(--border-color)',
-    margin: '0 calc(var(--spacing-md) * -1) calc(var(--spacing-md) * -1) calc(var(--spacing-md) * -1)', // Negative margins to span full width
-    padding: 'var(--spacing-sm) var(--spacing-md) var(--spacing-md) var(--spacing-md)', // Padding for content
+    margin: '0 calc(var(--spacing-md) * -1) calc(var(--spacing-md) * -1) calc(var(--spacing-md) * -1)',
+    padding: 'var(--spacing-sm) var(--spacing-md) var(--spacing-md) var(--spacing-md)',
   },
   interestedBtn: {
     padding: '10px 18px',
@@ -479,7 +491,7 @@ const styles = {
     borderRadius: 'var(--border-radius-lg)',
     boxShadow: '0 6px 20px var(--shadow-medium)',
     marginTop: 'var(--spacing-md)',
-    marginBottom: 'var(--spacing-xl)', // Add margin bottom for spacing
+    marginBottom: 'var(--spacing-xl)',
   },
   detailImage: {
     width: '100%',
@@ -524,20 +536,20 @@ const styles = {
     },
     authControlsMobile: {
       flexDirection: 'column',
-      alignItems: 'stretch', // Stretch buttons full width
+      alignItems: 'stretch',
       gap: '8px',
       marginTop: '8px',
-      width: '100%', // Take full width below logo
+      width: '100%',
     },
     userGreetingMobile: {
         textAlign: 'center',
         marginBottom: '5px',
-        marginRight: 0, // Remove right margin on mobile
+        marginRight: 0,
     },
     buttonBaseMobile: {
-        padding: '10px 15px', // Smaller buttons on mobile
+        padding: '10px 15px',
         fontSize: '14px',
-        width: '100%', // Ensure buttons take full width
+        width: '100%',
         textAlign: 'center',
     },
     eventListMobile: {
@@ -553,14 +565,14 @@ const styles = {
 
 // Top Navigation Component
 function TopNavigation({ user, handleLogin, handleLogout }) {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768); // Adjusted breakpoint for header
-  const [menuOpen, setMenuOpen] = useState(false); // State for mobile menu
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
         setIsMobile(window.innerWidth < 768);
-        if (window.innerWidth >= 768) { // Close menu if resized to desktop
-            setMenuOpen(false);
+        if (window.innerWidth >= 768) {
+            setMenuOpen(false); // Close menu if resized to desktop
         }
     };
     window.addEventListener('resize', handleResize);
@@ -599,7 +611,7 @@ function TopNavigation({ user, handleLogin, handleLogout }) {
             {menuOpen && (
               <div id="mobile-nav-menu" style={{
                 position: 'absolute',
-                top: '100%', // Below the main header
+                top: '100%',
                 left: 0,
                 width: '100%',
                 backgroundColor: 'var(--card-background)',
@@ -608,7 +620,7 @@ function TopNavigation({ user, handleLogin, handleLogout }) {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 'var(--spacing-sm)',
-                zIndex: 999, // Below sticky header
+                zIndex: 999,
               }}>
                 {user ? (
                   <>
@@ -695,11 +707,51 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
     })
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
+  // Construct current canonical URL for the homepage
+  const currentUrl = window.location.origin;
+
+  const webSiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Listeve - Your Event Discovery Platform for India",
+    "url": currentUrl,
+    "description": "Discover and list upcoming events across India: music concerts, sports, tech meetups, art exhibitions, food festivals, and more. Find local events near you!",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": `${currentUrl}/?search={search_term_string}`
+      },
+      "query-input": "required name=search_term_string"
+    }
+  };
+
   return (
-    <main style={{ padding: 'var(--spacing-md)' }}> {/* Added padding here for main content */}
+    <main style={{ padding: 'var(--spacing-md)' }}>
       <Helmet>
-        <title>Listeve - Discover & List Events in India</title>
-        <meta name="description" content="Discover and list upcoming events in India, including music concerts, sports, tech meetups, art exhibitions, food festivals, and more. Find local events near you!" />
+        <title>Listeve - Discover & List Events in India | Music, Sports, Tech, Art & More</title>
+        <meta name="description" content="Discover and list upcoming events across India, including music concerts, sports, tech meetups, art exhibitions, food festivals, and more. Find local events near you!" />
+        <link rel="canonical" href={currentUrl} />
+
+        {/* Open Graph Tags for homepage */}
+        <meta property="og:title" content="Listeve - Discover & List Events in India" />
+        <meta property="og:description" content="Find and list events across India: music, sports, tech, art, food, and more. Your go-to platform for local happenings." />
+        <meta property="og:image" content={`${currentUrl}/default_social_share_image.jpg`} /> {/* Replace with actual default image */}
+        <meta property="og:url" content={currentUrl} />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Listeve" />
+
+        {/* Twitter Card Tags for homepage */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Listeve - Discover & List Events in India" />
+        <meta name="twitter:description" content="Find and list events across India: music, sports, tech, art, food, and more. Your go-to platform for local happenings." />
+        <meta name="twitter:image" content={`${currentUrl}/default_social_share_image.jpg`} /> {/* Replace with actual default image */}
+        <meta name="twitter:creator" content="@YourTwitterHandle" /> {/* Optional: replace with your Twitter handle */}
+
+        {/* JSON-LD WebSite Schema */}
+        <script type="application/ld+json">
+          {JSON.stringify(webSiteSchema)}
+        </script>
       </Helmet>
 
       <section>
@@ -746,9 +798,10 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
           {filteredEvents.map((event) => {
             const interestedCount = event.interestedUsers?.length || 0;
             const isInterested = user ? event.interestedUsers?.includes(user.uid) : false;
+            const eventUrl = `/events/${event.slug || 'default-slug'}/${event.id}`;
             return (
               <li key={event.id} style={styles.eventItem}>
-                <Link to={`/events/${event.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <Link to={eventUrl} style={{ textDecoration: 'none', color: 'inherit' }}>
                   {event.imageUrl && (
                     <img
                       src={event.imageUrl}
@@ -789,7 +842,6 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
                     )}
                   </article>
                 </Link>
-                {/* INTERESTED SECTION */}
                 <div style={styles.interestedSection}>
                   <button
                     style={{
@@ -816,7 +868,7 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
 }
 
 function EventDetailPage({ user, toggleInterest }) {
-  const { id } = useParams();
+  const { slug, id } = useParams();
   const [event, setEvent] = useState(null);
   const [loadingEvent, setLoadingEvent] = useState(true);
   const navigate = useNavigate();
@@ -836,10 +888,16 @@ function EventDetailPage({ user, toggleInterest }) {
         const eventRef = doc(db, "events", id);
         const eventSnap = await getDoc(eventRef);
         if (eventSnap.exists()) {
-          setEvent({ id: eventSnap.id, ...eventSnap.data() });
+          const eventData = { id: eventSnap.id, ...eventSnap.data() };
+          // Optional: If slug in URL doesn't match stored slug, navigate to correct URL
+          if (eventData.slug && eventData.slug !== slug) {
+              navigate(`/events/${eventData.slug}/${event.id}`, { replace: true });
+              return;
+          }
+          setEvent(eventData);
         } else {
           console.log("No such document!");
-          navigate('/not-found');
+          navigate('/not-found'); // Or a custom 404 page path
         }
       } catch (error) {
         console.error("Error fetching event:", error);
@@ -848,7 +906,7 @@ function EventDetailPage({ user, toggleInterest }) {
       setLoadingEvent(false);
     }
     fetchEvent();
-  }, [id, navigate]);
+  }, [id, slug, navigate]); // Add navigate to dependency array
 
   if (loadingEvent) {
     return <div style={{ textAlign: 'center', fontSize: '20px', padding: '50px', color: 'var(--light-text-color)' }}>Loading event details...</div>;
@@ -865,6 +923,7 @@ function EventDetailPage({ user, toggleInterest }) {
     year: 'numeric', month: 'long', day: 'numeric'
   });
   const locationString = [event.city, event.state, event.country].filter(Boolean).join(", ");
+  const currentUrl = `${window.location.origin}/events/${event.slug || 'default-slug'}/${event.id}`;
   const pageTitle = `${event.title} - ${eventDateFormatted} - ${event.category ? `${event.category} Events - ` : ''}Listeve`;
   const metaDescription = event.description
     ? event.description.substring(0, 160) + ` Find event details, date, and location in ${locationString}.`
@@ -875,26 +934,27 @@ function EventDetailPage({ user, toggleInterest }) {
     "@type": "Event",
     "name": event.title,
     "startDate": event.date,
-    "endDate": event.date,
+    "endDate": event.date, // Assuming events are single-day, adjust if they span multiple days
     "eventStatus": "https://schema.org/EventScheduled",
     "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
     "location": {
       "@type": "Place",
-      "name": locationString || event.title,
+      "name": locationString || event.title, // Use location string or event title as place name
       "address": {
         "@type": "PostalAddress",
         "addressLocality": event.city,
         "addressRegion": event.state,
-        "addressCountry": "IN"
+        "addressCountry": "IN" // Assuming India as default country
       }
     },
     "description": event.description,
-    "image": event.imageUrl || "URL_TO_DEFAULT_EVENT_IMAGE.jpg",
+    "image": event.imageUrl || `${window.location.origin}/default_event_image.jpg`, // Provide a default image URL
     "organizer": {
       "@type": event.createdByName ? "Person" : "Organization",
-      "name": event.createdByName || "Listeve Community"
+      "name": event.createdByName || "Listeve Community",
+      "url": window.location.origin // Link to your website as the organizer's URL
     },
-    "url": window.location.href
+    "url": currentUrl
   };
 
   return (
@@ -902,17 +962,23 @@ function EventDetailPage({ user, toggleInterest }) {
       <Helmet>
         <title>{pageTitle}</title>
         <meta name="description" content={metaDescription} />
-        <link rel="canonical" href={window.location.href} />
+        <link rel="canonical" href={currentUrl} />
+        {/* Open Graph Tags */}
         <meta property="og:title" content={pageTitle} />
         <meta property="og:description" content={metaDescription} />
-        <meta property="og:image" content={event.imageUrl || 'URL_TO_DEFAULT_EVENT_IMAGE.jpg'} />
-        <meta property="og:url" content={window.location.href} />
+        <meta property="og:image" content={event.imageUrl || `${window.location.origin}/default_event_image.jpg`} />
+        <meta property="og:url" content={currentUrl} />
         <meta property="og:type" content="event" />
+        <meta property="og:site_name" content="Listeve" />
+
+        {/* Twitter Card Tags */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={pageTitle} />
         <meta name="twitter:description" content={metaDescription} />
-        <meta name="twitter:image" content={event.imageUrl || 'URL_TO_DEFAULT_EVENT_IMAGE.jpg'} />
+        <meta name="twitter:image" content={event.imageUrl || `${window.location.origin}/default_event_image.jpg`} />
+        <meta name="twitter:creator" content="@YourTwitterHandle" /> {/* Optional: replace with your Twitter handle */}
 
+        {/* JSON-LD Event Schema */}
         <script type="application/ld+json">
           {JSON.stringify(eventSchema)}
         </script>
@@ -922,8 +988,8 @@ function EventDetailPage({ user, toggleInterest }) {
       {event.imageUrl && (
         <img
           src={event.imageUrl}
-          alt={`${event.title} event in ${locationString}`}
-          title={`Click to view ${event.title}`}
+          alt={`Image for ${event.title} event`}
+          title={event.title}
           style={styles.detailImage}
         />
       )}
@@ -953,14 +1019,13 @@ function EventDetailPage({ user, toggleInterest }) {
       {event.description && (
         <p style={styles.detailDescription}>{event.description}</p>
       )}
-      {/* INTERESTED SECTION */}
       <div style={styles.interestedSection}>
         <button
           style={{
             ...styles.interestedBtn,
             backgroundColor: isInterested ? 'var(--primary-color)' : 'var(--secondary-color)',
             color: 'white',
-            ...(loadingEvent ? styles.disabledButton : {}),
+            ...(loadingEvent ? styles.disabledButton : {}), // Disable if loading
           }}
           onClick={() => toggleInterest(event)}
           disabled={loadingEvent}
@@ -976,6 +1041,22 @@ function EventDetailPage({ user, toggleInterest }) {
 
 function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, handleImageChange, loading }) {
   const categories = ["Select Category", "Music", "Sports", "Art", "Tech", "Food", "Other"];
+
+  // Form validation to enable/disable submit button
+  const isFormValid = () => {
+    const { title, date, category, city, state, country, contact, description } = form;
+    return (
+      title.trim() !== "" &&
+      date.trim() !== "" &&
+      category.trim() !== "" && category !== "Select Category" && // Ensure category is selected
+      city.trim() !== "" &&
+      state.trim() !== "" &&
+      country.trim() !== "" &&
+      contact.trim() !== "" &&
+      description.trim() !== "" &&
+      imageFile !== null // Image file must be selected
+    );
+  };
 
   return (
     <section style={styles.formContainer}>
@@ -1034,55 +1115,63 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
         </div>
 
         <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="city">City</label>
+          <label style={styles.label} htmlFor="city">City *</label>
           <input
             style={styles.input}
             id="city"
             name="city"
             value={form.city}
             onChange={handleChange}
+            required
             placeholder="e.g., Mumbai"
+            aria-required="true"
           />
         </div>
 
         <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="state">State</label>
+          <label style={styles.label} htmlFor="state">State *</label>
           <input
             style={styles.input}
             id="state"
             name="state"
             value={form.state}
             onChange={handleChange}
+            required
             placeholder="e.g., Maharashtra"
+            aria-required="true"
           />
         </div>
 
         <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="country">Country</label>
+          <label style={styles.label} htmlFor="country">Country *</label>
           <input
             style={styles.input}
             id="country"
             name="country"
             value={form.country}
             onChange={handleChange}
+            required
             placeholder="e.g., India"
+            aria-required="true"
           />
         </div>
         <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="contact">Contact Info</label>
+          <label style={styles.label} htmlFor="contact">Contact Info *</label>
           <input
             style={styles.input}
             id="contact"
             name="contact"
             value={form.contact}
             onChange={handleChange}
+            required
             placeholder="e.g., email@example.com or phone number"
-            type="email"
+            type="email" // Use type="email" for better validation
+            aria-required="true"
           />
         </div>
 
         <div style={styles.formGroup}>
-            <label style={styles.label} htmlFor="imageUpload">Event Image (Optional)</label>
+            <label style={styles.label} htmlFor="imageUpload">Event Image *</label>
             <input
                 style={styles.input}
                 type="file"
@@ -1090,18 +1179,22 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
                 name="imageUpload"
                 accept="image/*"
                 onChange={handleImageChange}
+                required
+                aria-required="true"
             />
         </div>
 
         <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="description">Description</label>
+          <label style={styles.label} htmlFor="description">Description *</label>
           <textarea
             style={styles.textarea}
             id="description"
             name="description"
             value={form.description}
             onChange={handleChange}
+            required
             placeholder="Provide a detailed description of the event..."
+            aria-required="true"
           />
         </div>
 
@@ -1110,15 +1203,16 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
           style={{
             ...styles.buttonBase,
             ...styles.btnPrimary,
-            ...(loading || !user ? styles.disabledButton : {}),
+            ...(loading || !user || !isFormValid() ? styles.disabledButton : {}),
             width: '100%',
             marginTop: '10px',
           }}
-          disabled={loading || !user}
+          disabled={loading || !user || !isFormValid()}
         >
           {loading ? "Adding..." : "Add Event"}
         </button>
         {!user && <p style={{ color: 'var(--danger-color)', marginTop: '15px', textAlign: 'center', fontSize: '14px' }}>Please login to add events.</p>}
+        {user && !isFormValid() && <p style={{ color: 'var(--danger-color)', marginTop: '15px', textAlign: 'center', fontSize: '14px' }}>Please fill all required fields and select an image.</p>}
       </form>
     </section>
   );
@@ -1145,13 +1239,15 @@ export default function EventListingApp() {
     setGlobalCssVariables();
   }, []);
 
+  // Firebase Auth state listener
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((u) => setUser(u));
     return () => unsubscribe();
   }, []);
 
-  // Fetch events with a real-time listener (onSnapshot)
+  // Firestore events real-time listener
   useEffect(() => {
+    // Order events by date to show upcoming first
     const q = query(collection(db, "events"), orderBy("date", "asc"));
     const unsub = onSnapshot(q, (snapshot) => {
       setEvents(
@@ -1161,24 +1257,30 @@ export default function EventListingApp() {
         }))
       );
     });
-    return () => unsub(); // Clean up listener on unmount
+    return () => unsub(); // Cleanup listener on unmount
   }, []);
 
   async function handleLogin() {
     try {
+      setLoading(true);
       await signInWithPopup(auth, provider);
     } catch (error) {
       alert("Login failed: " + error.message);
       console.error("Login error:", error);
+    } finally {
+        setLoading(false);
     }
   }
 
   async function handleLogout() {
     try {
+      setLoading(true);
       await signOut(auth);
     } catch (error) {
       alert("Logout failed: " + error.message);
       console.error("Logout error:", error);
+    } finally {
+        setLoading(false);
     }
   }
 
@@ -1207,13 +1309,17 @@ export default function EventListingApp() {
         }
       );
       const data = await response.json();
-      setLoading(false);
-      return data.secure_url;
+      if (response.ok) {
+        return data.secure_url;
+      } else {
+        throw new Error(data.error?.message || "Cloudinary upload failed.");
+      }
     } catch (error) {
-      setLoading(false);
       console.error("Image upload failed:", error);
-      alert("Failed to upload image. Please try again.");
+      alert("Failed to upload image: " + error.message);
       return null;
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -1223,16 +1329,30 @@ export default function EventListingApp() {
       alert("Please login to add an event.");
       return;
     }
-    if (!form.title.trim() || !form.date.trim() || !form.category.trim()) {
-      alert("Please fill in at least Title, Date, and Category.");
+
+    // Basic client-side validation before starting upload
+    const { title, date, category, city, state, country, contact, description } = form;
+    if (
+      !title.trim() ||
+      !date.trim() ||
+      !category.trim() || category === "Select Category" ||
+      !city.trim() ||
+      !state.trim() ||
+      !country.trim() ||
+      !contact.trim() ||
+      !description.trim() ||
+      !imageFile
+    ) {
+      alert("All fields are compulsory. Please fill them out and select an image.");
       return;
     }
 
-    setLoading(true);
+    setLoading(true); // Start loading indicator for the entire process
     let imageUrl = "";
     if (imageFile) {
       imageUrl = await uploadImage();
       if (!imageUrl) {
+        // If image upload failed, the function already alerted, just return
         setLoading(false);
         return;
       }
@@ -1241,6 +1361,8 @@ export default function EventListingApp() {
     const locationString = [form.city, form.state, form.country]
       .filter(Boolean)
       .join(", ");
+    
+    const eventSlug = generateSlug(form.title);
 
     try {
       const coords = await geocodeAddress(locationString);
@@ -1254,12 +1376,14 @@ export default function EventListingApp() {
         description: form.description.trim(),
         category: form.category,
         imageUrl: imageUrl,
-        coords,
-        interestedUsers: [],
+        coords: coords, // Store geo coordinates if available
+        slug: eventSlug,
+        interestedUsers: [], // Initialize with empty array for interested users
         createdBy: user.uid,
         createdByName: user.displayName,
-        createdAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(), // Timestamp for creation
       });
+      // Reset form on successful submission
       setForm({
         title: "",
         date: "",
@@ -1271,13 +1395,14 @@ export default function EventListingApp() {
         category: "",
         imageUrl: "",
       });
-      setImageFile(null);
+      setImageFile(null); // Clear selected image
       alert("Event added successfully!");
     } catch (error) {
       alert("Failed to add event: " + error.message);
       console.error("Add event error:", error);
+    } finally {
+      setLoading(false); // End loading indicator
     }
-    setLoading(false);
   }
 
   async function toggleInterest(event) {
@@ -1285,7 +1410,7 @@ export default function EventListingApp() {
       alert("Please login to show interest.");
       return;
     }
-    setLoading(true);
+    setLoading(true); // Use a loading state to prevent multiple clicks
     const eventRef = doc(db, "events", event.id);
     const isInterested = event.interestedUsers?.includes(user.uid);
 
@@ -1295,8 +1420,7 @@ export default function EventListingApp() {
           ? arrayRemove(user.uid)
           : arrayUnion(user.uid),
       });
-      // The onSnapshot listener will automatically update the 'events' state,
-      // so no manual state update is needed here for interest count.
+      // Success is handled by the real-time listener updating the state
     } catch (error) {
       alert("Failed to update interest: " + error.message);
       console.error("Toggle interest error:", error);
@@ -1306,13 +1430,12 @@ export default function EventListingApp() {
   }
 
   return (
-    <HelmetProvider>
+    <HelmetProvider> {/* Provides the context for Helmet */}
       <Router>
-        {/* TOP NAVIGATION COMPONENT */}
         <TopNavigation user={user} handleLogin={handleLogin} handleLogout={handleLogout} />
 
         <div style={styles.container}>
-          <div style={styles.mainContentArea}> {/* Wrap main content in this */}
+          <div style={styles.mainContentArea}>
             <Routes>
               <Route
                 path="/"
@@ -1326,7 +1449,7 @@ export default function EventListingApp() {
                 }
               />
               <Route
-                path="/events/:id"
+                path="/events/:slug/:id"
                 element={<EventDetailPage user={user} toggleInterest={toggleInterest} />}
               />
               <Route
@@ -1343,12 +1466,14 @@ export default function EventListingApp() {
                   />
                 }
               />
+              {/* Basic 404 Route */}
               <Route path="*" element={<div style={{ textAlign: 'center', fontSize: '24px', padding: '50px', color: 'var(--danger-color)' }}>404 - Page Not Found</div>} />
             </Routes>
           </div>
           <footer style={styles.footer}>
             <p style={{ margin: 0 }}>&copy; {new Date().getFullYear()} Listeve. All rights reserved.</p>
             <p style={{ margin: '5px 0 0 0' }}>
+              {/* Example footer links - replace with your actual privacy/terms pages if they exist */}
               <Link to="/privacy" style={{ color: 'var(--secondary-color)', textDecoration: 'none', marginRight: '10px' }}>Privacy Policy</Link>
               <Link to="/terms" style={{ color: 'var(--secondary-color)', textDecoration: 'none' }}>Terms of Service</Link>
             </p>
