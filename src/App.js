@@ -69,43 +69,45 @@ async function geocodeAddress(address) {
 
 const styles = {
   container: {
-    maxWidth: 900,
+    maxWidth: 1000,
     margin: "40px auto",
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    fontFamily: "'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
     color: "#333",
     padding: 20,
-    backgroundColor: "#f5f7fa",
-    borderRadius: 10,
-    boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+    backgroundColor: "#f0f2f5",
+    borderRadius: 12,
+    boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
   },
   header: {
     textAlign: "center",
     marginBottom: 40,
-    fontSize: 36,
-    fontWeight: "800",
+    fontSize: 42,
+    fontWeight: "900",
     color: "#2c3e50",
     letterSpacing: "1px",
+    textShadow: "1px 1px 2px rgba(0,0,0,0.05)",
   },
   authBar: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 30,
-    padding: "15px 20px",
+    padding: "18px 25px",
     backgroundColor: "#ffffff",
-    borderRadius: 8,
-    boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+    borderRadius: 10,
+    boxShadow: "0 3px 12px rgba(0,0,0,0.06)",
   },
   button: {
-    padding: "10px 20px",
-    fontSize: 15,
-    borderRadius: 6,
+    padding: "12px 24px",
+    fontSize: 16,
+    borderRadius: 8,
     cursor: "pointer",
     border: "none",
     fontWeight: "700",
-    transition: "background-color 0.3s ease, transform 0.2s ease",
+    transition: "background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease",
     "&:hover": {
-      transform: "translateY(-1px)",
+      transform: "translateY(-2px)",
+      boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
     },
   },
   btnPrimary: {
@@ -131,39 +133,45 @@ const styles = {
   },
   searchInput: {
     width: "100%",
-    padding: "12px",
-    fontSize: 16,
-    borderRadius: 8,
+    padding: "14px",
+    fontSize: 17,
+    borderRadius: 10,
     border: "1px solid #ced4da",
     outline: "none",
-    marginBottom: 20,
+    marginBottom: 25,
     boxSizing: "border-box",
-    transition: "border-color 0.2s ease",
+    transition: "border-color 0.3s ease, box-shadow 0.3s ease",
     "&:focus": {
       borderColor: "#80bdff",
-      boxShadow: "0 0 0 0.2rem rgba(0,123,255,.25)",
+      boxShadow: "0 0 0 0.3rem rgba(0,123,255,.25)",
     },
   },
   categoryFilter: {
     display: "flex",
     justifyContent: "center",
     flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 30,
+    gap: 12,
+    marginBottom: 35,
   },
   categoryButton: {
-    padding: "8px 16px",
-    fontSize: 14,
-    borderRadius: 20,
+    padding: "10px 20px",
+    fontSize: 15,
+    borderRadius: 25,
     border: "1px solid #007bff",
     backgroundColor: "white",
     color: "#007bff",
     cursor: "pointer",
-    transition: "background-color 0.3s, color 0.3s",
+    transition: "background-color 0.3s, color 0.3s, transform 0.2s",
+    "&:hover": {
+      backgroundColor: "#e7f2ff",
+      transform: "translateY(-1px)",
+    },
   },
   categoryButtonActive: {
     backgroundColor: "#007bff",
     color: "white",
+    fontWeight: "600",
+    boxShadow: "0 2px 8px rgba(0,123,255,0.2)",
   },
   eventList: {
     listStyle: "none",
@@ -172,49 +180,61 @@ const styles = {
   },
   eventItem: {
     backgroundColor: "white",
-    marginBottom: 15,
-    padding: 20,
-    borderRadius: 10,
-    boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+    marginBottom: 20,
+    padding: 25,
+    borderRadius: 12,
+    boxShadow: "0 4px 15px rgba(0,0,0,0.07)",
     display: "flex",
-    gap: 20,
+    gap: 25,
     alignItems: "flex-start",
+    transition: "transform 0.2s ease, box-shadow 0.2s ease",
+    "&:hover": {
+      transform: "translateY(-3px)",
+      boxShadow: "0 8px 25px rgba(0,0,0,0.12)",
+    },
   },
   eventImage: {
-    width: 150,
-    height: 100,
+    width: 180,
+    height: 120,
     objectFit: "cover",
-    borderRadius: 8,
+    borderRadius: 10,
     flexShrink: 0,
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
   },
   eventContent: {
     flexGrow: 1,
+    display: 'flex', // Added flex for content to control inner layout
+    flexDirection: 'column',
+    justifyContent: 'space-between', // Distribute space
+  },
+  eventDetailsAndDesc: { // Grouping details and description
+    marginBottom: 10, // Add a bit of space below the main content block
   },
   eventTitle: {
-    fontSize: 22,
+    fontSize: 24,
     marginBottom: 8,
     color: "#2c3e50",
-    fontWeight: "600",
+    fontWeight: "700",
   },
   eventDetails: {
     display: "flex",
     flexDirection: "column",
-    gap: 5,
-    marginBottom: 10,
+    gap: 6,
+    marginBottom: 12,
   },
   eventDate: {
-    color: "#6c757d",
-    fontSize: 15,
+    color: "#5a6268",
+    fontSize: 16,
     fontWeight: "500",
   },
   eventLocation: {
-    color: "#6c757d",
-    fontSize: 15,
-    fontStyle: "italic",
+    color: "#5a6268",
+    fontSize: 16,
+    fontStyle: "normal",
   },
   eventCategory: {
-    color: "#6c757d",
-    fontSize: 15,
+    color: "#5a6268",
+    fontSize: 16,
     fontWeight: "500",
   },
   eventDesc: {
@@ -226,131 +246,154 @@ const styles = {
   eventContact: {
     fontSize: 15,
     color: "#007bff",
-    marginTop: 5,
+    marginTop: 8,
+    fontWeight: "500",
+  },
+  interestedSection: { // New style for the button and count wrapper
+    display: 'flex',
+    alignItems: 'center',
+    marginTop: 'auto', // Push to bottom if eventContent is a flex column
+    paddingTop: 10, // Add a little padding from content above
   },
   interestedBtn: {
-    marginTop: 15,
-    padding: "10px 18px",
-    borderRadius: 6,
+    padding: "10px 20px",
+    borderRadius: 8,
     fontWeight: "600",
     cursor: "pointer",
     border: "none",
-    transition: "background-color 0.3s ease",
+    transition: "background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease",
+    "&:hover": {
+      transform: "translateY(-1px)",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+    },
   },
   interestedCount: {
-    marginLeft: 10,
-    fontSize: 14,
+    marginLeft: 12,
+    fontSize: 15,
     color: "#555",
     fontWeight: "500",
   },
   formContainer: {
     backgroundColor: "#ffffff",
-    padding: 30,
-    borderRadius: 10,
-    boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+    padding: 35,
+    borderRadius: 12,
+    boxShadow: "0 4px 15px rgba(0,0,0,0.07)",
   },
   formTitle: {
-    fontSize: 24,
-    marginBottom: 25,
+    fontSize: 28,
+    marginBottom: 30,
     color: "#2c3e50",
-    fontWeight: "600",
+    fontWeight: "700",
     textAlign: "center",
   },
   formGroup: {
-    marginBottom: 20,
+    marginBottom: 25,
     display: "flex",
     flexDirection: "column",
   },
   label: {
-    marginBottom: 8,
+    marginBottom: 10,
     fontWeight: "600",
-    fontSize: 15,
+    fontSize: 16,
     color: "#333",
   },
   input: {
-    padding: 12,
+    padding: 14,
     fontSize: 16,
-    borderRadius: 6,
+    borderRadius: 8,
     border: "1px solid #ced4da",
     outline: "none",
-    transition: "border-color 0.2s ease",
+    transition: "border-color 0.3s ease, box-shadow 0.3s ease",
     "&:focus": {
       borderColor: "#80bdff",
-      boxShadow: "0 0 0 0.2rem rgba(0,123,255,.25)",
+      boxShadow: "0 0 0 0.25rem rgba(0,123,255,.25)",
     },
   },
   textarea: {
-    padding: 12,
+    padding: 14,
     fontSize: 16,
-    borderRadius: 6,
+    borderRadius: 8,
     border: "1px solid #ced4da",
     outline: "none",
     resize: "vertical",
-    minHeight: 100,
-    transition: "border-color 0.2s ease",
+    minHeight: 120,
+    transition: "border-color 0.3s ease, box-shadow 0.3s ease",
     "&:focus": {
       borderColor: "#80bdff",
-      boxShadow: "0 0 0 0.2rem rgba(0,123,255,.25)",
+      boxShadow: "0 0 0 0.25rem rgba(0,123,255,.25)",
     },
   },
   select: {
-    padding: 12,
+    padding: 14,
     fontSize: 16,
-    borderRadius: 6,
+    borderRadius: 8,
     border: "1px solid #ced4da",
     outline: "none",
     backgroundColor: "white",
     cursor: "pointer",
+    transition: "border-color 0.3s ease",
   },
   disabledButton: {
-    opacity: 0.6,
+    opacity: 0.5,
     cursor: "not-allowed",
   },
   backButton: {
     display: 'inline-block',
-    margin: '20px 0',
-    padding: '10px 20px',
+    margin: '25px 0',
+    padding: '12px 22px',
     backgroundColor: '#6c757d',
     color: 'white',
-    borderRadius: 6,
+    borderRadius: 8,
     textDecoration: 'none',
     fontWeight: 'bold',
-    transition: 'background-color 0.3s ease',
+    transition: 'background-color 0.3s ease, transform 0.2s ease',
     "&:hover": {
         backgroundColor: '#5a6268',
+        transform: 'translateY(-1px)',
     }
   },
   detailContainer: {
     backgroundColor: "white",
-    padding: 30,
-    borderRadius: 10,
-    boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
-    marginTop: 20,
+    padding: 35,
+    borderRadius: 12,
+    boxShadow: "0 4px 15px rgba(0,0,0,0.07)",
+    marginTop: 25,
   },
   detailImage: {
     width: '100%',
-    maxHeight: 400,
+    maxHeight: 450,
     objectFit: 'cover',
-    borderRadius: 10,
-    marginBottom: 20,
+    borderRadius: 12,
+    marginBottom: 25,
+    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
   },
   detailTitle: {
-    fontSize: 32,
+    fontSize: 36,
     color: "#2c3e50",
-    marginBottom: 15,
+    marginBottom: 18,
+    fontWeight: "800",
   },
   detailInfo: {
     fontSize: 18,
     color: "#555",
     marginBottom: 10,
+    lineHeight: 1.5,
   },
   detailDescription: {
     fontSize: 17,
     lineHeight: 1.7,
     color: "#444",
-    marginTop: 20,
-    marginBottom: 20,
-  }
+    marginTop: 25,
+    marginBottom: 25,
+  },
+  footer: {
+    textAlign: 'center',
+    marginTop: 40,
+    padding: '25px 0',
+    borderTop: '1px solid #e0e0e0',
+    backgroundColor: '#ffffff',
+    borderRadius: '0 0 12px 12px',
+  },
 };
 
 function AuthBar({ user, handleLogin, handleLogout }) {
@@ -358,10 +401,10 @@ function AuthBar({ user, handleLogin, handleLogout }) {
     <header style={styles.authBar}>
       {user ? (
         <>
-          <div>
+          <div style={{ fontSize: 16, color: '#333' }}>
             Welcome, <strong>{user.displayName}</strong>
           </div>
-          <div style={{display: 'flex', gap: 10}}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}> {/* Added alignItems: 'center' */}
             <Link to="/add-event" style={{ ...styles.button, ...styles.btnSuccess }}>
               + Add New Event
             </Link>
@@ -371,12 +414,12 @@ function AuthBar({ user, handleLogin, handleLogout }) {
           </div>
         </>
       ) : (
-        <div style={{display: 'flex', gap: 10}}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}> {/* Added alignItems: 'center' */}
           <Link to="/add-event" style={{ ...styles.button, ...styles.btnSuccess }}>
-           Add Event
+            Add Event
           </Link>
           <button style={{ ...styles.button, ...styles.btnPrimary }} onClick={handleLogin}>
-            Login 
+            Login
           </button>
         </div>
       )}
@@ -421,10 +464,11 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           disabled={!events.length && !loading}
+          aria-label="Search events"
         />
 
         {events.length > 0 && (
-          <nav style={styles.categoryFilter}>
+          <nav style={styles.categoryFilter} aria-label="Filter events by category">
             {categories.map((category) => (
               <button
                 key={category}
@@ -435,6 +479,7 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
                     : {}),
                 }}
                 onClick={() => setSelectedCategory(category)}
+                aria-pressed={selectedCategory === category}
               >
                 {category}
               </button>
@@ -444,11 +489,11 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
       </section>
 
       <section>
-        <h2 style={{...styles.formTitle, marginTop: 0}}>Upcoming Events</h2>
+        <h2 style={{ ...styles.formTitle, marginTop: 0 }}>Upcoming Events</h2>
         <ul style={styles.eventList}>
           {filteredEvents.length === 0 && (
-            <li style={{ textAlign: "center", color: "#777", fontSize: 16 }}>
-              No events found matching your criteria.
+            <li style={{ textAlign: "center", color: "#777", fontSize: 18, padding: 30, backgroundColor: 'white', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+              No events found matching your criteria. Try adjusting your search or filters.
             </li>
           )}
 
@@ -470,49 +515,54 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
                   <Link to={`/events/${event.id}`} style={{ textDecoration: 'none' }}>
                     <h3 style={styles.eventTitle}>{event.title}</h3>
                   </Link>
-                  <div style={styles.eventDetails}>
+                  <div style={styles.eventDetailsAndDesc}> {/* Grouping */}
+                    <div style={styles.eventDetails}>
                       <time dateTime={event.date} style={styles.eventDate}>
-                          Date: {new Date(event.date).toLocaleDateString('en-IN', {
-                              year: 'numeric', month: 'long', day: 'numeric'
-                          })}
+                        Date: {new Date(event.date).toLocaleDateString('en-IN', {
+                          year: 'numeric', month: 'long', day: 'numeric'
+                        })}
                       </time>
                       {(event.city || event.state || event.country) && (
-                          <address style={styles.eventLocation}>
-                              Location: {[event.city, event.state, event.country].filter(Boolean).join(", ")}
-                          </address>
+                        <address style={styles.eventLocation}>
+                          Location: {[event.city, event.state, event.country].filter(Boolean).join(", ")}
+                        </address>
                       )}
                       {event.category && (
-                          <div style={styles.eventCategory}>
-                              Category: <strong>{event.category}</strong>
-                          </div>
+                        <div style={styles.eventCategory}>
+                          Category: <strong>{event.category}</strong>
+                        </div>
                       )}
+                    </div>
+                    {event.description && (
+                      <p style={styles.eventDesc}>
+                        {event.description.length > 150
+                          ? `${event.description.substring(0, 150)}... `
+                          : event.description}
+                        {event.description.length > 150 && (
+                          <Link to={`/events/${event.id}`} style={{ color: '#007bff', textDecoration: 'none', fontWeight: '500' }}>Read more</Link>
+                        )}
+                      </p>
+                    )}
+                    {event.contact && (
+                      <p style={styles.eventContact}>Contact: <a href={`mailto:${event.contact}`} style={{ color: 'inherit', textDecoration: 'none' }}>{event.contact}</a></p>
+                    )}
                   </div>
-                  {event.description && (
-                    <p style={styles.eventDesc}>
-                      {event.description.length > 150
-                        ? `${event.description.substring(0, 150)}... `
-                        : event.description}
-                       {event.description.length > 150 && (
-                          <Link to={`/events/${event.id}`} style={{color: '#007bff', textDecoration: 'none'}}>Read more about "{event.title}"</Link>
-                       )}
-                    </p>
-                  )}
-                  {event.contact && (
-                    <p style={styles.eventContact}>Contact: {event.contact}</p>
-                  )}
-                  <button
-                    style={{
-                      ...styles.interestedBtn,
-                      backgroundColor: isInterested ? "#28a745" : "#007bff",
-                      color: "white",
-                      ...(loading ? styles.disabledButton : {}),
-                    }}
-                    onClick={() => toggleInterest(event)}
-                    disabled={loading}
-                  >
-                    {isInterested ? "Interested ✓" : "Show Interest"}
-                  </button>
-                  <span style={styles.interestedCount}>{interestedCount} interested</span>
+                  <div style={styles.interestedSection}> {/* New wrapper for button and count */}
+                    <button
+                      style={{
+                        ...styles.interestedBtn,
+                        backgroundColor: isInterested ? "#28a745" : "#007bff",
+                        color: "white",
+                        ...(loading ? styles.disabledButton : {}),
+                      }}
+                      onClick={() => toggleInterest(event)}
+                      disabled={loading}
+                      aria-pressed={isInterested}
+                    >
+                      {isInterested ? "Interested ✓" : "Show Interest"}
+                    </button>
+                    <span style={styles.interestedCount}>{interestedCount} interested</span>
+                  </div>
                 </article>
               </li>
             );
@@ -552,18 +602,18 @@ function EventDetailPage({ user, toggleInterest }) {
   }, [id, navigate]);
 
   if (loadingEvent) {
-    return <div style={{textAlign: 'center', fontSize: 20, padding: 50}}>Loading event details...</div>;
+    return <div style={{ textAlign: 'center', fontSize: 20, padding: 50, color: '#555' }}>Loading event details...</div>;
   }
 
   if (!event) {
-    return <div style={{textAlign: 'center', fontSize: 20, padding: 50}}>Event not found.</div>;
+    return <div style={{ textAlign: 'center', fontSize: 20, padding: 50, color: '#dc3545' }}>Event not found.</div>;
   }
 
   const interestedCount = event.interestedUsers?.length || 0;
   const isInterested = user ? event.interestedUsers?.includes(user.uid) : false;
 
   const eventDateFormatted = new Date(event.date).toLocaleDateString('en-IN', {
-      year: 'numeric', month: 'long', day: 'numeric'
+    year: 'numeric', month: 'long', day: 'numeric'
   });
   const locationString = [event.city, event.state, event.country].filter(Boolean).join(", ");
   const pageTitle = `${event.title} - ${eventDateFormatted} - ${event.category ? `${event.category} Events - ` : ''}Listeve`;
@@ -639,25 +689,27 @@ function EventDetailPage({ user, toggleInterest }) {
         <p style={styles.detailInfo}><strong>Category:</strong> {event.category}</p>
       )}
       {event.contact && (
-        <p style={styles.detailInfo}><strong>Contact:</strong> <a href={`mailto:${event.contact}`} title="Contact event organizer">{event.contact}</a></p>
+        <p style={styles.detailInfo}><strong>Contact:</strong> <a href={`mailto:${event.contact}`} title="Contact event organizer" style={{ color: 'inherit', textDecoration: 'none' }}>{event.contact}</a></p>
       )}
       {event.description && (
         <p style={styles.detailDescription}>{event.description}</p>
       )}
-
-      <button
-        style={{
-          ...styles.interestedBtn,
-          backgroundColor: isInterested ? "#28a745" : "#007bff",
-          color: "white",
-          ...(loadingEvent ? styles.disabledButton : {}),
-        }}
-        onClick={() => toggleInterest(event)}
-        disabled={loadingEvent}
-      >
-        {isInterested ? "Interested ✓" : "Show Interest"}
-      </button>
-      <span style={styles.interestedCount}>{interestedCount} interested</span>
+      <div style={styles.interestedSection}> {/* New wrapper for button and count */}
+        <button
+          style={{
+            ...styles.interestedBtn,
+            backgroundColor: isInterested ? "#28a745" : "#007bff",
+            color: "white",
+            ...(loadingEvent ? styles.disabledButton : {}),
+          }}
+          onClick={() => toggleInterest(event)}
+          disabled={loadingEvent}
+          aria-pressed={isInterested}
+        >
+          {isInterested ? "Interested ✓" : "Show Interest"}
+        </button>
+        <span style={styles.interestedCount}>{interestedCount} interested</span>
+      </div>
     </article>
   );
 }
@@ -683,6 +735,7 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
             onChange={handleChange}
             required
             placeholder="e.g., Local Music Festival"
+            aria-required="true"
           />
         </div>
 
@@ -696,6 +749,7 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
             value={form.date}
             onChange={handleChange}
             required
+            aria-required="true"
           />
         </div>
 
@@ -708,6 +762,7 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
                 value={form.category}
                 onChange={handleChange}
                 required
+                aria-required="true"
             >
                 {categories.map((cat) => (
                     <option key={cat} value={cat}>{cat}</option>
@@ -759,6 +814,7 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
             value={form.contact}
             onChange={handleChange}
             placeholder="e.g., email@example.com or phone number"
+            type="email"
           />
         </div>
 
@@ -792,12 +848,14 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
             ...styles.button,
             ...styles.btnSuccess,
             ...(loading || !user ? styles.disabledButton : {}),
+            width: '100%', // Make button full width in form for better visual flow
+            marginTop: 10,
           }}
           disabled={loading || !user}
         >
           {loading ? "Adding..." : "Add Event"}
         </button>
-        {!user && <p style={{color: '#dc3545', marginTop: 10, textAlign: 'center'}}>Please login to add events.</p>}
+        {!user && <p style={{ color: '#dc3545', marginTop: 15, textAlign: 'center', fontSize: 14 }}>Please login to add events.</p>}
       </form>
     </section>
   );
@@ -959,6 +1017,7 @@ export default function EventListingApp() {
       alert("Please login to show interest.");
       return;
     }
+    setLoading(true);
     const eventRef = doc(db, "events", event.id);
     const isInterested = event.interestedUsers?.includes(user.uid);
 
@@ -971,6 +1030,8 @@ export default function EventListingApp() {
     } catch (error) {
       alert("Failed to update interest: " + error.message);
       console.error("Toggle interest error:", error);
+    } finally {
+        setLoading(false);
     }
   }
 
@@ -980,7 +1041,7 @@ export default function EventListingApp() {
         <div style={styles.container}>
           <h1 style={styles.header}>
             <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-              Listeve - Event Listing
+              Listeve - Your Event Hub
             </Link>
           </h1>
 
@@ -1016,11 +1077,11 @@ export default function EventListingApp() {
                 />
               }
             />
-            <Route path="*" element={<div style={{textAlign: 'center', fontSize: 24, padding: 50}}>404 - Page Not Found</div>} />
+            <Route path="*" element={<div style={{ textAlign: 'center', fontSize: 24, padding: 50, color: '#dc3545' }}>404 - Page Not Found</div>} />
           </Routes>
 
-          <footer style={{ textAlign: 'center', marginTop: 30, padding: '20px 0', borderTop: '1px solid #eee' }}>
-            <p style={{marginTop: 15, fontSize: 14, color: '#777'}}>&copy; {new Date().getFullYear()} Listeve. All rights reserved.</p>
+          <footer style={styles.footer}>
+            <p style={{ marginTop: 15, fontSize: 14, color: '#777' }}>&copy; {new Date().getFullYear()} Listeve. All rights reserved. | <Link to="/privacy" style={{ color: '#007bff', textDecoration: 'none' }}>Privacy Policy</Link> | <Link to="/terms" style={{ color: '#007bff', textDecoration: 'none' }}>Terms of Service</Link></p>
           </footer>
         </div>
       </Router>
