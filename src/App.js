@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react"; // useRef for better header handling
 import { initializeApp } from "firebase/app";
 import {
   getFirestore,
@@ -29,7 +29,7 @@ import {
 } from "react-router-dom";
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 
-// Your Firebase Config (keep it as is)
+// --- Firebase Configuration ---
 const firebaseConfig = {
   apiKey: "AIzaSyCQJ3dX_ZcxVKzlCD8H19JM3KYh7qf8wYk",
   authDomain: "form-ca7cc.firebaseapp.com",
@@ -46,14 +46,14 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
+// --- Cloudinary Configuration ---
 const CLOUDINARY_UPLOAD_PRESET = "unsigned_preset_1";
 const CLOUDINARY_CLOUD_NAME = "dyrmi2zkl";
 
+// --- Geocoding Function ---
 async function geocodeAddress(address) {
   if (!address) return null;
-  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-    address
-  )}`;
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
   try {
     const res = await fetch(url);
     const data = await res.json();
@@ -68,187 +68,343 @@ async function geocodeAddress(address) {
   }
 }
 
-// --- UPDATED STYLES ---
+// --- Global Styles Definition (CSS Variables) ---
+const setGlobalCssVariables = () => {
+    const root = document.documentElement.style;
+
+    // Color Palette
+    root.setProperty('--primary-color', '#e50914'); // BookMyShow-like Red
+    root.setProperty('--primary-dark', '#b2070f');
+    root.setProperty('--secondary-color', '#007bff'); // Standard Blue
+    root.setProperty('--secondary-dark', '#0056b3');
+    root.setProperty('--success-color', '#28a745');
+    root.setProperty('--success-dark', '#218838');
+    root.setProperty('--danger-color', '#dc3545');
+    root.setProperty('--danger-dark', '#c82333');
+
+    // Neutrals
+    root.setProperty('--background-color', '#f5f5f5');
+    root.setProperty('--card-background', '#ffffff');
+    root.setProperty('--text-color', '#333333');
+    root.setProperty('--light-text-color', '#666666');
+    root.setProperty('--border-color', '#e0e0e0');
+    root.setProperty('--shadow-light', 'rgba(0,0,0,0.05)');
+    root.setProperty('--shadow-medium', 'rgba(0,0,0,0.08)');
+    root.setProperty('--shadow-heavy', 'rgba(0,0,0,0.15)');
+
+    // Typography
+    root.setProperty('--font-family-body', "'Roboto', 'Helvetica Neue', Arial, sans-serif");
+    root.setProperty('--font-family-heading', "'Montserrat', sans-serif");
+
+    // Spacing
+    root.setProperty('--spacing-xs', '8px');
+    root.setProperty('--spacing-sm', '12px');
+    root.setProperty('--spacing-md', '20px');
+    root.setProperty('--spacing-lg', '30px');
+    root.setProperty('--spacing-xl', '40px');
+
+    // Border Radius
+    root.setProperty('--border-radius-sm', '8px');
+    root.setProperty('--border-radius-md', '12px');
+    root.setProperty('--border-radius-lg', '16px');
+    root.setProperty('--border-radius-pill', '30px');
+};
+
+
+// --- Inline Styles Object ---
 const styles = {
-  // Color Palette inspired by modern, clean UIs (like BookMyShow's understated palette)
-  // Primary Blue for actions/highlights
-  primaryColor: '#e50914', // A bold, attention-grabbing red, similar to BMS's
-  primaryDark: '#b2070f',
-  // Secondary color for accents or less critical buttons
-  secondaryColor: '#007bff',
-  secondaryDark: '#0056b3',
-  // Neutrals for background, text, borders
-  backgroundColor: '#f5f5f5', // Light grey background
-  cardBackground: '#ffffff', // White cards
-  textColor: '#333333', // Dark text for readability
-  lightTextColor: '#666666', // Lighter text for descriptions/details
-  borderColor: '#e0e0e0', // Subtle border color
-
-  // Typography
-  fontFamily: "'Roboto', 'Helvetica Neue', Arial, sans-serif", // Modern, readable font
-  headerFontFamily: "'Montserrat', sans-serif", // More impactful font for headings
-
+  // General Layout & Structure
   container: {
-    maxWidth: 1200, // Slightly wider container
-    margin: "40px auto",
-    fontFamily: "var(--fontFamily)",
-    color: "var(--textColor)",
-    padding: 20,
-    backgroundColor: "var(--backgroundColor)",
-    borderRadius: 16, // More rounded corners
-    boxShadow: "0 8px 30px rgba(0,0,0,0.1)", // More pronounced shadow
+    maxWidth: '1200px',
+    margin: 'var(--spacing-xl) auto',
+    fontFamily: 'var(--font-family-body)',
+    color: 'var(--text-color)',
+    // Removed padding and background here, handled by main/section for more control
+    backgroundColor: 'transparent', // Container itself is transparent
+    borderRadius: 'var(--border-radius-lg)',
+    // box-shadow handled by content areas
   },
-  header: {
-    textAlign: "center",
-    marginBottom: 40,
-    fontSize: 48, // Larger header
-    fontWeight: "800", // Bolder
-    color: "var(--primaryColor)", // Primary color for header
-    letterSpacing: "1.5px",
-    textShadow: "2px 2px 4px rgba(0,0,0,0.08)",
-    fontFamily: "var(--headerFontFamily)",
+  mainContentArea: { // New style for the main content wrapped inside the container
+    padding: 'var(--spacing-md)', // Padding for the content inside
+    backgroundColor: 'var(--background-color)', // Background for the main content area
+    borderRadius: 'var(--border-radius-lg)',
+    boxShadow: '0 8px 30px var(--shadow-medium)',
   },
-  authBar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 30,
-    padding: "20px 30px",
-    backgroundColor: "var(--cardBackground)",
-    borderRadius: 12,
-    boxShadow: "0 4px 15px rgba(0,0,0,0.08)",
+  headerWrapper: { // Wrapper for the header itself
+    backgroundColor: 'var(--card-background)', // White background for the fixed header
+    boxShadow: '0 4px 15px var(--shadow-light)',
+    padding: '10px var(--spacing-lg)', // Padding for fixed header
+    position: 'sticky', // Make header sticky
+    top: 0,
+    zIndex: 1000, // Ensure it stays on top
+    width: '100%', // Full width
+    boxSizing: 'border-box', // Include padding in width
+    borderRadius: '0 0 var(--border-radius-md) var(--border-radius-md)', // Rounded bottom corners
   },
-  button: {
-    padding: "14px 28px", // Larger buttons
-    fontSize: 17,
-    borderRadius: 10, // More rounded
-    cursor: "pointer",
-    border: "none",
-    fontWeight: "700",
-    transition: "all 0.3s ease", // Smooth transitions for all properties
-    "&:hover": {
-      transform: "translateY(-3px)", // More noticeable lift on hover
-      boxShadow: "0 6px 15px rgba(0,0,0,0.15)",
+  headerInner: {
+    maxWidth: '1200px',
+    margin: '0 auto', // Center content within the header
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  siteTitle: {
+    fontSize: '36px', // Slightly smaller for header
+    fontWeight: '800',
+    color: 'var(--primary-color)',
+    letterSpacing: '1px',
+    fontFamily: 'var(--font-family-heading)',
+    textDecoration: 'none', // Remove underline from Link
+  },
+  footer: {
+    textAlign: 'center',
+    marginTop: 'var(--spacing-xl)',
+    padding: 'var(--spacing-md) 0',
+    borderTop: '1px solid var(--border-color)',
+    backgroundColor: 'var(--card-background)',
+    borderRadius: '0 0 var(--border-radius-lg) var(--border-radius-lg)',
+    fontSize: '14px',
+    color: 'var(--light-text-color)',
+    boxShadow: '0 -4px 15px var(--shadow-light)', // Shadow for footer
+  },
+
+  // Auth Bar (now part of header) Styles
+  authControls: {
+    display: 'flex',
+    gap: 'var(--spacing-sm)',
+    alignItems: 'center',
+  },
+  userGreeting: {
+    fontSize: '16px',
+    color: 'var(--text-color)',
+    fontWeight: '500',
+    marginRight: 'var(--spacing-sm)', // Space before buttons
+  },
+
+  // Button Base & Variants
+  buttonBase: {
+    padding: '12px 24px', // Slightly adjusted for header
+    fontSize: '16px',
+    borderRadius: 'var(--border-radius-md)',
+    cursor: 'pointer',
+    border: 'none',
+    fontWeight: '600',
+    transition: 'all 0.3s ease',
+    whiteSpace: 'nowrap', // Prevent text wrapping
+    '&:hover': {
+      transform: 'translateY(-2px)', // Less lift for header
+      boxShadow: '0 4px 10px var(--shadow-light)',
     },
-    "&:active": {
-      transform: "translateY(0)", // Press down effect
-      boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
-    }
+    '&:active': {
+      transform: 'translateY(0)',
+      boxShadow: '0 1px 3px var(--shadow-light)',
+    },
   },
   btnPrimary: {
-    backgroundColor: "var(--primaryColor)",
-    color: "white",
-    "&:hover": {
-      backgroundColor: "var(--primaryDark)",
+    backgroundColor: 'var(--primary-color)',
+    color: 'white',
+    '&:hover': {
+      backgroundColor: 'var(--primary-dark)',
     },
   },
-  btnSecondary: { // Added a secondary button style
-    backgroundColor: "var(--secondaryColor)",
-    color: "white",
-    "&:hover": {
-      backgroundColor: "var(--secondaryDark)",
-    },
-  },
-  btnDanger: {
-    backgroundColor: "#dc3545",
-    color: "white",
-    "&:hover": {
-      backgroundColor: "#c82333",
+  btnSecondary: {
+    backgroundColor: 'var(--secondary-color)',
+    color: 'white',
+    '&:hover': {
+      backgroundColor: 'var(--secondary-dark)',
     },
   },
   btnSuccess: {
-    backgroundColor: "#28a745",
-    color: "white",
-    "&:hover": {
-      backgroundColor: "#218838",
+    backgroundColor: 'var(--success-color)',
+    color: 'white',
+    '&:hover': {
+      backgroundColor: 'var(--success-dark)',
     },
   },
+  btnDanger: {
+    backgroundColor: 'var(--danger-color)',
+    color: 'white',
+    '&:hover': {
+      backgroundColor: 'var(--danger-dark)',
+    },
+  },
+  disabledButton: {
+    opacity: '0.6',
+    cursor: 'not-allowed',
+  },
+  backButton: {
+    display: 'inline-block',
+    margin: 'var(--spacing-md) 0',
+    padding: '12px 22px',
+    backgroundColor: '#6c757d',
+    color: 'white',
+    borderRadius: 'var(--border-radius-sm)',
+    textDecoration: 'none',
+    fontWeight: 'bold',
+    transition: 'background-color 0.3s ease, transform 0.2s ease',
+    '&:hover': {
+        backgroundColor: '#5a6268',
+        transform: 'translateY(-1px)',
+    }
+  },
+
+  // Input & Form Elements
   searchInput: {
-    width: "100%",
-    padding: "16px", // Larger padding
-    fontSize: 18,
-    borderRadius: 12,
-    border: "1px solid var(--borderColor)",
-    outline: "none",
-    marginBottom: 25,
-    boxSizing: "border-box",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-    transition: "border-color 0.3s ease, box-shadow 0.3s ease",
-    "&:focus": {
-      borderColor: "var(--primaryColor)",
-      boxShadow: "0 0 0 0.3rem rgba(229,9,20,.15)", // Primary color focus shadow
+    width: '100%',
+    padding: '16px',
+    fontSize: '18px',
+    borderRadius: 'var(--border-radius-md)',
+    border: '1px solid var(--border-color)',
+    outline: 'none',
+    marginBottom: 'var(--spacing-md)',
+    boxSizing: 'border-box',
+    boxShadow: '0 2px 8px var(--shadow-light)',
+    transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+    '&:focus': {
+      borderColor: 'var(--primary-color)',
+      boxShadow: '0 0 0 0.3rem rgba(229,9,20,.15)',
     },
   },
+  formContainer: {
+    backgroundColor: 'var(--card-background)',
+    padding: 'var(--spacing-xl)',
+    borderRadius: 'var(--border-radius-lg)',
+    boxShadow: '0 6px 20px var(--shadow-medium)',
+    marginBottom: 'var(--spacing-xl)', // Added margin bottom for spacing
+  },
+  formTitle: {
+    fontSize: '32px',
+    marginBottom: 'var(--spacing-lg)',
+    color: 'var(--text-color)',
+    fontWeight: '700',
+    textAlign: 'center',
+    fontFamily: 'var(--font-family-heading)',
+  },
+  formGroup: {
+    marginBottom: 'var(--spacing-md)',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  label: {
+    marginBottom: 'var(--spacing-xs)',
+    fontWeight: '600',
+    fontSize: '16px',
+    color: 'var(--text-color)',
+  },
+  input: {
+    padding: '14px',
+    fontSize: '16px',
+    borderRadius: 'var(--border-radius-sm)',
+    border: '1px solid var(--border-color)',
+    outline: 'none',
+    transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+    '&:focus': {
+      borderColor: 'var(--primary-color)',
+      boxShadow: '0 0 0 0.25rem rgba(229,9,20,.15)',
+    },
+  },
+  textarea: {
+    padding: '14px',
+    fontSize: '16px',
+    borderRadius: 'var(--border-radius-sm)',
+    border: '1px solid var(--border-color)',
+    outline: 'none',
+    resize: 'vertical',
+    minHeight: '120px',
+    transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+    '&:focus': {
+      borderColor: 'var(--primary-color)',
+      boxShadow: '0 0 0 0.25rem rgba(229,9,20,.15)',
+    },
+  },
+  select: {
+    padding: '14px',
+    fontSize: '16px',
+    borderRadius: 'var(--border-radius-sm)',
+    border: '1px solid var(--border-color)',
+    outline: 'none',
+    backgroundColor: 'white',
+    cursor: 'pointer',
+    transition: 'border-color 0.3s ease',
+    '&:focus': {
+      borderColor: 'var(--primary-color)',
+      boxShadow: '0 0 0 0.25rem rgba(229,9,20,.15)',
+    },
+  },
+
+  // Category Filter Styles
   categoryFilter: {
-    display: "flex",
-    justifyContent: "center",
-    flexWrap: "wrap",
-    gap: 15, // Increased gap
-    marginBottom: 40,
+    display: 'flex',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 'var(--spacing-sm)',
+    marginBottom: 'var(--spacing-xl)',
   },
   categoryButton: {
-    padding: "12px 25px",
-    fontSize: 16,
-    borderRadius: 30, // More pill-shaped
-    border: `1px solid var(--primaryColor)`,
-    backgroundColor: "var(--cardBackground)",
-    color: "var(--primaryColor)",
-    cursor: "pointer",
-    transition: "all 0.3s ease",
-    "&:hover": {
-      backgroundColor: "var(--primaryColor)",
-      color: "white",
-      transform: "translateY(-2px)",
-      boxShadow: "0 3px 10px rgba(0,123,255,0.2)",
+    padding: '12px 25px',
+    fontSize: '16px',
+    borderRadius: 'var(--border-radius-pill)',
+    border: '1px solid var(--primary-color)',
+    backgroundColor: 'var(--card-background)',
+    color: 'var(--primary-color)',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    '&:hover': {
+      backgroundColor: 'var(--primary-color)',
+      color: 'white',
+      transform: 'translateY(-2px)',
+      boxShadow: '0 3px 10px var(--shadow-light)',
     },
   },
   categoryButtonActive: {
-    backgroundColor: "var(--primaryColor)",
-    color: "white",
-    fontWeight: "600",
-    boxShadow: "0 4px 12px rgba(229,9,20,0.25)",
+    backgroundColor: 'var(--primary-color)',
+    color: 'white',
+    fontWeight: '600',
+    boxShadow: '0 4px 12px rgba(229,9,20,0.25)',
   },
+
+  // Event Listing Card Styles
   eventList: {
-    listStyle: "none",
+    listStyle: 'none',
     paddingLeft: 0,
-    marginBottom: 40,
-    display: 'grid', // Use CSS Grid for a modern layout
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', // Responsive grid
-    gap: 30, // Gap between cards
+    marginBottom: 'var(--spacing-xl)',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gap: 'var(--spacing-lg)',
   },
   eventItem: {
-    backgroundColor: "var(--cardBackground)",
-    borderRadius: 16,
-    boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-    overflow: 'hidden', // Ensures rounded corners clip images
-    display: "flex",
-    flexDirection: "column", // Stack image and content vertically
-    transition: "transform 0.2s ease, box-shadow 0.2s ease",
-    "&:hover": {
-      transform: "translateY(-5px)", // More lift
-      boxShadow: "0 12px 30px rgba(0,0,0,0.15)",
+    backgroundColor: 'var(--card-background)',
+    borderRadius: 'var(--border-radius-lg)',
+    boxShadow: '0 6px 20px var(--shadow-medium)',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+    '&:hover': {
+      transform: 'translateY(-5px)',
+      boxShadow: '0 12px 30px var(--shadow-heavy)',
     },
   },
   eventImage: {
-    width: "100%",
-    height: 200, // Fixed height for consistency
-    objectFit: "cover",
-    borderRadius: "16px 16px 0 0", // Rounded top corners
-    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+    width: '100%',
+    height: '200px',
+    objectFit: 'cover',
+    borderRadius: 'var(--border-radius-lg) var(--border-radius-lg) 0 0',
+    boxShadow: '0 2px 8px var(--shadow-light)',
   },
   eventContent: {
-    padding: 20, // Increased padding
+    padding: 'var(--spacing-md)',
     display: 'flex',
     flexDirection: 'column',
-    flexGrow: 1, // Allow content to grow and push interested section down
+    flexGrow: 1,
   },
   eventTitle: {
-    fontSize: 22, // Slightly smaller for card, but still prominent
-    marginBottom: 10,
-    color: "var(--textColor)",
-    fontWeight: "700",
-    lineHeight: 1.3,
-    minHeight: '2.6em', // Ensure consistent height for titles across cards
+    fontSize: '22px',
+    marginBottom: 'var(--spacing-sm)',
+    color: 'var(--text-color)',
+    fontWeight: '700',
+    lineHeight: '1.3',
+    minHeight: '2.6em', // For 2 lines of text at 22px font size
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     display: '-webkit-box',
@@ -256,305 +412,271 @@ const styles = {
     WebkitBoxOrient: 'vertical',
   },
   eventDetails: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 8, // More spacing for details
-    marginBottom: 15,
-    fontSize: 15,
-    color: "var(--lightTextColor)",
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    marginBottom: 'var(--spacing-md)',
+    fontSize: '15px',
+    color: 'var(--light-text-color)',
   },
-  eventDetailLine: { // Generic style for detail lines
+  eventDetailLine: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
+    gap: '8px',
     fontWeight: '500',
   },
-  eventIcon: { // Placeholder for icons
-    fontSize: 18,
-    color: "var(--primaryColor)",
+  eventIcon: {
+    fontSize: '18px',
+    color: 'var(--primary-color)',
   },
   eventDesc: {
-    marginTop: 5,
-    fontSize: 15,
-    color: "var(--lightTextColor)",
-    lineHeight: 1.6,
-    marginBottom: 15,
-    minHeight: '4.8em', // Consistent height for descriptions
+    marginTop: '5px',
+    fontSize: '15px',
+    color: 'var(--light-text-color)',
+    lineHeight: '1.6',
+    marginBottom: 'var(--spacing-md)',
+    minHeight: '4.8em', // For 3 lines of text at 15px font size
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     display: '-webkit-box',
     WebkitLineClamp: 3,
     WebkitBoxOrient: 'vertical',
   },
-  eventContact: {
-    fontSize: 14,
-    color: "var(--lightTextColor)",
-    marginTop: 5,
-    fontWeight: "500",
-  },
+  // Aligning interested section properly
   interestedSection: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between', // Push button to left, count to right
-    marginTop: 'auto', // Push to bottom of flex column
-    paddingTop: 15,
-    borderTop: `1px solid var(--borderColor)`, // Separator line
-    margin: '10px -20px -20px -20px', // Adjust margins to align with card padding
-    padding: '15px 20px 20px 20px', // Adjust padding for the section
+    justifyContent: 'space-between',
+    marginTop: 'auto', // Pushes it to the bottom of the flex column
+    paddingTop: 'var(--spacing-sm)',
+    borderTop: '1px solid var(--border-color)',
+    margin: '0 calc(var(--spacing-md) * -1) calc(var(--spacing-md) * -1) calc(var(--spacing-md) * -1)', // Negative margins to span full width
+    padding: 'var(--spacing-sm) var(--spacing-md) var(--spacing-md) var(--spacing-md)', // Padding for content
   },
   interestedBtn: {
-    padding: "10px 18px",
-    borderRadius: 8,
-    fontWeight: "600",
-    cursor: "pointer",
-    border: "none",
-    transition: "all 0.3s ease",
-    "&:hover": {
-      transform: "translateY(-1px)",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+    padding: '10px 18px',
+    borderRadius: 'var(--border-radius-sm)',
+    fontWeight: '600',
+    cursor: 'pointer',
+    border: 'none',
+    transition: 'all 0.3s ease',
+    '&:hover': {
+      transform: 'translateY(-1px)',
+      boxShadow: '0 2px 8px var(--shadow-light)',
     },
   },
   interestedCount: {
-    marginLeft: 12,
-    fontSize: 15,
-    color: "var(--lightTextColor)",
-    fontWeight: "500",
+    marginLeft: 'var(--spacing-sm)',
+    fontSize: '15px',
+    color: 'var(--light-text-color)',
+    fontWeight: '500',
   },
-  formContainer: {
-    backgroundColor: "var(--cardBackground)",
-    padding: 40, // More padding
-    borderRadius: 16,
-    boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-  },
-  formTitle: {
-    fontSize: 32, // Larger form title
-    marginBottom: 35,
-    color: "var(--textColor)",
-    fontWeight: "700",
-    textAlign: "center",
-    fontFamily: "var(--headerFontFamily)",
-  },
-  formGroup: {
-    marginBottom: 25,
-    display: "flex",
-    flexDirection: "column",
-  },
-  label: {
-    marginBottom: 10,
-    fontWeight: "600",
-    fontSize: 16,
-    color: "var(--textColor)",
-  },
-  input: {
-    padding: 14,
-    fontSize: 16,
-    borderRadius: 8,
-    border: "1px solid var(--borderColor)",
-    outline: "none",
-    transition: "border-color 0.3s ease, box-shadow 0.3s ease",
-    "&:focus": {
-      borderColor: "var(--primaryColor)",
-      boxShadow: "0 0 0 0.25rem rgba(229,9,20,.15)",
-    },
-  },
-  textarea: {
-    padding: 14,
-    fontSize: 16,
-    borderRadius: 8,
-    border: "1px solid var(--borderColor)",
-    outline: "none",
-    resize: "vertical",
-    minHeight: 120,
-    transition: "border-color 0.3s ease, box-shadow 0.3s ease",
-    "&:focus": {
-      borderColor: "var(--primaryColor)",
-      boxShadow: "0 0 0 0.25rem rgba(229,9,20,.15)",
-    },
-  },
-  select: {
-    padding: 14,
-    fontSize: 16,
-    borderRadius: 8,
-    border: "1px solid var(--borderColor)",
-    outline: "none",
-    backgroundColor: "white",
-    cursor: "pointer",
-    transition: "border-color 0.3s ease",
-    "&:focus": {
-      borderColor: "var(--primaryColor)",
-      boxShadow: "0 0 0 0.25rem rgba(229,9,20,.15)",
-    },
-  },
-  disabledButton: {
-    opacity: 0.6, // Slightly more opaque for disabled
-    cursor: "not-allowed",
-  },
-  backButton: {
-    display: 'inline-block',
-    margin: '25px 0',
-    padding: '12px 22px',
-    backgroundColor: '#6c757d',
-    color: 'white',
-    borderRadius: 8,
-    textDecoration: 'none',
-    fontWeight: 'bold',
-    transition: 'background-color 0.3s ease, transform 0.2s ease',
-    "&:hover": {
-        backgroundColor: '#5a6268',
-        transform: 'translateY(-1px)',
-    }
-  },
+
+  // Event Detail Page Styles
   detailContainer: {
-    backgroundColor: "var(--cardBackground)",
-    padding: 40,
-    borderRadius: 16,
-    boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-    marginTop: 25,
+    backgroundColor: 'var(--card-background)',
+    padding: 'var(--spacing-xl)',
+    borderRadius: 'var(--border-radius-lg)',
+    boxShadow: '0 6px 20px var(--shadow-medium)',
+    marginTop: 'var(--spacing-md)',
+    marginBottom: 'var(--spacing-xl)', // Add margin bottom for spacing
   },
   detailImage: {
     width: '100%',
-    maxHeight: 500, // Larger image for details
+    maxHeight: '500px',
     objectFit: 'cover',
-    borderRadius: 12,
-    marginBottom: 30,
-    boxShadow: "0 6px 15px rgba(0,0,0,0.1)",
+    borderRadius: 'var(--border-radius-md)',
+    marginBottom: 'var(--spacing-lg)',
+    boxShadow: '0 6px 15px var(--shadow-light)',
   },
   detailTitle: {
-    fontSize: 40, // Larger detail title
-    color: "var(--textColor)",
-    marginBottom: 20,
-    fontWeight: "800",
-    fontFamily: "var(--headerFontFamily)",
+    fontSize: '40px',
+    color: 'var(--text-color)',
+    marginBottom: 'var(--spacing-md)',
+    fontWeight: '800',
+    fontFamily: 'var(--font-family-heading)',
   },
   detailInfo: {
-    fontSize: 18,
-    color: "var(--lightTextColor)",
-    marginBottom: 10,
-    lineHeight: 1.6,
+    fontSize: '18px',
+    color: 'var(--light-text-color)',
+    marginBottom: 'var(--spacing-xs)',
+    lineHeight: '1.6',
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
+    gap: '10px',
   },
   detailDescription: {
-    fontSize: 17,
-    lineHeight: 1.8, // Increased line height for readability
-    color: "var(--textColor)",
-    marginTop: 30,
-    marginBottom: 30,
-    whiteSpace: 'pre-wrap', // Preserve newlines
+    fontSize: '17px',
+    lineHeight: '1.8',
+    color: 'var(--text-color)',
+    marginTop: 'var(--spacing-lg)',
+    marginBottom: 'var(--spacing-lg)',
+    whiteSpace: 'pre-wrap',
   },
-  footer: {
-    textAlign: 'center',
-    marginTop: 40,
-    padding: '25px 0',
-    borderTop: `1px solid var(--borderColor)`,
-    backgroundColor: 'var(--cardBackground)',
-    borderRadius: '0 0 16px 16px',
-    fontSize: 14,
-    color: 'var(--lightTextColor)',
-  },
-  // Responsive Adjustments (Media Queries within JSX are tricky, often done in external CSS or styled-components)
-  // For simplicity here, we'll use inline style adjustments for key elements that need it
-  // In a real app, use a CSS-in-JS library like styled-components or a global CSS file.
-  responsiveEventList: {
-    '@media (max-width: 768px)': {
-      gridTemplateColumns: '1fr', // Stack cards on smaller screens
-    }
-  },
-  responsiveHeader: {
-    '@media (max-width: 600px)': {
-      fontSize: 36,
-      marginBottom: 30,
-    }
-  },
-  responsiveAuthBar: {
-    '@media (max-width: 600px)': {
-      flexDirection: 'column',
-      alignItems: 'flex-start',
-      padding: '15px 20px',
-      gap: 15,
+
+  // Responsive Styles (applied dynamically in components based on screen size)
+  responsive: {
+    headerWrapperMobile: {
+      padding: '8px var(--spacing-md)',
     },
-    '@media (max-width: 600px) and (min-width: 320px)': {
-        '> div:last-child': { // Target the button container
-            width: '100%', // Make buttons full width
-            flexDirection: 'column',
-            gap: 10,
-        },
-        'button, a': { // Target buttons and links within AuthBar
-            width: '100%',
-            textAlign: 'center',
-        }
-    }
+    siteTitleMobile: {
+      fontSize: '28px',
+    },
+    authControlsMobile: {
+      flexDirection: 'column',
+      alignItems: 'stretch', // Stretch buttons full width
+      gap: '8px',
+      marginTop: '8px',
+      width: '100%', // Take full width below logo
+    },
+    userGreetingMobile: {
+        textAlign: 'center',
+        marginBottom: '5px',
+        marginRight: 0, // Remove right margin on mobile
+    },
+    buttonBaseMobile: {
+        padding: '10px 15px', // Smaller buttons on mobile
+        fontSize: '14px',
+        width: '100%', // Ensure buttons take full width
+        textAlign: 'center',
+    },
+    eventListMobile: {
+      gridTemplateColumns: '1fr',
+    },
+    detailTitleMobile: {
+      fontSize: '32px',
+    },
   },
-  responsiveDetailTitle: {
-    '@media (max-width: 600px)': {
-      fontSize: 32,
-    }
-  }
 };
 
-// Applying CSS variables for easier theming
-const rootStyles = document.documentElement.style;
-rootStyles.setProperty('--primaryColor', styles.primaryColor);
-rootStyles.setProperty('--primaryDark', styles.primaryDark);
-rootStyles.setProperty('--secondaryColor', styles.secondaryColor);
-rootStyles.setProperty('--secondaryDark', styles.secondaryDark);
-rootStyles.setProperty('--backgroundColor', styles.backgroundColor);
-rootStyles.setProperty('--cardBackground', styles.cardBackground);
-rootStyles.setProperty('--textColor', styles.textColor);
-rootStyles.setProperty('--lightTextColor', styles.lightTextColor);
-rootStyles.setProperty('--borderColor', styles.borderColor);
-rootStyles.setProperty('--fontFamily', styles.fontFamily);
-rootStyles.setProperty('--headerFontFamily', styles.headerFontFamily);
+// --- Component Definitions ---
 
+// Top Navigation Component
+function TopNavigation({ user, handleLogin, handleLogout }) {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768); // Adjusted breakpoint for header
+  const [menuOpen, setMenuOpen] = useState(false); // State for mobile menu
 
-// --- COMPONENTS WITH REVISED STYLES AND STRUCTURE ---
+  useEffect(() => {
+    const handleResize = () => {
+        setIsMobile(window.innerWidth < 768);
+        if (window.innerWidth >= 768) { // Close menu if resized to desktop
+            setMenuOpen(false);
+        }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
-function AuthBar({ user, handleLogin, handleLogout }) {
-    // Add a state for small screen to apply dynamic styles
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 600);
-
-    useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 600);
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+  const toggleMenu = () => setMenuOpen(!menuOpen);
 
   return (
-    <header style={{ ...styles.authBar, ...(isMobile ? styles.responsiveAuthBar : {}) }}>
-      {user ? (
-        <>
-          <div style={{ fontSize: 16, color: 'var(--textColor)', fontWeight: '500' }}>
-            Welcome, <strong>{user.displayName}</strong>
-          </div>
-          <div style={{ display: 'flex', gap: 15, alignItems: 'center', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-end' }}>
-            <Link to="/add-event" style={{ ...styles.button, ...styles.btnSuccess }}>
-              + Add New Event
-            </Link>
-            <button style={{ ...styles.button, ...styles.btnDanger }} onClick={handleLogout}>
-              Logout
+    <nav style={{ ...styles.headerWrapper, ...(isMobile && styles.responsive.headerWrapperMobile) }}>
+      <div style={styles.headerInner}>
+        <Link to="/" style={styles.siteTitle}>
+          Listeve
+        </Link>
+
+        {isMobile ? (
+          <>
+            <button
+              onClick={toggleMenu}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '28px',
+                color: 'var(--text-color)',
+                cursor: 'pointer',
+                padding: '5px',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-nav-menu"
+              aria-label="Toggle navigation menu"
+            >
+              ☰
             </button>
+            {menuOpen && (
+              <div id="mobile-nav-menu" style={{
+                position: 'absolute',
+                top: '100%', // Below the main header
+                left: 0,
+                width: '100%',
+                backgroundColor: 'var(--card-background)',
+                boxShadow: '0 4px 15px var(--shadow-light)',
+                padding: 'var(--spacing-md)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--spacing-sm)',
+                zIndex: 999, // Below sticky header
+              }}>
+                {user ? (
+                  <>
+                    <span style={{ ...styles.userGreeting, ...styles.responsive.userGreetingMobile }}>
+                      Welcome, <strong>{user.displayName}</strong>
+                    </span>
+                    <Link to="/add-event" style={{ ...styles.buttonBase, ...styles.btnSuccess, ...styles.responsive.buttonBaseMobile }} onClick={() => setMenuOpen(false)}>
+                      + Add New Event
+                    </Link>
+                    <button style={{ ...styles.buttonBase, ...styles.btnDanger, ...styles.responsive.buttonBaseMobile }} onClick={() => { handleLogout(); setMenuOpen(false); }}>
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/add-event" style={{ ...styles.buttonBase, ...styles.btnSecondary, ...styles.responsive.buttonBaseMobile }} onClick={() => setMenuOpen(false)}>
+                      Add Event
+                    </Link>
+                    <button style={{ ...styles.buttonBase, ...styles.btnPrimary, ...styles.responsive.buttonBaseMobile }} onClick={() => { handleLogin(); setMenuOpen(false); }}>
+                      Login
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={styles.authControls}>
+            {user ? (
+              <>
+                <span style={styles.userGreeting}>
+                  Welcome, <strong>{user.displayName}</strong>
+                </span>
+                <Link to="/add-event" style={{ ...styles.buttonBase, ...styles.btnSuccess }}>
+                  + Add New Event
+                </Link>
+                <button style={{ ...styles.buttonBase, ...styles.btnDanger }} onClick={handleLogout}>
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/add-event" style={{ ...styles.buttonBase, ...styles.btnSecondary }}>
+                  Add Event
+                </Link>
+                <button style={{ ...styles.buttonBase, ...styles.btnPrimary }} onClick={handleLogin}>
+                  Login
+                </button>
+              </>
+            )}
           </div>
-        </>
-      ) : (
-        <div style={{ display: 'flex', gap: 15, alignItems: 'center', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-end' }}>
-          <Link to="/add-event" style={{ ...styles.button, ...styles.btnSecondary }}> {/* Changed to secondary for 'Add Event' when not logged in */}
-            Add Event
-          </Link>
-          <button style={{ ...styles.button, ...styles.btnPrimary }} onClick={handleLogin}>
-            Login
-          </button>
-        </div>
-      )}
-    </header>
+        )}
+      </div>
+    </nav>
   );
 }
-
 
 function EventListingPage({ user, events, loading, toggleInterest }) {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const categories = ["All", "Music", "Sports", "Art", "Tech", "Food", "Other"];
+  const [isMobileGrid, setIsMobileGrid] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobileGrid(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const filteredEvents = events
     .filter((event) => {
@@ -564,7 +686,7 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
         (event.city?.toLowerCase().includes(lowerSearch) ?? false) ||
         (event.state?.toLowerCase().includes(lowerSearch) ?? false) ||
         (event.country?.toLowerCase().includes(lowerSearch) ?? false) ||
-        (event.description?.toLowerCase().includes(lowerSearch) ?? false); // Search description too
+        (event.description?.toLowerCase().includes(lowerSearch) ?? false);
 
       const matchesCategory =
         selectedCategory === "All" || event.category === selectedCategory;
@@ -574,7 +696,7 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
   return (
-    <main>
+    <main style={{ padding: 'var(--spacing-md)' }}> {/* Added padding here for main content */}
       <Helmet>
         <title>Listeve - Discover & List Events in India</title>
         <meta name="description" content="Discover and list upcoming events in India, including music concerts, sports, tech meetups, art exhibitions, food festivals, and more. Find local events near you!" />
@@ -613,10 +735,10 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
       </section>
 
       <section>
-        <h2 style={{ ...styles.formTitle, marginTop: 0, marginBottom: 30 }}>Upcoming Events</h2>
-        <ul style={{ ...styles.eventList, ...styles.responsiveEventList }}>
+        <h2 style={{ ...styles.formTitle, marginTop: 0, marginBottom: 'var(--spacing-lg)' }}>Upcoming Events</h2>
+        <ul style={{ ...styles.eventList, ...(isMobileGrid && styles.responsive.eventListMobile) }}>
           {filteredEvents.length === 0 && (
-            <li style={{ textAlign: "center", color: "var(--lightTextColor)", fontSize: 18, padding: 30, backgroundColor: 'var(--cardBackground)', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)', gridColumn: '1 / -1' }}>
+            <li style={{ textAlign: "center", color: "var(--light-text-color)", fontSize: '18px', padding: 'var(--spacing-lg)', backgroundColor: 'var(--card-background)', borderRadius: 'var(--border-radius-md)', boxShadow: '0 2px 8px var(--shadow-light)', gridColumn: '1 / -1' }}>
               No events found matching your criteria. Try adjusting your search or filters.
             </li>
           )}
@@ -665,21 +787,18 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
                         {event.description}
                       </p>
                     )}
-                    {/* Contact is better on detail page for privacy and space */}
-                    {/* {event.contact && (
-                      <p style={styles.eventContact}>Contact: <a href={`mailto:${event.contact}`} style={{ color: 'inherit', textDecoration: 'none' }}>{event.contact}</a></p>
-                    )} */}
                   </article>
                 </Link>
+                {/* INTERESTED SECTION */}
                 <div style={styles.interestedSection}>
                   <button
                     style={{
                       ...styles.interestedBtn,
-                      backgroundColor: isInterested ? "var(--primaryColor)" : "var(--secondaryColor)", // Use primary for interested, secondary for show interest
-                      color: "white",
+                      backgroundColor: isInterested ? 'var(--primary-color)' : 'var(--secondary-color)',
+                      color: 'white',
                       ...(loading ? styles.disabledButton : {}),
                     }}
-                    onClick={(e) => { e.stopPropagation(); toggleInterest(event); }} // Stop propagation to prevent link click
+                    onClick={(e) => { e.stopPropagation(); toggleInterest(event); }}
                     disabled={loading}
                     aria-pressed={isInterested}
                   >
@@ -701,6 +820,13 @@ function EventDetailPage({ user, toggleInterest }) {
   const [event, setEvent] = useState(null);
   const [loadingEvent, setLoadingEvent] = useState(true);
   const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 600);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 600);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     async function fetchEvent() {
@@ -725,11 +851,11 @@ function EventDetailPage({ user, toggleInterest }) {
   }, [id, navigate]);
 
   if (loadingEvent) {
-    return <div style={{ textAlign: 'center', fontSize: 20, padding: 50, color: 'var(--lightTextColor)' }}>Loading event details...</div>;
+    return <div style={{ textAlign: 'center', fontSize: '20px', padding: '50px', color: 'var(--light-text-color)' }}>Loading event details...</div>;
   }
 
   if (!event) {
-    return <div style={{ textAlign: 'center', fontSize: 20, padding: 50, color: '#dc3545' }}>Event not found.</div>;
+    return <div style={{ textAlign: 'center', fontSize: '20px', padding: '50px', color: 'var(--danger-color)' }}>Event not found.</div>;
   }
 
   const interestedCount = event.interestedUsers?.length || 0;
@@ -801,7 +927,7 @@ function EventDetailPage({ user, toggleInterest }) {
           style={styles.detailImage}
         />
       )}
-      <h1 style={{ ...styles.detailTitle, ...(window.innerWidth < 600 ? styles.responsiveDetailTitle : {}) }}>{event.title}</h1>
+      <h1 style={{ ...styles.detailTitle, ...(isMobile && styles.responsive.detailTitleMobile) }}>{event.title}</h1>
       <p style={styles.detailInfo}>
           <span style={styles.eventIcon}>🗓️</span>
           <strong>Date:</strong> <time dateTime={event.date}>{eventDateFormatted}</time>
@@ -827,12 +953,13 @@ function EventDetailPage({ user, toggleInterest }) {
       {event.description && (
         <p style={styles.detailDescription}>{event.description}</p>
       )}
+      {/* INTERESTED SECTION */}
       <div style={styles.interestedSection}>
         <button
           style={{
             ...styles.interestedBtn,
-            backgroundColor: isInterested ? "var(--primaryColor)" : "var(--secondaryColor)",
-            color: "white",
+            backgroundColor: isInterested ? 'var(--primary-color)' : 'var(--secondary-color)',
+            color: 'white',
             ...(loadingEvent ? styles.disabledButton : {}),
           }}
           onClick={() => toggleInterest(event)}
@@ -848,7 +975,7 @@ function EventDetailPage({ user, toggleInterest }) {
 }
 
 function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, handleImageChange, loading }) {
-  const categories = ["Select Category", "Music", "Sports", "Art", "Tech", "Food", "Other"]; // Changed "All" to "Select Category" for a form
+  const categories = ["Select Category", "Music", "Sports", "Art", "Tech", "Food", "Other"];
 
   return (
     <section style={styles.formContainer}>
@@ -981,17 +1108,17 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
         <button
           type="submit"
           style={{
-            ...styles.button,
-            ...styles.btnPrimary, // Primary color for submit
+            ...styles.buttonBase,
+            ...styles.btnPrimary,
             ...(loading || !user ? styles.disabledButton : {}),
             width: '100%',
-            marginTop: 10,
+            marginTop: '10px',
           }}
           disabled={loading || !user}
         >
           {loading ? "Adding..." : "Add Event"}
         </button>
-        {!user && <p style={{ color: '#dc3545', marginTop: 15, textAlign: 'center', fontSize: 14 }}>Please login to add events.</p>}
+        {!user && <p style={{ color: 'var(--danger-color)', marginTop: '15px', textAlign: 'center', fontSize: '14px' }}>Please login to add events.</p>}
       </form>
     </section>
   );
@@ -1009,16 +1136,21 @@ export default function EventListingApp() {
     country: "",
     description: "",
     contact: "",
-    category: "", // Initialize as empty for "Select Category"
+    category: "",
     imageUrl: "",
   });
   const [imageFile, setImageFile] = useState(null);
+
+  useEffect(() => {
+    setGlobalCssVariables();
+  }, []);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((u) => setUser(u));
     return () => unsubscribe();
   }, []);
 
+  // Fetch events with a real-time listener (onSnapshot)
   useEffect(() => {
     const q = query(collection(db, "events"), orderBy("date", "asc"));
     const unsub = onSnapshot(q, (snapshot) => {
@@ -1029,7 +1161,7 @@ export default function EventListingApp() {
         }))
       );
     });
-    return () => unsub();
+    return () => unsub(); // Clean up listener on unmount
   }, []);
 
   async function handleLogin() {
@@ -1136,7 +1268,7 @@ export default function EventListingApp() {
         country: "",
         description: "",
         contact: "",
-        category: "", // Reset to empty for "Select Category"
+        category: "",
         imageUrl: "",
       });
       setImageFile(null);
@@ -1163,6 +1295,8 @@ export default function EventListingApp() {
           ? arrayRemove(user.uid)
           : arrayUnion(user.uid),
       });
+      // The onSnapshot listener will automatically update the 'events' state,
+      // so no manual state update is needed here for interest count.
     } catch (error) {
       alert("Failed to update interest: " + error.message);
       console.error("Toggle interest error:", error);
@@ -1174,53 +1308,49 @@ export default function EventListingApp() {
   return (
     <HelmetProvider>
       <Router>
+        {/* TOP NAVIGATION COMPONENT */}
+        <TopNavigation user={user} handleLogin={handleLogin} handleLogout={handleLogout} />
+
         <div style={styles.container}>
-          <h1 style={{ ...styles.header, ...(window.innerWidth < 600 ? styles.responsiveHeader : {}) }}>
-            <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-              Listeve
-            </Link>
-          </h1>
-
-          <AuthBar user={user} handleLogin={handleLogin} handleLogout={handleLogout} />
-
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <EventListingPage
-                  user={user}
-                  events={events}
-                  loading={loading}
-                  toggleInterest={toggleInterest}
-                />
-              }
-            />
-            <Route
-              path="/events/:id"
-              element={<EventDetailPage user={user} toggleInterest={toggleInterest} />}
-            />
-            <Route
-              path="/add-event"
-              element={
-                <AddEventForm
-                  user={user}
-                  handleAddEvent={handleAddEvent}
-                  form={form}
-                  handleChange={handleChange}
-                  imageFile={imageFile}
-                  handleImageChange={handleImageChange}
-                  loading={loading}
-                />
-              }
-            />
-            <Route path="*" element={<div style={{ textAlign: 'center', fontSize: 24, padding: 50, color: '#dc3545' }}>404 - Page Not Found</div>} />
-          </Routes>
-
+          <div style={styles.mainContentArea}> {/* Wrap main content in this */}
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <EventListingPage
+                    user={user}
+                    events={events}
+                    loading={loading}
+                    toggleInterest={toggleInterest}
+                  />
+                }
+              />
+              <Route
+                path="/events/:id"
+                element={<EventDetailPage user={user} toggleInterest={toggleInterest} />}
+              />
+              <Route
+                path="/add-event"
+                element={
+                  <AddEventForm
+                    user={user}
+                    handleAddEvent={handleAddEvent}
+                    form={form}
+                    handleChange={handleChange}
+                    imageFile={imageFile}
+                    handleImageChange={handleImageChange}
+                    loading={loading}
+                  />
+                }
+              />
+              <Route path="*" element={<div style={{ textAlign: 'center', fontSize: '24px', padding: '50px', color: 'var(--danger-color)' }}>404 - Page Not Found</div>} />
+            </Routes>
+          </div>
           <footer style={styles.footer}>
             <p style={{ margin: 0 }}>&copy; {new Date().getFullYear()} Listeve. All rights reserved.</p>
             <p style={{ margin: '5px 0 0 0' }}>
-              <Link to="/privacy" style={{ color: 'var(--secondaryColor)', textDecoration: 'none', marginRight: 10 }}>Privacy Policy</Link>
-              <Link to="/terms" style={{ color: 'var(--secondaryColor)', textDecoration: 'none' }}>Terms of Service</Link>
+              <Link to="/privacy" style={{ color: 'var(--secondary-color)', textDecoration: 'none', marginRight: '10px' }}>Privacy Policy</Link>
+              <Link to="/terms" style={{ color: 'var(--secondary-color)', textDecoration: 'none' }}>Terms of Service</Link>
             </p>
           </footer>
         </div>
