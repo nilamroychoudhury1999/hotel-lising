@@ -1934,10 +1934,12 @@ export default function ProfessionalEventApp() {
 
   return (
     <HelmetProvider>
-    <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.5/dist/tailwind.min.css"
-        />
+    <Helmet>
+     <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.5/dist/tailwind.min.css"
+     />
+    </Helmet>
       <div className="min-h-screen bg-gray-50">
         <ProfessionalNavigation
           user={user}
