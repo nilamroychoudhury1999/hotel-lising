@@ -16,12 +16,6 @@ import {
 } from "firebase/firestore"
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth"
 import { Helmet, HelmetProvider } from "react-helmet-async"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Calendar,
   MapPin,
@@ -65,6 +59,156 @@ const provider = new GoogleAuthProvider()
 // Cloudinary Configuration with your actual config
 const CLOUDINARY_UPLOAD_PRESET = "unsigned_preset_1"
 const CLOUDINARY_CLOUD_NAME = "dyrmi2zkl"
+
+// UI Components - All inline to avoid import errors
+
+// Button Component
+function Button({
+  children,
+  variant = "default",
+  size = "default",
+  className = "",
+  disabled = false,
+  onClick,
+  asChild,
+  ...props
+}) {
+  const baseClasses =
+    "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background"
+
+  const variants = {
+    default: "bg-primary text-primary-foreground hover:bg-primary/90 bg-gray-900 text-white hover:bg-gray-800",
+    outline: "border border-input hover:bg-accent hover:text-accent-foreground border-gray-300 hover:bg-gray-50",
+    ghost: "hover:bg-accent hover:text-accent-foreground hover:bg-gray-100",
+  }
+
+  const sizes = {
+    default: "h-10 py-2 px-4",
+    sm: "h-9 px-3 rounded-md",
+    lg: "h-11 px-8 rounded-md",
+  }
+
+  const classes = `${baseClasses} ${variants[variant]} ${sizes[size]} ${className}`
+
+  if (asChild && children?.type === "a") {
+    return (
+      <a {...children.props} className={classes}>
+        {children.props.children}
+      </a>
+    )
+  }
+
+  return (
+    <button className={classes} disabled={disabled} onClick={onClick} {...props}>
+      {children}
+    </button>
+  )
+}
+
+// Card Components
+function Card({ children, className = "", ...props }) {
+  return (
+    <div
+      className={`rounded-lg border bg-card text-card-foreground shadow-sm bg-white border-gray-200 ${className}`}
+      {...props}
+    >
+      {children}
+    </div>
+  )
+}
+
+function CardHeader({ children, className = "", ...props }) {
+  return (
+    <div className={`flex flex-col space-y-1.5 p-6 ${className}`} {...props}>
+      {children}
+    </div>
+  )
+}
+
+function CardTitle({ children, className = "", ...props }) {
+  return (
+    <h3 className={`text-2xl font-semibold leading-none tracking-tight ${className}`} {...props}>
+      {children}
+    </h3>
+  )
+}
+
+function CardContent({ children, className = "", ...props }) {
+  return (
+    <div className={`p-6 pt-0 ${className}`} {...props}>
+      {children}
+    </div>
+  )
+}
+
+// Input Component
+function Input({ className = "", type = "text", ...props }) {
+  return (
+    <input
+      type={type}
+      className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 border-gray-300 bg-white placeholder:text-gray-500 focus-visible:ring-blue-500 ${className}`}
+      {...props}
+    />
+  )
+}
+
+// Textarea Component
+function Textarea({ className = "", ...props }) {
+  return (
+    <textarea
+      className={`flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 border-gray-300 bg-white placeholder:text-gray-500 focus-visible:ring-blue-500 ${className}`}
+      {...props}
+    />
+  )
+}
+
+// Badge Component
+function Badge({ children, variant = "default", className = "", ...props }) {
+  const variants = {
+    default: "bg-primary text-primary-foreground hover:bg-primary/80 bg-gray-900 text-white",
+    secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 bg-gray-100 text-gray-900",
+  }
+
+  return (
+    <div
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${variants[variant]} ${className}`}
+      {...props}
+    >
+      {children}
+    </div>
+  )
+}
+
+// Avatar Components
+function Avatar({ children, className = "", ...props }) {
+  return (
+    <div className={`relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full ${className}`} {...props}>
+      {children}
+    </div>
+  )
+}
+
+function AvatarImage({ src, alt, className = "", ...props }) {
+  return (
+    <img
+      src={src || "/placeholder.svg"}
+      alt={alt}
+      className={`aspect-square h-full w-full object-cover ${className}`}
+      {...props}
+    />
+  )
+}
+
+function AvatarFallback({ children, className = "", ...props }) {
+  return (
+    <div
+      className={`flex h-full w-full items-center justify-center rounded-full bg-muted bg-gray-100 text-gray-600 ${className}`}
+      {...props}
+    >
+      {children}
+    </div>
+  )
+}
 
 // Utility Functions
 async function geocodeAddress(address) {
@@ -158,7 +302,7 @@ function ProfessionalNavigation({ user, handleLogin, handleLogout, currentView, 
             <div className="flex items-center space-x-2 cursor-pointer" onClick={() => setCurrentView("events")}>
               <Building2 className="h-8 w-8 text-blue-600" />
               <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                listeve
+                EventPro
               </span>
             </div>
 
@@ -172,7 +316,7 @@ function ProfessionalNavigation({ user, handleLogin, handleLogout, currentView, 
                       variant={currentView === item.id ? "default" : "ghost"}
                       size="sm"
                       onClick={() => setCurrentView(item.id)}
-                      className={currentView === item.id ? "bg-blue-600 hover:bg-blue-700" : ""}
+                      className={currentView === item.id ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}
                     >
                       <Icon className="h-4 w-4 mr-2" />
                       {item.label}
@@ -200,7 +344,10 @@ function ProfessionalNavigation({ user, handleLogin, handleLogout, currentView, 
                     </Avatar>
                     <span className="text-sm font-medium text-gray-700">{user.displayName}</span>
                   </div>
-                  <Button onClick={() => setCurrentView("add-event")} className="bg-blue-600 hover:bg-blue-700">
+                  <Button
+                    onClick={() => setCurrentView("add-event")}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Event
                   </Button>
@@ -214,7 +361,7 @@ function ProfessionalNavigation({ user, handleLogin, handleLogout, currentView, 
                     <Plus className="h-4 w-4 mr-2" />
                     Add Event
                   </Button>
-                  <Button onClick={handleLogin} className="bg-blue-600 hover:bg-blue-700">
+                  <Button onClick={handleLogin} className="bg-blue-600 hover:bg-blue-700 text-white">
                     Sign In
                   </Button>
                 </>
@@ -237,7 +384,7 @@ function ProfessionalNavigation({ user, handleLogin, handleLogout, currentView, 
                       setCurrentView(item.id)
                       setMenuOpen(false)
                     }}
-                    className={`w-full justify-start ${currentView === item.id ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                    className={`w-full justify-start ${currentView === item.id ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}`}
                   >
                     <Icon className="h-4 w-4 mr-2" />
                     {item.label}
@@ -260,7 +407,7 @@ function ProfessionalNavigation({ user, handleLogin, handleLogout, currentView, 
                         setCurrentView("add-event")
                         setMenuOpen(false)
                       }}
-                      className="w-full bg-blue-600 hover:bg-blue-700 mb-2"
+                      className="w-full bg-blue-600 hover:bg-blue-700 mb-2 text-white"
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Add Event
@@ -294,7 +441,7 @@ function ProfessionalNavigation({ user, handleLogin, handleLogout, currentView, 
                         handleLogin()
                         setMenuOpen(false)
                       }}
-                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                     >
                       Sign In
                     </Button>
@@ -429,7 +576,7 @@ function EventListingPage({ user, events, loading, toggleInterest, setCurrentVie
                 variant={selectedCategory === category ? "default" : "outline"}
                 size="sm"
                 onClick={() => setSelectedCategory(category)}
-                className={selectedCategory === category ? "bg-blue-600 hover:bg-blue-700" : ""}
+                className={selectedCategory === category ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}
               >
                 {category}
               </Button>
@@ -441,7 +588,7 @@ function EventListingPage({ user, events, loading, toggleInterest, setCurrentVie
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white"
             >
               <option value="date">Sort by Date</option>
               <option value="popularity">Sort by Popularity</option>
@@ -451,7 +598,7 @@ function EventListingPage({ user, events, loading, toggleInterest, setCurrentVie
             <select
               value={filterBy}
               onChange={(e) => setFilterBy(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white"
             >
               <option value="all">All Events</option>
               <option value="upcoming">Upcoming Only</option>
@@ -556,7 +703,7 @@ function EventListingPage({ user, events, loading, toggleInterest, setCurrentVie
                         toggleInterest(event)
                       }}
                       disabled={loading}
-                      className={isInterested ? "bg-blue-600 hover:bg-blue-700" : ""}
+                      className={isInterested ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}
                     >
                       <Star className={`h-4 w-4 mr-1 ${isInterested ? "fill-current" : ""}`} />
                       {isInterested ? "Interested" : "Show Interest"}
@@ -751,7 +898,7 @@ function EventDetailPage({ user, toggleInterest, selectedEvent, setCurrentView }
                   setLoadingAction(false)
                 }}
                 disabled={loadingAction}
-                className={`w-full ${isInterested ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                className={`w-full ${isInterested ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}`}
                 variant={isInterested ? "default" : "outline"}
               >
                 <Star className={`h-4 w-4 mr-2 ${isInterested ? "fill-current" : ""}`} />
@@ -951,7 +1098,6 @@ function AnalyticsDashboard({ events, user }) {
 // Calendar View
 function CalendarView({ events, setCurrentView, setSelectedEvent }) {
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [view, setView] = useState("month") // month, week, day
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear()
@@ -1376,7 +1522,7 @@ function AddEventForm({
                     value={form.category}
                     onChange={handleChange}
                     required
-                    className="w-full h-12 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full h-12 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                   >
                     <option value="">Select Category</option>
                     {categories.map((cat) => (
@@ -1486,7 +1632,7 @@ function AddEventForm({
               <Button
                 type="submit"
                 disabled={loading || !user || !isFormValid()}
-                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-lg font-semibold"
+                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-lg font-semibold text-white"
               >
                 {loading ? (
                   <>
