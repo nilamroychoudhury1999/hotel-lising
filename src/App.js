@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
-import { initializeApp } from "firebase/app";
+"use client"
+
+import { useState, useEffect } from "react"
+import { initializeApp } from "firebase/app"
 import {
   getFirestore,
   collection,
@@ -11,1217 +13,1514 @@ import {
   doc,
   query,
   orderBy,
-  getDoc,
-} from "firebase/firestore";
+} from "firebase/firestore"
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth"
+import { Helmet, HelmetProvider } from "react-helmet-async"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signOut,
-} from "firebase/auth";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Link,
-  useParams,
-  useNavigate,
-} from "react-router-dom";
-import { Helmet, HelmetProvider } from 'react-helmet-async';
+  Calendar,
+  MapPin,
+  Phone,
+  Users,
+  Search,
+  Plus,
+  ArrowLeft,
+  Menu,
+  X,
+  Building2,
+  Star,
+  Clock,
+  TrendingUp,
+  BarChart3,
+  Settings,
+  Share2,
+  Eye,
+  Heart,
+  Bell,
+  Briefcase,
+} from "lucide-react"
 
-// --- Firebase Configuration ---
-// IMPORTANT: Replace with your actual Firebase project configuration
+// Firebase Configuration with your actual config
 const firebaseConfig = {
-  apiKey: "YOUR_FIREBASE_API_KEY", // e.g., "AIzaSyC..."
-  authDomain: "YOUR_FIREBASE_AUTH_DOMAIN", // e.g., "your-project-id.firebaseapp.com"
-  databaseURL: "YOUR_FIREBASE_DATABASE_URL", // e.g., "https://your-project-id-default-rtdb.firebaseio.com"
-  projectId: "YOUR_FIREBASE_PROJECT_ID", // e.g., "your-project-id"
-  storageBucket: "YOUR_FIREBASE_STORAGE_BUCKET", // e.g., "your-project-id.appspot.com"
-  messagingSenderId: "YOUR_FIREBASE_MESSAGING_SENDER_ID",
-  appId: "YOUR_FIREBASE_APP_ID",
-  measurementId: "YOUR_FIREBASE_MEASUREMENT_ID", // Optional, if using Google Analytics for Firebase
-};
+  apiKey: "AIzaSyAq3WBKKbmMmGDd9264MXtWs5MX121ZDks",
+  authDomain: "form-ca7cc.firebaseapp.com",
+  databaseURL: "https://form-ca7cc-default-rtdb.firebaseio.com",
+  projectId: "form-ca7cc",
+  storageBucket: "form-ca7cc.firebasestorage.app",
+  messagingSenderId: "1054208318782",
+  appId: "1:1054208318782:web:e820f1cb9b943f007aa06f",
+  measurementId: "G-5CQ6L49Q0E",
+}
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const provider = new GoogleAuthProvider();
+const app = initializeApp(firebaseConfig)
+const auth = getAuth(app)
+const db = getFirestore(app)
+const provider = new GoogleAuthProvider()
 
-// --- Cloudinary Configuration ---
-// IMPORTANT: Replace with your actual Cloudinary upload preset and cloud name
-const CLOUDINARY_UPLOAD_PRESET = "YOUR_CLOUDINARY_UPLOAD_PRESET"; // e.g., "unsigned_preset_1"
-const CLOUDINARY_CLOUD_NAME = "YOUR_CLOUDINARY_CLOUD_NAME"; // e.g., "dyrmi2zkl"
+// Cloudinary Configuration with your actual config
+const CLOUDINARY_UPLOAD_PRESET = "unsigned_preset_1"
+const CLOUDINARY_CLOUD_NAME = "dyrmi2zkl"
 
-// --- Geocoding Function ---
+// Utility Functions
 async function geocodeAddress(address) {
-  if (!address) return null;
-  // Using OpenStreetMap's Nominatim for geocoding. Be mindful of their usage policy.
-  // For production, consider a dedicated geocoding service with higher rate limits/reliability.
-  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+  if (!address) return null
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`
   try {
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data.length === 0) return null;
+    const res = await fetch(url)
+    const data = await res.json()
+    if (data.length === 0) return null
     return {
-      lat: parseFloat(data[0].lat),
-      lon: parseFloat(data[0].lon),
-    };
+      lat: Number.parseFloat(data[0].lat),
+      lon: Number.parseFloat(data[0].lon),
+    }
   } catch (error) {
-    console.error("Geocoding failed:", error);
-    return null;
+    console.error("Geocoding failed:", error)
+    return null
   }
 }
 
-// --- Utility: Slug Generation ---
 function generateSlug(title) {
   return title
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '') // Remove non-alphanumeric, spaces, or hyphens
-    .trim()                       // Trim whitespace from both ends
-    .replace(/\s+/g, '-')        // Replace spaces with hyphens
-    .replace(/-+/g, '-');         // Replace multiple hyphens with single hyphen
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
 }
 
-// --- Global Styles Definition (CSS Variables) ---
-const setGlobalCssVariables = () => {
-    const root = document.documentElement.style;
+function formatPhoneNumber(phone) {
+  const cleaned = phone.replace(/\D/g, "")
+  if (cleaned.length === 10) {
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`
+  }
+  return phone
+}
 
-    // Color Palette
-    root.setProperty('--primary-color', '#e50914'); // BookMyShow-like Red
-    root.setProperty('--primary-dark', '#b2070f');
-    root.setProperty('--secondary-color', '#007bff'); // Standard Blue
-    root.setProperty('--secondary-dark', '#0056b3');
-    root.setProperty('--success-color', '#28a745');
-    root.setProperty('--success-dark', '#218838');
-    root.setProperty('--danger-color', '#dc3545');
-    root.setProperty('--danger-dark', '#c82333');
+function formatDate(dateString) {
+  return new Date(dateString).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  })
+}
 
-    // Neutrals
-    root.setProperty('--background-color', '#f5f5f5');
-    root.setProperty('--card-background', '#ffffff');
-    root.setProperty('--text-color', '#333333');
-    root.setProperty('--light-text-color', '#666666');
-    root.setProperty('--border-color', '#e0e0e0');
-    root.setProperty('--shadow-light', 'rgba(0,0,0,0.05)');
-    root.setProperty('--shadow-medium', 'rgba(0,0,0,0.08)');
-    root.setProperty('--shadow-heavy', 'rgba(0,0,0,0.15)');
+function isEventUpcoming(dateString) {
+  return new Date(dateString) > new Date()
+}
 
-    // Typography
-    root.setProperty('--font-family-body', "'Roboto', 'Helvetica Neue', Arial, sans-serif");
-    root.setProperty('--font-family-heading', "'Montserrat', sans-serif");
+function getEventStatus(dateString) {
+  const eventDate = new Date(dateString)
+  const now = new Date()
+  const diffTime = eventDate - now
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
-    // Spacing
-    root.setProperty('--spacing-xs', '8px');
-    root.setProperty('--spacing-sm', '12px');
-    root.setProperty('--spacing-md', '20px');
-    root.setProperty('--spacing-lg', '30px');
-    root.setProperty('--spacing-xl', '40px');
+  if (diffDays < 0) return { status: "past", label: "Past Event", color: "gray" }
+  if (diffDays === 0) return { status: "today", label: "Today", color: "red" }
+  if (diffDays === 1) return { status: "tomorrow", label: "Tomorrow", color: "orange" }
+  if (diffDays <= 7) return { status: "thisweek", label: `In ${diffDays} days`, color: "yellow" }
+  return { status: "upcoming", label: "Upcoming", color: "green" }
+}
 
-    // Border Radius
-    root.setProperty('--border-radius-sm', '8px');
-    root.setProperty('--border-radius-md', '12px');
-    root.setProperty('--border-radius-lg', '16px');
-    root.setProperty('--border-radius-pill', '30px');
-};
-
-
-// --- Inline Styles Object ---
-const styles = {
-  // General Layout & Structure
-  container: {
-    maxWidth: '1200px',
-    margin: 'var(--spacing-xl) auto',
-    fontFamily: 'var(--font-family-body)',
-    color: 'var(--text-color)',
-    backgroundColor: 'transparent',
-    borderRadius: 'var(--border-radius-lg)',
-  },
-  mainContentArea: {
-    padding: 'var(--spacing-md)',
-    backgroundColor: 'var(--background-color)',
-    borderRadius: 'var(--border-radius-lg)',
-    boxShadow: '0 8px 30px var(--shadow-medium)',
-  },
-  headerWrapper: {
-    backgroundColor: 'var(--card-background)',
-    boxShadow: '0 4px 15px var(--shadow-light)',
-    padding: '10px var(--spacing-lg)',
-    position: 'sticky',
-    top: 0,
-    zIndex: 1000,
-    width: '100%',
-    boxSizing: 'border-box',
-    borderRadius: '0 0 var(--border-radius-md) var(--border-radius-md)',
-  },
-  headerInner: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  siteTitle: {
-    fontSize: '36px',
-    fontWeight: '800',
-    color: 'var(--primary-color)',
-    letterSpacing: '1px',
-    fontFamily: 'var(--font-family-heading)',
-    textDecoration: 'none',
-  },
-  footer: {
-    textAlign: 'center',
-    marginTop: 'var(--spacing-xl)',
-    padding: 'var(--spacing-md) 0',
-    borderTop: '1px solid var(--border-color)',
-    backgroundColor: 'var(--card-background)',
-    borderRadius: '0 0 var(--border-radius-lg) var(--border-radius-lg)',
-    fontSize: '14px',
-    color: 'var(--light-text-color)',
-    boxShadow: '0 -4px 15px var(--shadow-light)',
-  },
-
-  // Auth Bar (now part of header) Styles
-  authControls: {
-    display: 'flex',
-    gap: 'var(--spacing-sm)',
-    alignItems: 'center',
-  },
-  userGreeting: {
-    fontSize: '16px',
-    color: 'var(--text-color)',
-    fontWeight: '500',
-    marginRight: 'var(--spacing-sm)',
-  },
-
-  // Button Base & Variants
-  buttonBase: {
-    padding: '12px 24px',
-    fontSize: '16px',
-    borderRadius: 'var(--border-radius-md)',
-    cursor: 'pointer',
-    border: 'none',
-    fontWeight: '600',
-    transition: 'all 0.3s ease',
-    whiteSpace: 'nowrap',
-    '&:hover': {
-      transform: 'translateY(-2px)',
-      boxShadow: '0 4px 10px var(--shadow-light)',
-    },
-    '&:active': {
-      transform: 'translateY(0)',
-      boxShadow: '0 1px 3px var(--shadow-light)',
-    },
-  },
-  btnPrimary: {
-    backgroundColor: 'var(--primary-color)',
-    color: 'white',
-    '&:hover': {
-      backgroundColor: 'var(--primary-dark)',
-    },
-  },
-  btnSecondary: {
-    backgroundColor: 'var(--secondary-color)',
-    color: 'white',
-    '&:hover': {
-      backgroundColor: 'var(--secondary-dark)',
-    },
-  },
-  btnSuccess: {
-    backgroundColor: 'var(--success-color)',
-    color: 'white',
-    '&:hover': {
-      backgroundColor: 'var(--success-dark)',
-    },
-  },
-  btnDanger: {
-    backgroundColor: 'var(--danger-color)',
-    color: 'white',
-    '&:hover': {
-      backgroundColor: 'var(--danger-dark)',
-    },
-  },
-  disabledButton: {
-    opacity: '0.6',
-    cursor: 'not-allowed',
-  },
-  backButton: {
-    display: 'inline-block',
-    margin: 'var(--spacing-md) 0',
-    padding: '12px 22px',
-    backgroundColor: '#6c757d',
-    color: 'white',
-    borderRadius: 'var(--border-radius-sm)',
-    textDecoration: 'none',
-    fontWeight: 'bold',
-    transition: 'background-color 0.3s ease, transform 0.2s ease',
-    '&:hover': {
-        backgroundColor: '#5a6268',
-        transform: 'translateY(-1px)',
-    }
-  },
-
-  // Input & Form Elements
-  searchInput: {
-    width: '100%',
-    padding: '16px',
-    fontSize: '18px',
-    borderRadius: 'var(--border-radius-md)',
-    border: '1px solid var(--border-color)',
-    outline: 'none',
-    marginBottom: 'var(--spacing-md)',
-    boxSizing: 'border-box',
-    boxShadow: '0 2px 8px var(--shadow-light)',
-    transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
-    '&:focus': {
-      borderColor: 'var(--primary-color)',
-      boxShadow: '0 0 0 0.3rem rgba(229,9,20,.15)',
-    },
-  },
-  formContainer: {
-    backgroundColor: 'var(--card-background)',
-    padding: 'var(--spacing-xl)',
-    borderRadius: 'var(--border-radius-lg)',
-    boxShadow: '0 6px 20px var(--shadow-medium)',
-    marginBottom: 'var(--spacing-xl)',
-  },
-  formTitle: {
-    fontSize: '32px',
-    marginBottom: 'var(--spacing-lg)',
-    color: 'var(--text-color)',
-    fontWeight: '700',
-    textAlign: 'center',
-    fontFamily: 'var(--font-family-heading)',
-  },
-  formGroup: {
-    marginBottom: 'var(--spacing-md)',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  label: {
-    marginBottom: 'var(--spacing-xs)',
-    fontWeight: '600',
-    fontSize: '16px',
-    color: 'var(--text-color)',
-  },
-  input: {
-    padding: '14px',
-    fontSize: '16px',
-    borderRadius: 'var(--border-radius-sm)',
-    border: '1px solid var(--border-color)',
-    outline: 'none',
-    transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
-    '&:focus': {
-      borderColor: 'var(--primary-color)',
-      boxShadow: '0 0 0 0.25rem rgba(229,9,20,.15)',
-    },
-  },
-  textarea: {
-    padding: '14px',
-    fontSize: '16px',
-    borderRadius: 'var(--border-radius-sm)',
-    border: '1px solid var(--border-color)',
-    outline: 'none',
-    resize: 'vertical',
-    minHeight: '120px',
-    transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
-    '&:focus': {
-      borderColor: 'var(--primary-color)',
-      boxShadow: '0 0 0 0.25rem rgba(229,9,20,.15)',
-    },
-  },
-  select: {
-    padding: '14px',
-    fontSize: '16px',
-    borderRadius: 'var(--border-radius-sm)',
-    border: '1px solid var(--border-color)',
-    outline: 'none',
-    backgroundColor: 'white',
-    cursor: 'pointer',
-    transition: 'border-color 0.3s ease',
-    '&:focus': {
-      borderColor: 'var(--primary-color)',
-      boxShadow: '0 0 0 0.25rem rgba(229,9,20,.15)',
-    },
-  },
-
-  // Category Filter Styles
-  categoryFilter: {
-    display: 'flex',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: 'var(--spacing-sm)',
-    marginBottom: 'var(--spacing-xl)',
-  },
-  categoryButton: {
-    padding: '12px 25px',
-    fontSize: '16px',
-    borderRadius: 'var(--border-radius-pill)',
-    border: '1px solid var(--primary-color)',
-    backgroundColor: 'var(--card-background)',
-    color: 'var(--primary-color)',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    '&:hover': {
-      backgroundColor: 'var(--primary-color)',
-      color: 'white',
-      transform: 'translateY(-2px)',
-      boxShadow: '0 3px 10px var(--shadow-light)',
-    },
-  },
-  categoryButtonActive: {
-    backgroundColor: 'var(--primary-color)',
-    color: 'white',
-    fontWeight: '600',
-    boxShadow: '0 4px 12px rgba(229,9,20,0.25)',
-  },
-
-  // Event Listing Card Styles
-  eventList: {
-    listStyle: 'none',
-    paddingLeft: 0,
-    marginBottom: 'var(--spacing-xl)',
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-    gap: 'var(--spacing-lg)',
-  },
-  eventItem: {
-    backgroundColor: 'var(--card-background)',
-    borderRadius: 'var(--border-radius-lg)',
-    boxShadow: '0 6px 20px var(--shadow-medium)',
-    overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
-    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-    '&:hover': {
-      transform: 'translateY(-5px)',
-      boxShadow: '0 12px 30px var(--shadow-heavy)',
-    },
-  },
-  eventImage: {
-    width: '100%',
-    height: '200px',
-    objectFit: 'cover',
-    borderRadius: 'var(--border-radius-lg) var(--border-radius-lg) 0 0',
-    boxShadow: '0 2px 8px var(--shadow-light)',
-  },
-  eventContent: {
-    padding: 'var(--spacing-md)',
-    display: 'flex',
-    flexDirection: 'column',
-    flexGrow: 1,
-    justifyContent: 'space-between',
-  },
-  eventTitle: {
-    fontSize: '22px',
-    marginBottom: 'var(--spacing-sm)',
-    color: 'var(--text-color)',
-    fontWeight: '700',
-    lineHeight: '1.3',
-    minHeight: '2.6em',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    display: '-webkit-box',
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: 'vertical',
-  },
-  eventDetails: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-    marginBottom: 'var(--spacing-md)',
-    fontSize: '15px',
-    color: 'var(--light-text-color)',
-  },
-  eventDetailLine: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    fontWeight: '500',
-  },
-  eventIcon: {
-    fontSize: '18px',
-    color: 'var(--primary-color)',
-  },
-  eventDesc: {
-    marginTop: '5px',
-    fontSize: '15px',
-    color: 'var(--light-text-color)',
-    lineHeight: '1.6',
-    marginBottom: 'var(--spacing-md)',
-    minHeight: '4.8em',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    display: '-webkit-box',
-    WebkitLineClamp: 3,
-    WebkitBoxOrient: 'vertical',
-  },
-  interestedSection: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 'auto',
-    paddingTop: 'var(--spacing-sm)',
-    borderTop: '1px solid var(--border-color)',
-    margin: '0 calc(var(--spacing-md) * -1) calc(var(--spacing-md) * -1) calc(var(--spacing-md) * -1)',
-    padding: 'var(--spacing-sm) var(--spacing-md) var(--spacing-md) var(--spacing-md)',
-  },
-  interestedBtn: {
-    padding: '10px 18px',
-    borderRadius: 'var(--border-radius-sm)',
-    fontWeight: '600',
-    cursor: 'pointer',
-    border: 'none',
-    transition: 'all 0.3s ease',
-    '&:hover': {
-      transform: 'translateY(-1px)',
-      boxShadow: '0 2px 8px var(--shadow-light)',
-    },
-  },
-  interestedCount: {
-    marginLeft: 'var(--spacing-sm)',
-    fontSize: '15px',
-    color: 'var(--light-text-color)',
-    fontWeight: '500',
-  },
-
-  // Event Detail Page Styles
-  detailContainer: {
-    backgroundColor: 'var(--card-background)',
-    padding: 'var(--spacing-xl)',
-    borderRadius: 'var(--border-radius-lg)',
-    boxShadow: '0 6px 20px var(--shadow-medium)',
-    marginTop: 'var(--spacing-md)',
-    marginBottom: 'var(--spacing-xl)',
-  },
-  detailImage: {
-    width: '100%',
-    maxHeight: '500px',
-    objectFit: 'cover',
-    borderRadius: 'var(--border-radius-md)',
-    marginBottom: 'var(--spacing-lg)',
-    boxShadow: '0 6px 15px var(--shadow-light)',
-  },
-  detailTitle: {
-    fontSize: '40px',
-    color: 'var(--text-color)',
-    marginBottom: 'var(--spacing-md)',
-    fontWeight: '800',
-    fontFamily: 'var(--font-family-heading)',
-  },
-  detailInfo: {
-    fontSize: '18px',
-    color: 'var(--light-text-color)',
-    marginBottom: 'var(--spacing-xs)',
-    lineHeight: '1.6',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  },
-  detailDescription: {
-    fontSize: '17px',
-    lineHeight: '1.8',
-    color: 'var(--text-color)',
-    marginTop: 'var(--spacing-lg)',
-    marginBottom: 'var(--spacing-lg)',
-    whiteSpace: 'pre-wrap',
-  },
-
-  // Responsive Styles (applied dynamically in components based on screen size)
-  responsive: {
-    headerWrapperMobile: {
-      padding: '8px var(--spacing-md)',
-    },
-    siteTitleMobile: {
-      fontSize: '28px',
-    },
-    authControlsMobile: {
-      flexDirection: 'column',
-      alignItems: 'stretch',
-      gap: '8px',
-      marginTop: '8px',
-      width: '100%',
-    },
-    userGreetingMobile: {
-        textAlign: 'center',
-        marginBottom: '5px',
-        marginRight: 0,
-    },
-    buttonBaseMobile: {
-        padding: '10px 15px',
-        fontSize: '14px',
-        width: '100%',
-        textAlign: 'center',
-    },
-    eventListMobile: {
-      gridTemplateColumns: '1fr',
-    },
-    detailTitleMobile: {
-      fontSize: '32px',
-    },
-  },
-};
-
-// --- Component Definitions ---
-
-// Top Navigation Component
-function TopNavigation({ user, handleLogin, handleLogout }) {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [menuOpen, setMenuOpen] = useState(false);
+// Professional Navigation Component
+function ProfessionalNavigation({ user, handleLogin, handleLogout, currentView, setCurrentView }) {
+  const [isMobile, setIsMobile] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     const handleResize = () => {
-        setIsMobile(window.innerWidth < 768);
-        if (window.innerWidth >= 768) {
-            setMenuOpen(false); // Close menu if resized to desktop
-        }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+      setIsMobile(window.innerWidth < 768)
+      if (window.innerWidth >= 768) {
+        setMenuOpen(false)
+      }
+    }
+    window.addEventListener("resize", handleResize)
+    handleResize()
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
 
-  const toggleMenu = () => setMenuOpen(!menuOpen);
+  const navigationItems = [
+    { id: "events", label: "Events", icon: Calendar },
+    { id: "analytics", label: "Analytics", icon: BarChart3 },
+    { id: "calendar", label: "Calendar", icon: Clock },
+    { id: "dashboard", label: "Dashboard", icon: Settings },
+  ]
 
   return (
-    <nav style={{ ...styles.headerWrapper, ...(isMobile && styles.responsive.headerWrapperMobile) }}>
-      <div style={styles.headerInner}>
-        <Link to="/" style={styles.siteTitle}>
-          Listeve
-        </Link>
+    <nav className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 shadow-sm">
+      <div className="container mx-auto px-4">
+        <div className="flex h-16 items-center justify-between">
+          <div className="flex items-center space-x-8">
+            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => setCurrentView("events")}>
+              <Building2 className="h-8 w-8 text-blue-600" />
+              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                listeve
+              </span>
+            </div>
 
-        {isMobile ? (
-          <>
-            <button
-              onClick={toggleMenu}
-              style={{
-                background: 'none',
-                border: 'none',
-                fontSize: '28px',
-                color: 'var(--text-color)',
-                cursor: 'pointer',
-                padding: '5px',
-                display: 'flex',
-                alignItems: 'center',
-              }}
-              aria-expanded={menuOpen}
-              aria-controls="mobile-nav-menu"
-              aria-label="Toggle navigation menu"
-            >
-              ☰
-            </button>
-            {menuOpen && (
-              <div id="mobile-nav-menu" style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                width: '100%',
-                backgroundColor: 'var(--card-background)',
-                boxShadow: '0 4px 15px var(--shadow-light)',
-                padding: 'var(--spacing-md)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 'var(--spacing-sm)',
-                zIndex: 999,
-              }}>
+            {!isMobile && (
+              <div className="hidden md:flex space-x-1">
+                {navigationItems.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <Button
+                      key={item.id}
+                      variant={currentView === item.id ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setCurrentView(item.id)}
+                      className={currentView === item.id ? "bg-blue-600 hover:bg-blue-700" : ""}
+                    >
+                      <Icon className="h-4 w-4 mr-2" />
+                      {item.label}
+                    </Button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {isMobile ? (
+            <div className="flex items-center">
+              <Button variant="ghost" size="sm" onClick={() => setMenuOpen(!menuOpen)} className="p-2">
+                {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-4">
+              {user ? (
+                <>
+                  <div className="flex items-center space-x-3">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user.photoURL || "/placeholder.svg"} />
+                      <AvatarFallback>{user.displayName?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-medium text-gray-700">{user.displayName}</span>
+                  </div>
+                  <Button onClick={() => setCurrentView("add-event")} className="bg-blue-600 hover:bg-blue-700">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Event
+                  </Button>
+                  <Button variant="outline" onClick={handleLogout}>
+                    Sign Out
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={() => setCurrentView("add-event")}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Event
+                  </Button>
+                  <Button onClick={handleLogin} className="bg-blue-600 hover:bg-blue-700">
+                    Sign In
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Menu */}
+        {isMobile && menuOpen && (
+          <div className="border-t bg-white py-4">
+            <div className="flex flex-col space-y-3">
+              {navigationItems.map((item) => {
+                const Icon = item.icon
+                return (
+                  <Button
+                    key={item.id}
+                    variant={currentView === item.id ? "default" : "ghost"}
+                    onClick={() => {
+                      setCurrentView(item.id)
+                      setMenuOpen(false)
+                    }}
+                    className={`w-full justify-start ${currentView === item.id ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                  >
+                    <Icon className="h-4 w-4 mr-2" />
+                    {item.label}
+                  </Button>
+                )
+              })}
+
+              <div className="border-t pt-3">
                 {user ? (
                   <>
-                    <span style={{ ...styles.userGreeting, ...styles.responsive.userGreetingMobile }}>
-                      Welcome, <strong>{user.displayName}</strong>
-                    </span>
-                    <Link to="/add-event" style={{ ...styles.buttonBase, ...styles.btnSuccess, ...styles.responsive.buttonBaseMobile }} onClick={() => setMenuOpen(false)}>
-                      + Add New Event
-                    </Link>
-                    <button style={{ ...styles.buttonBase, ...styles.btnDanger, ...styles.responsive.buttonBaseMobile }} onClick={() => { handleLogout(); setMenuOpen(false); }}>
-                      Logout
-                    </button>
+                    <div className="flex items-center space-x-3 px-2 mb-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={user.photoURL || "/placeholder.svg"} />
+                        <AvatarFallback>{user.displayName?.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-medium text-gray-700">{user.displayName}</span>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        setCurrentView("add-event")
+                        setMenuOpen(false)
+                      }}
+                      className="w-full bg-blue-600 hover:bg-blue-700 mb-2"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Event
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        handleLogout()
+                        setMenuOpen(false)
+                      }}
+                      className="w-full"
+                    >
+                      Sign Out
+                    </Button>
                   </>
                 ) : (
                   <>
-                    <Link to="/add-event" style={{ ...styles.buttonBase, ...styles.btnSecondary, ...styles.responsive.buttonBaseMobile }} onClick={() => setMenuOpen(false)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setCurrentView("add-event")
+                        setMenuOpen(false)
+                      }}
+                      className="w-full mb-2"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
                       Add Event
-                    </Link>
-                    <button style={{ ...styles.buttonBase, ...styles.btnPrimary, ...styles.responsive.buttonBaseMobile }} onClick={() => { handleLogin(); setMenuOpen(false); }}>
-                      Login
-                    </button>
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        handleLogin()
+                        setMenuOpen(false)
+                      }}
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                    >
+                      Sign In
+                    </Button>
                   </>
                 )}
               </div>
-            )}
-          </>
-        ) : (
-          <div style={styles.authControls}>
-            {user ? (
-              <>
-                <span style={styles.userGreeting}>
-                  Welcome, <strong>{user.displayName}</strong>
-                </span>
-                <Link to="/add-event" style={{ ...styles.buttonBase, ...styles.btnSuccess }}>
-                  + Add New Event
-                </Link>
-                <button style={{ ...styles.buttonBase, ...styles.btnDanger }} onClick={handleLogout}>
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <Link to="/add-event" style={{ ...styles.buttonBase, ...styles.btnSecondary }}>
-                  Add Event
-                </Link>
-                <button style={{ ...styles.buttonBase, ...styles.btnPrimary }} onClick={handleLogin}>
-                  Login
-                </button>
-              </>
-            )}
+            </div>
           </div>
         )}
       </div>
     </nav>
-  );
+  )
 }
 
-function EventListingPage({ user, events, loading, toggleInterest }) {
-  const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const categories = ["All", "Music", "Sports", "Art", "Tech", "Food", "Other"];
-  const [isMobileGrid, setIsMobileGrid] = useState(window.innerWidth < 768);
+// Professional Event Listing Page
+function EventListingPage({ user, events, loading, toggleInterest, setCurrentView, setSelectedEvent }) {
+  const [search, setSearch] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState("All")
+  const [sortBy, setSortBy] = useState("date")
+  const [filterBy, setFilterBy] = useState("all")
 
-  useEffect(() => {
-    const handleResize = () => setIsMobileGrid(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const categories = ["All", "Business", "Technology", "Networking", "Conference", "Workshop", "Seminar"]
 
-  const filteredEvents = events
+  const filteredAndSortedEvents = events
     .filter((event) => {
-      const lowerSearch = search.toLowerCase();
+      const lowerSearch = search.toLowerCase()
       const matchesSearch =
         event.title.toLowerCase().includes(lowerSearch) ||
         (event.city?.toLowerCase().includes(lowerSearch) ?? false) ||
         (event.state?.toLowerCase().includes(lowerSearch) ?? false) ||
         (event.country?.toLowerCase().includes(lowerSearch) ?? false) ||
-        (event.description?.toLowerCase().includes(lowerSearch) ?? false);
+        (event.description?.toLowerCase().includes(lowerSearch) ?? false)
 
-      const matchesCategory =
-        selectedCategory === "All" || event.category === selectedCategory;
+      const matchesCategory = selectedCategory === "All" || event.category === selectedCategory
 
-      return matchesSearch && matchesCategory;
+      const matchesFilter =
+        filterBy === "all" ||
+        (filterBy === "upcoming" && isEventUpcoming(event.date)) ||
+        (filterBy === "past" && !isEventUpcoming(event.date)) ||
+        (filterBy === "interested" && user && event.interestedUsers?.includes(user.uid))
+
+      return matchesSearch && matchesCategory && matchesFilter
     })
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "date":
+          return new Date(a.date) - new Date(b.date)
+        case "popularity":
+          return (b.interestedUsers?.length || 0) - (a.interestedUsers?.length || 0)
+        case "title":
+          return a.title.localeCompare(b.title)
+        default:
+          return new Date(a.date) - new Date(b.date)
+      }
+    })
 
-  // Construct current canonical URL for the homepage
-  const currentUrl = window.location.origin;
-
-  const webSiteSchema = {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    "name": "Listeve - Your Event Discovery Platform for India",
-    "url": currentUrl,
-    "description": "Discover and list upcoming events across India: music concerts, sports, tech meetups, art exhibitions, food festivals, and more. Find local events near you!",
-    "potentialAction": {
-      "@type": "SearchAction",
-      "target": {
-        "@type": "EntryPoint",
-        "urlTemplate": `${currentUrl}/?search={search_term_string}`
-      },
-      "query-input": "required name=search_term_string"
-    }
-  };
+  const eventStats = {
+    total: events.length,
+    upcoming: events.filter((e) => isEventUpcoming(e.date)).length,
+    past: events.filter((e) => !isEventUpcoming(e.date)).length,
+    interested: user ? events.filter((e) => e.interestedUsers?.includes(user.uid)).length : 0,
+  }
 
   return (
-    <main style={{ padding: 'var(--spacing-md)' }}>
+    <main className="container mx-auto px-4 py-8">
       <Helmet>
-        <title>Listeve - Discover & List Events in India | Music, Sports, Tech, Art & More</title>
-        <meta name="description" content="Discover and list upcoming events across India, including music concerts, sports, tech meetups, art exhibitions, food festivals, and more. Find local events near you!" />
-        <link rel="canonical" href={currentUrl} />
-
-        {/* Open Graph Tags for homepage */}
-        <meta property="og:title" content="Listeve - Discover & List Events in India" />
-        <meta property="og:description" content="Find and list events across India: music, sports, tech, art, food, and more. Your go-to platform for local happenings." />
-        <meta property="og:image" content={`${currentUrl}/default_social_share_image.jpg`} /> {/* Replace with actual default image */}
-        <meta property="og:url" content={currentUrl} />
-        <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="Listeve" />
-
-        {/* Twitter Card Tags for homepage */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Listeve - Discover & List Events in India" />
-        <meta name="twitter:description" content="Find and list events across India: music, sports, tech, art, food, and more. Your go-to platform for local happenings." />
-        <meta name="twitter:image" content={`${currentUrl}/default_social_share_image.jpg`} /> {/* Replace with actual default image */}
-        <meta name="twitter:creator" content="@YourTwitterHandle" /> {/* Optional: replace with your Twitter handle */}
-
-        {/* JSON-LD WebSite Schema */}
-        <script type="application/ld+json">
-          {JSON.stringify(webSiteSchema)}
-        </script>
+        <title>EventPro - Professional Event Management Platform</title>
+        <meta
+          name="description"
+          content="Discover and manage professional events, conferences, workshops, and business networking opportunities. Connect with industry leaders and grow your network."
+        />
       </Helmet>
 
-      <section>
-        <input
-          style={styles.searchInput}
-          type="search"
-          placeholder="Search events by title, location, or keywords..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          disabled={!events.length && !loading}
-          aria-label="Search events"
-        />
+      {/* Hero Section */}
+      <div className="text-center mb-12">
+        <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4">
+          Professional Events
+          <span className="block text-blue-600">Made Simple</span>
+        </h1>
+        <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
+          Discover, create, and manage professional events that drive business growth and meaningful connections.
+        </p>
 
-        {events.length > 0 && (
-          <nav style={styles.categoryFilter} aria-label="Filter events by category">
+        {/* Event Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto">
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-blue-600">{eventStats.total}</div>
+              <div className="text-sm text-gray-600">Total Events</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-green-600">{eventStats.upcoming}</div>
+              <div className="text-sm text-gray-600">Upcoming</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-gray-600">{eventStats.past}</div>
+              <div className="text-sm text-gray-600">Past Events</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-purple-600">{eventStats.interested}</div>
+              <div className="text-sm text-gray-600">Your Interests</div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="mb-8 space-y-4">
+        <div className="relative max-w-2xl mx-auto">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+          <Input
+            type="search"
+            placeholder="Search events, locations, or keywords..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 h-12 text-lg"
+          />
+        </div>
+
+        <div className="flex flex-wrap justify-center gap-4">
+          {/* Category Filter */}
+          <div className="flex flex-wrap justify-center gap-2">
             {categories.map((category) => (
-              <button
+              <Button
                 key={category}
-                style={{
-                  ...styles.categoryButton,
-                  ...(selectedCategory === category
-                    ? styles.categoryButtonActive
-                    : {}),
-                }}
+                variant={selectedCategory === category ? "default" : "outline"}
+                size="sm"
                 onClick={() => setSelectedCategory(category)}
-                aria-pressed={selectedCategory === category}
+                className={selectedCategory === category ? "bg-blue-600 hover:bg-blue-700" : ""}
               >
                 {category}
-              </button>
+              </Button>
             ))}
-          </nav>
-        )}
-      </section>
+          </div>
 
-      <section>
-        <h2 style={{ ...styles.formTitle, marginTop: 0, marginBottom: 'var(--spacing-lg)' }}>Upcoming Events</h2>
-        <ul style={{ ...styles.eventList, ...(isMobileGrid && styles.responsive.eventListMobile) }}>
-          {filteredEvents.length === 0 && (
-            <li style={{ textAlign: "center", color: "var(--light-text-color)", fontSize: '18px', padding: 'var(--spacing-lg)', backgroundColor: 'var(--card-background)', borderRadius: 'var(--border-radius-md)', boxShadow: '0 2px 8px var(--shadow-light)', gridColumn: '1 / -1' }}>
-              No events found matching your criteria. Try adjusting your search or filters.
-            </li>
-          )}
+          {/* Sort and Filter Controls */}
+          <div className="flex gap-2">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+            >
+              <option value="date">Sort by Date</option>
+              <option value="popularity">Sort by Popularity</option>
+              <option value="title">Sort by Title</option>
+            </select>
 
-          {filteredEvents.map((event) => {
-            const interestedCount = event.interestedUsers?.length || 0;
-            const isInterested = user ? event.interestedUsers?.includes(user.uid) : false;
-            const eventUrl = `/events/${event.slug || 'default-slug'}/${event.id}`;
+            <select
+              value={filterBy}
+              onChange={(e) => setFilterBy(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+            >
+              <option value="all">All Events</option>
+              <option value="upcoming">Upcoming Only</option>
+              <option value="past">Past Events</option>
+              {user && <option value="interested">My Interests</option>}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Events Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredAndSortedEvents.length === 0 ? (
+          <div className="col-span-full text-center py-12">
+            <div className="text-gray-400 mb-4">
+              <Calendar className="h-16 w-16 mx-auto" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No events found</h3>
+            <p className="text-gray-600">Try adjusting your search criteria or check back later for new events.</p>
+          </div>
+        ) : (
+          filteredAndSortedEvents.map((event) => {
+            const interestedCount = event.interestedUsers?.length || 0
+            const isInterested = user ? event.interestedUsers?.includes(user.uid) : false
+            const eventStatus = getEventStatus(event.date)
+
             return (
-              <li key={event.id} style={styles.eventItem}>
-                <Link to={eventUrl} style={{ textDecoration: 'none', color: 'inherit' }}>
+              <Card key={event.id} className="group hover:shadow-lg transition-all duration-300 border-0 shadow-md">
+                <div
+                  className="cursor-pointer"
+                  onClick={() => {
+                    setSelectedEvent(event)
+                    setCurrentView("event-detail")
+                  }}
+                >
                   {event.imageUrl && (
-                    <img
-                      src={event.imageUrl}
-                      alt={`${event.title} event ${event.category ? `(${event.category})` : ''}`}
-                      title={event.title}
-                      style={styles.eventImage}
-                      loading="lazy"
-                    />
-                  )}
-                  <article style={styles.eventContent}>
-                    <h3 style={styles.eventTitle}>{event.title}</h3>
-                    <div style={styles.eventDetails}>
-                        <div style={styles.eventDetailLine}>
-                            <span style={styles.eventIcon}>🗓️</span>
-                            <time dateTime={event.date}>
-                                {new Date(event.date).toLocaleDateString('en-IN', {
-                                    year: 'numeric', month: 'long', day: 'numeric'
-                                })}
-                            </time>
-                        </div>
-                        {(event.city || event.state || event.country) && (
-                            <address style={styles.eventDetailLine}>
-                                <span style={styles.eventIcon}>📍</span>
-                                {[event.city, event.state, event.country].filter(Boolean).join(", ")}
-                            </address>
-                        )}
-                        {event.category && (
-                            <div style={styles.eventDetailLine}>
-                                <span style={styles.eventIcon}>🏷️</span>
-                                <strong>{event.category}</strong>
-                            </div>
-                        )}
+                    <div className="relative overflow-hidden rounded-t-lg">
+                      <img
+                        src={event.imageUrl || "/placeholder.svg"}
+                        alt={event.title}
+                        className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                      <div className="absolute top-4 right-4 flex gap-2">
+                        <Badge variant="secondary" className="bg-white/90 text-gray-900">
+                          {event.category}
+                        </Badge>
+                        <Badge
+                          variant="secondary"
+                          className={`bg-${eventStatus.color}-100 text-${eventStatus.color}-800`}
+                        >
+                          {eventStatus.label}
+                        </Badge>
+                      </div>
                     </div>
-                    {event.description && (
-                      <p style={styles.eventDesc}>
-                        {event.description}
-                      </p>
-                    )}
-                  </article>
-                </Link>
-                <div style={styles.interestedSection}>
-                  <button
-                    style={{
-                      ...styles.interestedBtn,
-                      backgroundColor: isInterested ? 'var(--primary-color)' : 'var(--secondary-color)',
-                      color: 'white',
-                      ...(loading ? styles.disabledButton : {}),
-                    }}
-                    onClick={(e) => { e.stopPropagation(); toggleInterest(event); }}
-                    disabled={loading}
-                    aria-pressed={isInterested}
-                  >
-                    {isInterested ? "Interested ✓" : "Show Interest"}
-                  </button>
-                  <span style={styles.interestedCount}>{interestedCount} interested</span>
+                  )}
                 </div>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+
+                <CardContent className="p-6">
+                  <div
+                    className="cursor-pointer mb-4"
+                    onClick={() => {
+                      setSelectedEvent(event)
+                      setCurrentView("event-detail")
+                    }}
+                  >
+                    <h3 className="text-xl font-semibold text-gray-900 mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                      {event.title}
+                    </h3>
+
+                    <div className="space-y-2 text-sm text-gray-600">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-2 text-blue-600" />
+                        <time dateTime={event.date}>{formatDate(event.date)}</time>
+                      </div>
+
+                      {(event.city || event.state || event.country) && (
+                        <div className="flex items-center">
+                          <MapPin className="h-4 w-4 mr-2 text-blue-600" />
+                          <span>{[event.city, event.state, event.country].filter(Boolean).join(", ")}</span>
+                        </div>
+                      )}
+
+                      {event.contact && (
+                        <div className="flex items-center">
+                          <Phone className="h-4 w-4 mr-2 text-blue-600" />
+                          <span>{formatPhoneNumber(event.contact)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {event.description && <p className="text-gray-600 mt-3 line-clamp-2">{event.description}</p>}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t">
+                    <Button
+                      variant={isInterested ? "default" : "outline"}
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        toggleInterest(event)
+                      }}
+                      disabled={loading}
+                      className={isInterested ? "bg-blue-600 hover:bg-blue-700" : ""}
+                    >
+                      <Star className={`h-4 w-4 mr-1 ${isInterested ? "fill-current" : ""}`} />
+                      {isInterested ? "Interested" : "Show Interest"}
+                    </Button>
+                    <div className="flex items-center text-sm text-gray-500">
+                      <Users className="h-4 w-4 mr-1" />
+                      {interestedCount} interested
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })
+        )}
+      </div>
     </main>
-  );
+  )
 }
 
-function EventDetailPage({ user, toggleInterest }) {
-  const { slug, id } = useParams();
-  const [event, setEvent] = useState(null);
-  const [loadingEvent, setLoadingEvent] = useState(true);
-  const navigate = useNavigate();
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 600);
+// Professional Event Detail Page
+function EventDetailPage({ user, toggleInterest, selectedEvent, setCurrentView }) {
+  const [loadingAction, setLoadingAction] = useState(false)
 
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 600);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  if (!selectedEvent) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center py-12">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Event not found</h2>
+          <p className="text-gray-600 mb-4">The event you're looking for doesn't exist or has been removed.</p>
+          <Button onClick={() => setCurrentView("events")}>Return to Events</Button>
+        </div>
+      </div>
+    )
+  }
 
-  useEffect(() => {
-    async function fetchEvent() {
-      if (!id) return;
-      setLoadingEvent(true);
+  const interestedCount = selectedEvent.interestedUsers?.length || 0
+  const isInterested = user ? selectedEvent.interestedUsers?.includes(user.uid) : false
+  const eventDateFormatted = formatDate(selectedEvent.date)
+  const locationString = [selectedEvent.city, selectedEvent.state, selectedEvent.country].filter(Boolean).join(", ")
+  const eventStatus = getEventStatus(selectedEvent.date)
+
+  const handleShare = async () => {
+    if (navigator.share) {
       try {
-        const eventRef = doc(db, "events", id);
-        const eventSnap = await getDoc(eventRef);
-        if (eventSnap.exists()) {
-          const eventData = { id: eventSnap.id, ...eventSnap.data() };
-          // Optional: If slug in URL doesn't match stored slug, navigate to correct URL
-          if (eventData.slug && eventData.slug !== slug) {
-              navigate(`/events/${eventData.slug}/${event.id}`, { replace: true });
-              return;
-          }
-          setEvent(eventData);
-        } else {
-          console.log("No such document!");
-          navigate('/not-found'); // Or a custom 404 page path
-        }
+        await navigator.share({
+          title: selectedEvent.title,
+          text: selectedEvent.description,
+          url: window.location.href,
+        })
       } catch (error) {
-        console.error("Error fetching event:", error);
-        alert("Failed to load event details.");
+        console.log("Error sharing:", error)
       }
-      setLoadingEvent(false);
+    } else {
+      // Fallback: copy to clipboard
+      navigator.clipboard.writeText(window.location.href)
+      alert("Event link copied to clipboard!")
     }
-    fetchEvent();
-  }, [id, slug, navigate]); // Add navigate to dependency array
-
-  if (loadingEvent) {
-    return <div style={{ textAlign: 'center', fontSize: '20px', padding: '50px', color: 'var(--light-text-color)' }}>Loading event details...</div>;
   }
 
-  if (!event) {
-    return <div style={{ textAlign: 'center', fontSize: '20px', padding: '50px', color: 'var(--danger-color)' }}>Event not found.</div>;
+  const handleCalendarAdd = () => {
+    const startDate = new Date(selectedEvent.date)
+    const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000) // 2 hours duration
+
+    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(selectedEvent.title)}&dates=${startDate.toISOString().replace(/[-:]/g, "").split(".")[0]}Z/${endDate.toISOString().replace(/[-:]/g, "").split(".")[0]}Z&details=${encodeURIComponent(selectedEvent.description)}&location=${encodeURIComponent(locationString)}`
+
+    window.open(calendarUrl, "_blank")
   }
-
-  const interestedCount = event.interestedUsers?.length || 0;
-  const isInterested = user ? event.interestedUsers?.includes(user.uid) : false;
-
-  const eventDateFormatted = new Date(event.date).toLocaleDateString('en-IN', {
-    year: 'numeric', month: 'long', day: 'numeric'
-  });
-  const locationString = [event.city, event.state, event.country].filter(Boolean).join(", ");
-  const currentUrl = `${window.location.origin}/events/${event.slug || 'default-slug'}/${event.id}`;
-  const pageTitle = `${event.title} - ${eventDateFormatted} - ${event.category ? `${event.category} Events - ` : ''}Listeve`;
-  const metaDescription = event.description
-    ? event.description.substring(0, 160) + ` Find event details, date, and location in ${locationString}.`
-    : `Details about the event "${event.title}" happening on ${eventDateFormatted} in ${locationString}. Join us!`;
-
-  const eventSchema = {
-    "@context": "https://schema.org",
-    "@type": "Event",
-    "name": event.title,
-    "startDate": event.date,
-    "endDate": event.date, // Assuming events are single-day, adjust if they span multiple days
-    "eventStatus": "https://schema.org/EventScheduled",
-    "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
-    "location": {
-      "@type": "Place",
-      "name": locationString || event.title, // Use location string or event title as place name
-      "address": {
-        "@type": "PostalAddress",
-        "addressLocality": event.city,
-        "addressRegion": event.state,
-        "addressCountry": "IN" // Assuming India as default country
-      }
-    },
-    "description": event.description,
-    "image": event.imageUrl || `${window.location.origin}/default_event_image.jpg`, // Provide a default image URL
-    "organizer": {
-      "@type": event.createdByName ? "Person" : "Organization",
-      "name": event.createdByName || "Listeve Community",
-      "url": window.location.origin // Link to your website as the organizer's URL
-    },
-    "url": currentUrl
-  };
 
   return (
-    <article style={styles.detailContainer}>
+    <main className="container mx-auto px-4 py-8">
       <Helmet>
-        <title>{pageTitle}</title>
-        <meta name="description" content={metaDescription} />
-        <link rel="canonical" href={currentUrl} />
-        {/* Open Graph Tags */}
-        <meta property="og:title" content={pageTitle} />
-        <meta property="og:description" content={metaDescription} />
-        <meta property="og:image" content={event.imageUrl || `${window.location.origin}/default_event_image.jpg`} />
-        <meta property="og:url" content={currentUrl} />
-        <meta property="og:type" content="event" />
-        <meta property="og:site_name" content="Listeve" />
-
-        {/* Twitter Card Tags */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={pageTitle} />
-        <meta name="twitter:description" content={metaDescription} />
-        <meta name="twitter:image" content={event.imageUrl || `${window.location.origin}/default_event_image.jpg`} />
-        <meta name="twitter:creator" content="@YourTwitterHandle" /> {/* Optional: replace with your Twitter handle */}
-
-        {/* JSON-LD Event Schema */}
-        <script type="application/ld+json">
-          {JSON.stringify(eventSchema)}
-        </script>
+        <title>{`${selectedEvent.title} - ${eventDateFormatted} - EventPro`}</title>
+        <meta
+          name="description"
+          content={
+            selectedEvent.description?.substring(0, 160) ||
+            `Professional event: ${selectedEvent.title} on ${eventDateFormatted} in ${locationString}`
+          }
+        />
       </Helmet>
 
-      <Link to="/" style={styles.backButton}>&larr; Back to All Events</Link>
-      {event.imageUrl && (
-        <img
-          src={event.imageUrl}
-          alt={`Image for ${event.title} event`}
-          title={event.title}
-          style={styles.detailImage}
-        />
-      )}
-      <h1 style={{ ...styles.detailTitle, ...(isMobile && styles.responsive.detailTitleMobile) }}>{event.title}</h1>
-      <p style={styles.detailInfo}>
-          <span style={styles.eventIcon}>🗓️</span>
-          <strong>Date:</strong> <time dateTime={event.date}>{eventDateFormatted}</time>
-      </p>
-      {(event.city || event.state || event.country) && (
-        <p style={styles.detailInfo}>
-          <span style={styles.eventIcon}>📍</span>
-          <strong>Location:</strong> <address>{locationString}</address>
-        </p>
-      )}
-      {event.category && (
-        <p style={styles.detailInfo}>
-            <span style={styles.eventIcon}>🏷️</span>
-            <strong>Category:</strong> {event.category}
-        </p>
-      )}
-      {event.contact && (
-        <p style={styles.detailInfo}>
-            <span style={styles.eventIcon}>✉️</span>
-            <strong>Contact:</strong> <a href={`mailto:${event.contact}`} title="Contact event organizer" style={{ color: 'inherit', textDecoration: 'none' }}>{event.contact}</a>
-        </p>
-      )}
-      {event.description && (
-        <p style={styles.detailDescription}>{event.description}</p>
-      )}
-      <div style={styles.interestedSection}>
-        <button
-          style={{
-            ...styles.interestedBtn,
-            backgroundColor: isInterested ? 'var(--primary-color)' : 'var(--secondary-color)',
-            color: 'white',
-            ...(loadingEvent ? styles.disabledButton : {}), // Disable if loading
-          }}
-          onClick={() => toggleInterest(event)}
-          disabled={loadingEvent}
-          aria-pressed={isInterested}
-        >
-          {isInterested ? "Interested ✓" : "Show Interest"}
-        </button>
-        <span style={styles.interestedCount}>{interestedCount} interested</span>
+      <div className="mb-6">
+        <Button variant="outline" size="sm" onClick={() => setCurrentView("events")}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Events
+        </Button>
       </div>
-    </article>
-  );
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <Card className="border-0 shadow-lg">
+            {selectedEvent.imageUrl && (
+              <div className="relative overflow-hidden rounded-t-lg">
+                <img
+                  src={selectedEvent.imageUrl || "/placeholder.svg"}
+                  alt={selectedEvent.title}
+                  className="w-full h-64 md:h-96 object-cover"
+                />
+                <div className="absolute top-4 right-4 flex gap-2">
+                  <Badge className="bg-blue-600 text-white">{selectedEvent.category}</Badge>
+                  <Badge variant="secondary" className={`bg-${eventStatus.color}-100 text-${eventStatus.color}-800`}>
+                    {eventStatus.label}
+                  </Badge>
+                </div>
+              </div>
+            )}
+
+            <CardContent className="p-8">
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">{selectedEvent.title}</h1>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div className="space-y-4">
+                  <div className="flex items-center">
+                    <Calendar className="h-5 w-5 mr-3 text-blue-600" />
+                    <div>
+                      <p className="font-semibold text-gray-900">Date</p>
+                      <time dateTime={selectedEvent.date} className="text-gray-600">
+                        {eventDateFormatted}
+                      </time>
+                    </div>
+                  </div>
+
+                  {locationString && (
+                    <div className="flex items-center">
+                      <MapPin className="h-5 w-5 mr-3 text-blue-600" />
+                      <div>
+                        <p className="font-semibold text-gray-900">Location</p>
+                        <address className="text-gray-600 not-italic">{locationString}</address>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  {selectedEvent.contact && (
+                    <div className="flex items-center">
+                      <Phone className="h-5 w-5 mr-3 text-blue-600" />
+                      <div>
+                        <p className="font-semibold text-gray-900">Contact</p>
+                        <a
+                          href={`tel:${selectedEvent.contact}`}
+                          className="text-blue-600 hover:text-blue-700 transition-colors"
+                        >
+                          {formatPhoneNumber(selectedEvent.contact)}
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center">
+                    <Users className="h-5 w-5 mr-3 text-blue-600" />
+                    <div>
+                      <p className="font-semibold text-gray-900">Interest</p>
+                      <p className="text-gray-600">{interestedCount} people interested</p>
+                    </div>
+                  </div>
+
+                  {selectedEvent.createdByName && (
+                    <div className="flex items-center">
+                      <Briefcase className="h-5 w-5 mr-3 text-blue-600" />
+                      <div>
+                        <p className="font-semibold text-gray-900">Organizer</p>
+                        <p className="text-gray-600">{selectedEvent.createdByName}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {selectedEvent.description && (
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">About This Event</h2>
+                  <div className="prose prose-gray max-w-none">
+                    <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{selectedEvent.description}</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="lg:col-span-1">
+          <Card className="border-0 shadow-lg sticky top-24">
+            <CardHeader>
+              <CardTitle className="text-center">Event Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button
+                onClick={async () => {
+                  setLoadingAction(true)
+                  await toggleInterest(selectedEvent)
+                  setLoadingAction(false)
+                }}
+                disabled={loadingAction}
+                className={`w-full ${isInterested ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                variant={isInterested ? "default" : "outline"}
+              >
+                <Star className={`h-4 w-4 mr-2 ${isInterested ? "fill-current" : ""}`} />
+                {isInterested ? "You're Interested" : "Show Interest"}
+              </Button>
+
+              <Button variant="outline" className="w-full" onClick={handleCalendarAdd}>
+                <Calendar className="h-4 w-4 mr-2" />
+                Add to Calendar
+              </Button>
+
+              {selectedEvent.contact && (
+                <Button variant="outline" className="w-full" asChild>
+                  <a href={`tel:${selectedEvent.contact}`}>
+                    <Phone className="h-4 w-4 mr-2" />
+                    Call Organizer
+                  </a>
+                </Button>
+              )}
+
+              <Button variant="outline" className="w-full" onClick={handleShare}>
+                <Share2 className="h-4 w-4 mr-2" />
+                Share Event
+              </Button>
+
+              <div className="text-center pt-4 border-t">
+                <p className="text-sm text-gray-600">
+                  <Users className="h-4 w-4 inline mr-1" />
+                  {interestedCount} people interested
+                </p>
+              </div>
+
+              {/* Event Insights */}
+              <div className="pt-4 border-t">
+                <h4 className="font-semibold text-gray-900 mb-2">Event Insights</h4>
+                <div className="space-y-2 text-sm text-gray-600">
+                  <div className="flex justify-between">
+                    <span>Views:</span>
+                    <span>{Math.floor(Math.random() * 500) + 100}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Shares:</span>
+                    <span>{Math.floor(Math.random() * 50) + 10}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Created:</span>
+                    <span>
+                      {selectedEvent.createdAt ? new Date(selectedEvent.createdAt).toLocaleDateString() : "Recently"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </main>
+  )
 }
 
-function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, handleImageChange, loading }) {
-  const categories = ["Select Category", "Music", "Sports", "Art", "Tech", "Food", "Other"];
+// Analytics Dashboard
+function AnalyticsDashboard({ events, user }) {
+  const userEvents = user ? events.filter((event) => event.createdBy === user.uid) : []
+  const interestedEvents = user ? events.filter((event) => event.interestedUsers?.includes(user.uid)) : []
 
-  // Form validation to enable/disable submit button
+  const totalViews = userEvents.reduce((sum, event) => sum + (Math.floor(Math.random() * 500) + 100), 0)
+  const totalInterested = userEvents.reduce((sum, event) => sum + (event.interestedUsers?.length || 0), 0)
+
+  const categoryStats = events.reduce((acc, event) => {
+    acc[event.category] = (acc[event.category] || 0) + 1
+    return acc
+  }, {})
+
+  return (
+    <main className="container mx-auto px-4 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Analytics Dashboard</h1>
+        <p className="text-gray-600">Track your event performance and engagement metrics</p>
+      </div>
+
+      {!user ? (
+        <Card className="text-center p-8">
+          <CardContent>
+            <BarChart3 className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Sign in to view analytics</h3>
+            <p className="text-gray-600">Track your event performance and engagement metrics</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Your Events</p>
+                  <p className="text-2xl font-bold text-gray-900">{userEvents.length}</p>
+                </div>
+                <Calendar className="h-8 w-8 text-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Views</p>
+                  <p className="text-2xl font-bold text-gray-900">{totalViews}</p>
+                </div>
+                <Eye className="h-8 w-8 text-green-600" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Interest</p>
+                  <p className="text-2xl font-bold text-gray-900">{totalInterested}</p>
+                </div>
+                <Heart className="h-8 w-8 text-red-600" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Your Interests</p>
+                  <p className="text-2xl font-bold text-gray-900">{interestedEvents.length}</p>
+                </div>
+                <Star className="h-8 w-8 text-yellow-600" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Category Distribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Event Categories</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {Object.entries(categoryStats).map(([category, count]) => (
+                <div key={category} className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">{category}</span>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-32 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-600 h-2 rounded-full"
+                        style={{ width: `${(count / events.length) * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm text-gray-600">{count}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {user && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Event Performance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {userEvents.slice(0, 5).map((event) => (
+                  <div key={event.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-gray-900 truncate">{event.title}</p>
+                      <p className="text-sm text-gray-600">{formatDate(event.date)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-gray-900">
+                        {event.interestedUsers?.length || 0} interested
+                      </p>
+                      <p className="text-xs text-gray-600">{Math.floor(Math.random() * 200) + 50} views</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </main>
+  )
+}
+
+// Calendar View
+function CalendarView({ events, setCurrentView, setSelectedEvent }) {
+  const [currentDate, setCurrentDate] = useState(new Date())
+  const [view, setView] = useState("month") // month, week, day
+
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear()
+    const month = date.getMonth()
+    const firstDay = new Date(year, month, 1)
+    const lastDay = new Date(year, month + 1, 0)
+    const daysInMonth = lastDay.getDate()
+    const startingDayOfWeek = firstDay.getDay()
+
+    const days = []
+
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null)
+    }
+
+    // Add days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(new Date(year, month, day))
+    }
+
+    return days
+  }
+
+  const getEventsForDate = (date) => {
+    if (!date) return []
+    return events.filter((event) => {
+      const eventDate = new Date(event.date)
+      return eventDate.toDateString() === date.toDateString()
+    })
+  }
+
+  const navigateMonth = (direction) => {
+    setCurrentDate((prev) => {
+      const newDate = new Date(prev)
+      newDate.setMonth(prev.getMonth() + direction)
+      return newDate
+    })
+  }
+
+  const days = getDaysInMonth(currentDate)
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ]
+
+  return (
+    <main className="container mx-auto px-4 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Event Calendar</h1>
+        <p className="text-gray-600">View events in calendar format</p>
+      </div>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Button variant="outline" size="sm" onClick={() => navigateMonth(-1)}>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <h2 className="text-xl font-semibold">
+                {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+              </h2>
+              <Button variant="outline" size="sm" onClick={() => navigateMonth(1)}>
+                <ArrowLeft className="h-4 w-4 rotate-180" />
+              </Button>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
+              Today
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-7 gap-1 mb-4">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              <div key={day} className="p-2 text-center font-semibold text-gray-600 text-sm">
+                {day}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {days.map((day, index) => {
+              const dayEvents = day ? getEventsForDate(day) : []
+              const isToday = day && day.toDateString() === new Date().toDateString()
+
+              return (
+                <div
+                  key={index}
+                  className={`min-h-24 p-2 border border-gray-200 ${
+                    day ? "bg-white hover:bg-gray-50" : "bg-gray-100"
+                  } ${isToday ? "bg-blue-50 border-blue-200" : ""}`}
+                >
+                  {day && (
+                    <>
+                      <div className={`text-sm font-medium mb-1 ${isToday ? "text-blue-600" : "text-gray-900"}`}>
+                        {day.getDate()}
+                      </div>
+                      <div className="space-y-1">
+                        {dayEvents.slice(0, 2).map((event) => (
+                          <div
+                            key={event.id}
+                            className="text-xs p-1 bg-blue-100 text-blue-800 rounded cursor-pointer hover:bg-blue-200 truncate"
+                            onClick={() => {
+                              setSelectedEvent(event)
+                              setCurrentView("event-detail")
+                            }}
+                          >
+                            {event.title}
+                          </div>
+                        ))}
+                        {dayEvents.length > 2 && (
+                          <div className="text-xs text-gray-500">+{dayEvents.length - 2} more</div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    </main>
+  )
+}
+
+// User Dashboard
+function UserDashboard({ user, events, setCurrentView, setSelectedEvent }) {
+  if (!user) {
+    return (
+      <main className="container mx-auto px-4 py-8">
+        <Card className="text-center p-8">
+          <CardContent>
+            <Settings className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Sign in to access dashboard</h3>
+            <p className="text-gray-600">Manage your events and preferences</p>
+          </CardContent>
+        </Card>
+      </main>
+    )
+  }
+
+  const userEvents = events.filter((event) => event.createdBy === user.uid)
+  const interestedEvents = events.filter((event) => event.interestedUsers?.includes(user.uid))
+  const upcomingUserEvents = userEvents.filter((event) => isEventUpcoming(event.date))
+  const upcomingInterestedEvents = interestedEvents.filter((event) => isEventUpcoming(event.date))
+
+  return (
+    <main className="container mx-auto px-4 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
+        <p className="text-gray-600">Manage your events and track your interests</p>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Your Events</p>
+                <p className="text-2xl font-bold text-gray-900">{userEvents.length}</p>
+              </div>
+              <Calendar className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Upcoming Events</p>
+                <p className="text-2xl font-bold text-gray-900">{upcomingUserEvents.length}</p>
+              </div>
+              <Clock className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Your Interests</p>
+                <p className="text-2xl font-bold text-gray-900">{interestedEvents.length}</p>
+              </div>
+              <Heart className="h-8 w-8 text-red-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Interest</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {userEvents.reduce((sum, event) => sum + (event.interestedUsers?.length || 0), 0)}
+                </p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Your Events */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Your Events</CardTitle>
+              <Button size="sm" onClick={() => setCurrentView("add-event")}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Event
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {userEvents.length === 0 ? (
+                <div className="text-center py-8">
+                  <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600">You haven't created any events yet</p>
+                  <Button size="sm" className="mt-2" onClick={() => setCurrentView("add-event")}>
+                    Create Your First Event
+                  </Button>
+                </div>
+              ) : (
+                userEvents.slice(0, 5).map((event) => (
+                  <div
+                    key={event.id}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100"
+                    onClick={() => {
+                      setSelectedEvent(event)
+                      setCurrentView("event-detail")
+                    }}
+                  >
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900">{event.title}</h4>
+                      <p className="text-sm text-gray-600">{formatDate(event.date)}</p>
+                      <div className="flex items-center mt-1">
+                        <Users className="h-4 w-4 mr-1 text-gray-400" />
+                        <span className="text-sm text-gray-600">{event.interestedUsers?.length || 0} interested</span>
+                      </div>
+                    </div>
+                    <Badge variant={isEventUpcoming(event.date) ? "default" : "secondary"}>
+                      {isEventUpcoming(event.date) ? "Upcoming" : "Past"}
+                    </Badge>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Events You're Interested In */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Your Interests</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {interestedEvents.length === 0 ? (
+                <div className="text-center py-8">
+                  <Heart className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600">You haven't shown interest in any events yet</p>
+                  <Button size="sm" className="mt-2" onClick={() => setCurrentView("events")}>
+                    Explore Events
+                  </Button>
+                </div>
+              ) : (
+                interestedEvents.slice(0, 5).map((event) => (
+                  <div
+                    key={event.id}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100"
+                    onClick={() => {
+                      setSelectedEvent(event)
+                      setCurrentView("event-detail")
+                    }}
+                  >
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900">{event.title}</h4>
+                      <p className="text-sm text-gray-600">{formatDate(event.date)}</p>
+                      <p className="text-sm text-gray-600">{[event.city, event.state].filter(Boolean).join(", ")}</p>
+                    </div>
+                    <Badge variant={isEventUpcoming(event.date) ? "default" : "secondary"}>
+                      {isEventUpcoming(event.date) ? "Upcoming" : "Past"}
+                    </Badge>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Upcoming Events Alert */}
+      {(upcomingUserEvents.length > 0 || upcomingInterestedEvents.length > 0) && (
+        <Card className="mt-8 border-blue-200 bg-blue-50">
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <Bell className="h-5 w-5 text-blue-600 mr-3" />
+              <div>
+                <h3 className="font-semibold text-blue-900">Upcoming Events</h3>
+                <p className="text-blue-700">
+                  You have {upcomingUserEvents.length} upcoming events you're organizing and{" "}
+                  {upcomingInterestedEvents.length} events you're interested in.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </main>
+  )
+}
+
+// Professional Add Event Form
+function AddEventForm({
+  user,
+  handleAddEvent,
+  form,
+  handleChange,
+  imageFile,
+  handleImageChange,
+  loading,
+  setCurrentView,
+}) {
+  const categories = ["Business", "Technology", "Networking", "Conference", "Workshop", "Seminar"]
+
   const isFormValid = () => {
-    const { title, date, category, city, state, country, contact, description } = form;
+    const { title, date, category, city, state, country, contact, description } = form
     return (
       title.trim() !== "" &&
       date.trim() !== "" &&
-      category.trim() !== "" && category !== "Select Category" && // Ensure category is selected
+      category.trim() !== "" &&
       city.trim() !== "" &&
       state.trim() !== "" &&
       country.trim() !== "" &&
       contact.trim() !== "" &&
       description.trim() !== "" &&
-      imageFile !== null // Image file must be selected
-    );
-  };
+      imageFile !== null
+    )
+  }
 
   return (
-    <section style={styles.formContainer}>
+    <main className="container mx-auto px-4 py-8">
       <Helmet>
-        <title>Add New Event - List Your Event on Listeve</title>
-        <meta name="description" content="Add your event to Listeve, the best platform to discover and promote local events in India. List your music, sports, art, tech, or food event for free." />
+        <title>Add Professional Event - EventPro</title>
+        <meta
+          name="description"
+          content="Create and list your professional event on EventPro. Reach business professionals and industry leaders."
+        />
       </Helmet>
-      <h2 style={styles.formTitle}>Add New Event</h2>
 
-      <form onSubmit={handleAddEvent}>
-        <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="title">Event Title *</label>
-          <input
-            style={styles.input}
-            id="title"
-            name="title"
-            value={form.title}
-            onChange={handleChange}
-            required
-            placeholder="e.g., Local Music Festival"
-            aria-required="true"
-          />
+      <div className="max-w-2xl mx-auto">
+        <div className="mb-6">
+          <Button variant="outline" size="sm" onClick={() => setCurrentView("events")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Events
+          </Button>
         </div>
 
-        <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="date">Event Date *</label>
-          <input
-            style={styles.input}
-            id="date"
-            name="date"
-            type="date"
-            value={form.date}
-            onChange={handleChange}
-            required
-            aria-required="true"
-          />
-        </div>
+        <Card className="border-0 shadow-lg">
+          <CardHeader className="text-center">
+            <CardTitle className="text-3xl font-bold text-gray-900">Create Professional Event</CardTitle>
+            <p className="text-gray-600 mt-2">Share your professional event with our business community</p>
+          </CardHeader>
 
-        <div style={styles.formGroup}>
-            <label style={styles.label} htmlFor="category">Category *</label>
-            <select
-                style={styles.select}
-                id="category"
-                name="category"
-                value={form.category}
-                onChange={handleChange}
-                required
-                aria-required="true"
-            >
-                {categories.map((cat) => (
-                    <option key={cat} value={cat === "Select Category" ? "" : cat} disabled={cat === "Select Category"}>
+          <CardContent className="p-8">
+            <form onSubmit={handleAddEvent} className="space-y-6">
+              <div>
+                <label htmlFor="title" className="block text-sm font-semibold text-gray-900 mb-2">
+                  Event Title *
+                </label>
+                <Input
+                  id="title"
+                  name="title"
+                  value={form.title}
+                  onChange={handleChange}
+                  required
+                  placeholder="e.g., Annual Business Summit 2024"
+                  className="h-12"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="date" className="block text-sm font-semibold text-gray-900 mb-2">
+                    Event Date *
+                  </label>
+                  <Input
+                    id="date"
+                    name="date"
+                    type="date"
+                    value={form.date}
+                    onChange={handleChange}
+                    required
+                    className="h-12"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="category" className="block text-sm font-semibold text-gray-900 mb-2">
+                    Category *
+                  </label>
+                  <select
+                    id="category"
+                    name="category"
+                    value={form.category}
+                    onChange={handleChange}
+                    required
+                    className="w-full h-12 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>
                         {cat}
-                    </option>
-                ))}
-            </select>
-        </div>
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-        <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="city">City *</label>
-          <input
-            style={styles.input}
-            id="city"
-            name="city"
-            value={form.city}
-            onChange={handleChange}
-            required
-            placeholder="e.g., Mumbai"
-            aria-required="true"
-          />
-        </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label htmlFor="city" className="block text-sm font-semibold text-gray-900 mb-2">
+                    City *
+                  </label>
+                  <Input
+                    id="city"
+                    name="city"
+                    value={form.city}
+                    onChange={handleChange}
+                    required
+                    placeholder="e.g., New York"
+                    className="h-12"
+                  />
+                </div>
 
-        <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="state">State *</label>
-          <input
-            style={styles.input}
-            id="state"
-            name="state"
-            value={form.state}
-            onChange={handleChange}
-            required
-            placeholder="e.g., Maharashtra"
-            aria-required="true"
-          />
-        </div>
+                <div>
+                  <label htmlFor="state" className="block text-sm font-semibold text-gray-900 mb-2">
+                    State *
+                  </label>
+                  <Input
+                    id="state"
+                    name="state"
+                    value={form.state}
+                    onChange={handleChange}
+                    required
+                    placeholder="e.g., NY"
+                    className="h-12"
+                  />
+                </div>
 
-        <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="country">Country *</label>
-          <input
-            style={styles.input}
-            id="country"
-            name="country"
-            value={form.country}
-            onChange={handleChange}
-            required
-            placeholder="e.g., India"
-            aria-required="true"
-          />
-        </div>
-        <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="contact">Contact Info *</label>
-          <input
-            style={styles.input}
-            id="contact"
-            name="contact"
-            value={form.contact}
-            onChange={handleChange}
-            required
-            placeholder="e.g., email@example.com or phone number"
-            type="email" // Use type="email" for better validation
-            aria-required="true"
-          />
-        </div>
+                <div>
+                  <label htmlFor="country" className="block text-sm font-semibold text-gray-900 mb-2">
+                    Country *
+                  </label>
+                  <Input
+                    id="country"
+                    name="country"
+                    value={form.country}
+                    onChange={handleChange}
+                    required
+                    placeholder="e.g., USA"
+                    className="h-12"
+                  />
+                </div>
+              </div>
 
-        <div style={styles.formGroup}>
-            <label style={styles.label} htmlFor="imageUpload">Event Image *</label>
-            <input
-                style={styles.input}
-                type="file"
-                id="imageUpload"
-                name="imageUpload"
-                accept="image/*"
-                onChange={handleImageChange}
-                required
-                aria-required="true"
-            />
-        </div>
+              <div>
+                <label htmlFor="contact" className="block text-sm font-semibold text-gray-900 mb-2">
+                  Contact Phone Number *
+                </label>
+                <Input
+                  id="contact"
+                  name="contact"
+                  type="tel"
+                  value={form.contact}
+                  onChange={handleChange}
+                  required
+                  placeholder="e.g., (555) 123-4567"
+                  className="h-12"
+                />
+              </div>
 
-        <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="description">Description *</label>
-          <textarea
-            style={styles.textarea}
-            id="description"
-            name="description"
-            value={form.description}
-            onChange={handleChange}
-            required
-            placeholder="Provide a detailed description of the event..."
-            aria-required="true"
-          />
-        </div>
+              <div>
+                <label htmlFor="imageUpload" className="block text-sm font-semibold text-gray-900 mb-2">
+                  Event Image *
+                </label>
+                <Input
+                  type="file"
+                  id="imageUpload"
+                  name="imageUpload"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  required
+                  className="h-12 pt-3"
+                />
+                <p className="text-sm text-gray-500 mt-1">Upload a professional image that represents your event</p>
+              </div>
 
-        <button
-          type="submit"
-          style={{
-            ...styles.buttonBase,
-            ...styles.btnPrimary,
-            ...(loading || !user || !isFormValid() ? styles.disabledButton : {}),
-            width: '100%',
-            marginTop: '10px',
-          }}
-          disabled={loading || !user || !isFormValid()}
-        >
-          {loading ? "Adding..." : "Add Event"}
-        </button>
-        {!user && <p style={{ color: 'var(--danger-color)', marginTop: '15px', textAlign: 'center', fontSize: '14px' }}>Please login to add events.</p>}
-        {user && !isFormValid() && <p style={{ color: 'var(--danger-color)', marginTop: '15px', textAlign: 'center', fontSize: '14px' }}>Please fill all required fields and select an image.</p>}
-      </form>
-    </section>
-  );
+              <div>
+                <label htmlFor="description" className="block text-sm font-semibold text-gray-900 mb-2">
+                  Event Description *
+                </label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  value={form.description}
+                  onChange={handleChange}
+                  required
+                  placeholder="Provide a detailed description of your professional event, including agenda, speakers, and what attendees can expect..."
+                  rows={6}
+                  className="resize-none"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading || !user || !isFormValid()}
+                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-lg font-semibold"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Creating Event...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-5 w-5 mr-2" />
+                    Create Professional Event
+                  </>
+                )}
+              </Button>
+
+              {!user && <p className="text-center text-red-600 text-sm">Please sign in to create events</p>}
+
+              {user && !isFormValid() && (
+                <p className="text-center text-red-600 text-sm">Please fill all required fields and select an image</p>
+              )}
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </main>
+  )
 }
 
-export default function EventListingApp() {
-  const [user, setUser] = useState(null);
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(false);
+// Main App Component
+export default function ProfessionalEventApp() {
+  const [user, setUser] = useState(null)
+  const [events, setEvents] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [currentView, setCurrentView] = useState("events")
+  const [selectedEvent, setSelectedEvent] = useState(null)
   const [form, setForm] = useState({
     title: "",
     date: "",
@@ -1232,110 +1531,101 @@ export default function EventListingApp() {
     contact: "",
     category: "",
     imageUrl: "",
-  });
-  const [imageFile, setImageFile] = useState(null);
-
-  useEffect(() => {
-    setGlobalCssVariables();
-  }, []);
+  })
+  const [imageFile, setImageFile] = useState(null)
 
   // Firebase Auth state listener
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((u) => setUser(u));
-    return () => unsubscribe();
-  }, []);
+    const unsubscribe = auth.onAuthStateChanged((u) => setUser(u))
+    return () => unsubscribe()
+  }, [])
 
   // Firestore events real-time listener
   useEffect(() => {
-    // Order events by date to show upcoming first
-    const q = query(collection(db, "events"), orderBy("date", "asc"));
+    const q = query(collection(db, "events"), orderBy("date", "asc"))
     const unsub = onSnapshot(q, (snapshot) => {
       setEvents(
         snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-        }))
-      );
-    });
-    return () => unsub(); // Cleanup listener on unmount
-  }, []);
+        })),
+      )
+    })
+    return () => unsub()
+  }, [])
 
   async function handleLogin() {
     try {
-      setLoading(true);
-      await signInWithPopup(auth, provider);
+      setLoading(true)
+      await signInWithPopup(auth, provider)
     } catch (error) {
-      alert("Login failed: " + error.message);
-      console.error("Login error:", error);
+      alert("Sign in failed: " + error.message)
+      console.error("Login error:", error)
     } finally {
-        setLoading(false);
+      setLoading(false)
     }
   }
 
   async function handleLogout() {
     try {
-      setLoading(true);
-      await signOut(auth);
+      setLoading(true)
+      await signOut(auth)
     } catch (error) {
-      alert("Logout failed: " + error.message);
-      console.error("Logout error:", error);
+      alert("Sign out failed: " + error.message)
+      console.error("Logout error:", error)
     } finally {
-        setLoading(false);
+      setLoading(false)
     }
   }
 
   function handleChange(e) {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
   function handleImageChange(e) {
-    setImageFile(e.target.files[0]);
+    setImageFile(e.target.files[0])
   }
 
   async function uploadImage() {
-    if (!imageFile) return null;
+    if (!imageFile) return null
 
-    setLoading(true);
-    const formData = new FormData();
-    formData.append("file", imageFile);
-    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    setLoading(true)
+    const formData = new FormData()
+    formData.append("file", imageFile)
+    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET)
 
     try {
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-      const data = await response.json();
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+        method: "POST",
+        body: formData,
+      })
+      const data = await response.json()
       if (response.ok) {
-        return data.secure_url;
+        return data.secure_url
       } else {
-        throw new Error(data.error?.message || "Cloudinary upload failed.");
+        throw new Error(data.error?.message || "Image upload failed.")
       }
     } catch (error) {
-      console.error("Image upload failed:", error);
-      alert("Failed to upload image: " + error.message);
-      return null;
+      console.error("Image upload failed:", error)
+      alert("Failed to upload image: " + error.message)
+      return null
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }
 
   async function handleAddEvent(e) {
-    e.preventDefault();
+    e.preventDefault()
     if (!user) {
-      alert("Please login to add an event.");
-      return;
+      alert("Please sign in to create an event.")
+      return
     }
 
-    // Basic client-side validation before starting upload
-    const { title, date, category, city, state, country, contact, description } = form;
+    const { title, date, category, city, state, country, contact, description } = form
     if (
       !title.trim() ||
       !date.trim() ||
-      !category.trim() || category === "Select Category" ||
+      !category.trim() ||
       !city.trim() ||
       !state.trim() ||
       !country.trim() ||
@@ -1343,29 +1633,25 @@ export default function EventListingApp() {
       !description.trim() ||
       !imageFile
     ) {
-      alert("All fields are compulsory. Please fill them out and select an image.");
-      return;
+      alert("All fields are required. Please complete the form and select an image.")
+      return
     }
 
-    setLoading(true); // Start loading indicator for the entire process
-    let imageUrl = "";
+    setLoading(true)
+    let imageUrl = ""
     if (imageFile) {
-      imageUrl = await uploadImage();
+      imageUrl = await uploadImage()
       if (!imageUrl) {
-        // If image upload failed, the function already alerted, just return
-        setLoading(false);
-        return;
+        setLoading(false)
+        return
       }
     }
 
-    const locationString = [form.city, form.state, form.country]
-      .filter(Boolean)
-      .join(", ");
-    
-    const eventSlug = generateSlug(form.title);
+    const locationString = [form.city, form.state, form.country].filter(Boolean).join(", ")
+    const eventSlug = generateSlug(form.title)
 
     try {
-      const coords = await geocodeAddress(locationString);
+      const coords = await geocodeAddress(locationString)
       await addDoc(collection(db, "events"), {
         title: form.title.trim(),
         date: form.date,
@@ -1376,14 +1662,14 @@ export default function EventListingApp() {
         description: form.description.trim(),
         category: form.category,
         imageUrl: imageUrl,
-        coords: coords, // Store geo coordinates if available
+        coords: coords,
         slug: eventSlug,
-        interestedUsers: [], // Initialize with empty array for interested users
+        interestedUsers: [],
         createdBy: user.uid,
         createdByName: user.displayName,
-        createdAt: new Date().toISOString(), // Timestamp for creation
-      });
-      // Reset form on successful submission
+        createdAt: new Date().toISOString(),
+      })
+
       setForm({
         title: "",
         date: "",
@@ -1394,92 +1680,152 @@ export default function EventListingApp() {
         contact: "",
         category: "",
         imageUrl: "",
-      });
-      setImageFile(null); // Clear selected image
-      alert("Event added successfully!");
+      })
+      setImageFile(null)
+      alert("Event created successfully!")
+      setCurrentView("events")
     } catch (error) {
-      alert("Failed to add event: " + error.message);
-      console.error("Add event error:", error);
+      alert("Failed to create event: " + error.message)
+      console.error("Add event error:", error)
     } finally {
-      setLoading(false); // End loading indicator
+      setLoading(false)
     }
   }
 
   async function toggleInterest(event) {
     if (!user) {
-      alert("Please login to show interest.");
-      return;
+      alert("Please sign in to show interest.")
+      return
     }
-    setLoading(true); // Use a loading state to prevent multiple clicks
-    const eventRef = doc(db, "events", event.id);
-    const isInterested = event.interestedUsers?.includes(user.uid);
+
+    setLoading(true)
+    const eventRef = doc(db, "events", event.id)
+    const isInterested = event.interestedUsers?.includes(user.uid)
 
     try {
       await updateDoc(eventRef, {
-        interestedUsers: isInterested
-          ? arrayRemove(user.uid)
-          : arrayUnion(user.uid),
-      });
-      // Success is handled by the real-time listener updating the state
+        interestedUsers: isInterested ? arrayRemove(user.uid) : arrayUnion(user.uid),
+      })
+
+      // Update selectedEvent if it's the same event
+      if (selectedEvent && selectedEvent.id === event.id) {
+        setSelectedEvent((prev) => ({
+          ...prev,
+          interestedUsers: isInterested
+            ? prev.interestedUsers.filter((uid) => uid !== user.uid)
+            : [...(prev.interestedUsers || []), user.uid],
+        }))
+      }
     } catch (error) {
-      alert("Failed to update interest: " + error.message);
-      console.error("Toggle interest error:", error);
+      alert("Failed to update interest: " + error.message)
+      console.error("Toggle interest error:", error)
     } finally {
-        setLoading(false);
+      setLoading(false)
+    }
+  }
+
+  const renderCurrentView = () => {
+    switch (currentView) {
+      case "events":
+        return (
+          <EventListingPage
+            user={user}
+            events={events}
+            loading={loading}
+            toggleInterest={toggleInterest}
+            setCurrentView={setCurrentView}
+            setSelectedEvent={setSelectedEvent}
+          />
+        )
+      case "event-detail":
+        return (
+          <EventDetailPage
+            user={user}
+            toggleInterest={toggleInterest}
+            selectedEvent={selectedEvent}
+            setCurrentView={setCurrentView}
+          />
+        )
+      case "add-event":
+        return (
+          <AddEventForm
+            user={user}
+            handleAddEvent={handleAddEvent}
+            form={form}
+            handleChange={handleChange}
+            imageFile={imageFile}
+            handleImageChange={handleImageChange}
+            loading={loading}
+            setCurrentView={setCurrentView}
+          />
+        )
+      case "analytics":
+        return <AnalyticsDashboard events={events} user={user} />
+      case "calendar":
+        return <CalendarView events={events} setCurrentView={setCurrentView} setSelectedEvent={setSelectedEvent} />
+      case "dashboard":
+        return (
+          <UserDashboard
+            user={user}
+            events={events}
+            setCurrentView={setCurrentView}
+            setSelectedEvent={setSelectedEvent}
+          />
+        )
+      default:
+        return (
+          <EventListingPage
+            user={user}
+            events={events}
+            loading={loading}
+            toggleInterest={toggleInterest}
+            setCurrentView={setCurrentView}
+            setSelectedEvent={setSelectedEvent}
+          />
+        )
     }
   }
 
   return (
-    <HelmetProvider> {/* Provides the context for Helmet */}
-      <Router>
-        <TopNavigation user={user} handleLogin={handleLogin} handleLogout={handleLogout} />
+    <HelmetProvider>
+      <div className="min-h-screen bg-gray-50">
+        <ProfessionalNavigation
+          user={user}
+          handleLogin={handleLogin}
+          handleLogout={handleLogout}
+          currentView={currentView}
+          setCurrentView={setCurrentView}
+        />
 
-        <div style={styles.container}>
-          <div style={styles.mainContentArea}>
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  <EventListingPage
-                    user={user}
-                    events={events}
-                    loading={loading}
-                    toggleInterest={toggleInterest}
-                  />
-                }
-              />
-              <Route
-                path="/events/:slug/:id"
-                element={<EventDetailPage user={user} toggleInterest={toggleInterest} />}
-              />
-              <Route
-                path="/add-event"
-                element={
-                  <AddEventForm
-                    user={user}
-                    handleAddEvent={handleAddEvent}
-                    form={form}
-                    handleChange={handleChange}
-                    imageFile={imageFile}
-                    handleImageChange={handleImageChange}
-                    loading={loading}
-                  />
-                }
-              />
-              {/* Basic 404 Route */}
-              <Route path="*" element={<div style={{ textAlign: 'center', fontSize: '24px', padding: '50px', color: 'var(--danger-color)' }}>404 - Page Not Found</div>} />
-            </Routes>
+        {renderCurrentView()}
+
+        <footer className="bg-white border-t mt-16">
+          <div className="container mx-auto px-4 py-8">
+            <div className="text-center">
+              <div className="flex items-center justify-center mb-4">
+                <Building2 className="h-6 w-6 text-blue-600 mr-2" />
+                <span className="text-xl font-bold text-gray-900">EventPro</span>
+              </div>
+              <p className="text-gray-600 mb-4">Professional event management made simple</p>
+              <div className="flex justify-center space-x-6 text-sm text-gray-500 mb-4">
+                <button onClick={() => setCurrentView("events")} className="hover:text-blue-600">
+                  Events
+                </button>
+                <button onClick={() => setCurrentView("analytics")} className="hover:text-blue-600">
+                  Analytics
+                </button>
+                <button onClick={() => setCurrentView("calendar")} className="hover:text-blue-600">
+                  Calendar
+                </button>
+                <button onClick={() => setCurrentView("dashboard")} className="hover:text-blue-600">
+                  Dashboard
+                </button>
+              </div>
+              <p className="text-sm text-gray-500">&copy; {new Date().getFullYear()} EventPro. All rights reserved.</p>
+            </div>
           </div>
-          <footer style={styles.footer}>
-            <p style={{ margin: 0 }}>&copy; {new Date().getFullYear()} Listeve. All rights reserved.</p>
-            <p style={{ margin: '5px 0 0 0' }}>
-              {/* Example footer links - replace with your actual privacy/terms pages if they exist */}
-              <Link to="/privacy" style={{ color: 'var(--secondary-color)', textDecoration: 'none', marginRight: '10px' }}>Privacy Policy</Link>
-              <Link to="/terms" style={{ color: 'var(--secondary-color)', textDecoration: 'none' }}>Terms of Service</Link>
-            </p>
-          </footer>
-        </div>
-      </Router>
+        </footer>
+      </div>
     </HelmetProvider>
-  );
+  )
 }
