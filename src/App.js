@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
 import {
   getFirestore,
@@ -977,7 +977,7 @@ function EventDetailPage({ user, toggleInterest }) {
       {event.imageUrl && (
         <img
           src={event.imageUrl}
-          alt={`Image for ${event.title} event`}
+          alt={` ${event.title} event`}
           title={event.title}
           style={styles.detailImage}
         />
