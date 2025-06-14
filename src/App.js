@@ -26,7 +26,7 @@ import {
   ArrowLeft,
   Menu,
   X,
-  Building2,
+  List,
   Star,
   Clock,
   TrendingUp,
@@ -39,13 +39,13 @@ import {
   Briefcase,
 } from "lucide-react"
 
-// Firebase Configuration with your actual config
+// Firebase Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyAq3WBKKbmMmGDd9264MXtWs5MX121ZDks",
   authDomain: "form-ca7cc.firebaseapp.com",
   databaseURL: "https://form-ca7cc-default-rtdb.firebaseio.com",
   projectId: "form-ca7cc",
-  storageBucket: "form-ca7cc.firebasestorage.app",
+  storageBucket: "form-ca7cc.appspot.com",
   messagingSenderId: "1054208318782",
   appId: "1:1054208318782:web:e820f1cb9b943f007aa06f",
   measurementId: "G-5CQ6L49Q0E",
@@ -56,11 +56,11 @@ const auth = getAuth(app)
 const db = getFirestore(app)
 const provider = new GoogleAuthProvider()
 
-// Cloudinary Configuration with your actual config
+// Cloudinary Configuration
 const CLOUDINARY_UPLOAD_PRESET = "unsigned_preset_1"
 const CLOUDINARY_CLOUD_NAME = "dyrmi2zkl"
 
-// UI Components - All inline to avoid import errors
+// UI Components
 
 // Button Component
 function Button({
@@ -300,9 +300,9 @@ function ProfessionalNavigation({ user, handleLogin, handleLogout, currentView, 
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center space-x-8">
             <div className="flex items-center space-x-2 cursor-pointer" onClick={() => setCurrentView("events")}>
-              <Building2 className="h-8 w-8 text-blue-600" />
+              <List className="h-8 w-8 text-blue-600" />
               <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                EventPro
+                ListEve
               </span>
             </div>
 
@@ -508,7 +508,7 @@ function EventListingPage({ user, events, loading, toggleInterest, setCurrentVie
   return (
     <main className="container mx-auto px-4 py-8">
       <Helmet>
-        <title>EventPro - Professional Event Management Platform</title>
+        <title>ListEve - Professional Event Management Platform</title>
         <meta
           name="description"
           content="Discover and manage professional events, conferences, workshops, and business networking opportunities. Connect with industry leaders and grow your network."
@@ -775,7 +775,7 @@ function EventDetailPage({ user, toggleInterest, selectedEvent, setCurrentView }
   return (
     <main className="container mx-auto px-4 py-8">
       <Helmet>
-        <title>{`${selectedEvent.title} - ${eventDateFormatted} - EventPro`}</title>
+        <title>{`${selectedEvent.title} - ${eventDateFormatted} - ListEve`}</title>
         <meta
           name="description"
           content={
@@ -1458,10 +1458,10 @@ function AddEventForm({
   return (
     <main className="container mx-auto px-4 py-8">
       <Helmet>
-        <title>Add Professional Event - EventPro</title>
+        <title>Add Professional Event - ListEve</title>
         <meta
           name="description"
-          content="Create and list your professional event on EventPro. Reach business professionals and industry leaders."
+          content="Create and list your professional event on ListEve. Reach business professionals and industry leaders."
         />
       </Helmet>
 
@@ -1661,7 +1661,7 @@ function AddEventForm({
 }
 
 // Main App Component
-export default function ProfessionalEventApp() {
+export default function ListEve() {
   const [user, setUser] = useState(null)
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(false)
@@ -1934,12 +1934,12 @@ export default function ProfessionalEventApp() {
 
   return (
     <HelmetProvider>
-    <Helmet>
-     <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.5/dist/tailwind.min.css"
-     />
-    </Helmet>
+      <Helmet>
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.5/dist/tailwind.min.css"
+        />
+      </Helmet>
       <div className="min-h-screen bg-gray-50">
         <ProfessionalNavigation
           user={user}
@@ -1955,8 +1955,8 @@ export default function ProfessionalEventApp() {
           <div className="container mx-auto px-4 py-8">
             <div className="text-center">
               <div className="flex items-center justify-center mb-4">
-                <Building2 className="h-6 w-6 text-blue-600 mr-2" />
-                <span className="text-xl font-bold text-gray-900">EventPro</span>
+                <List className="h-6 w-6 text-blue-600 mr-2" />
+                <span className="text-xl font-bold text-gray-900">ListEve</span>
               </div>
               <p className="text-gray-600 mb-4">Professional event management made simple</p>
               <div className="flex justify-center space-x-6 text-sm text-gray-500 mb-4">
@@ -1973,7 +1973,7 @@ export default function ProfessionalEventApp() {
                   Dashboard
                 </button>
               </div>
-              <p className="text-sm text-gray-500">&copy; {new Date().getFullYear()} EventPro. All rights reserved.</p>
+              <p className="text-sm text-gray-500">&copy; {new Date().getFullYear()} ListEve. All rights reserved.</p>
             </div>
           </div>
         </footer>
