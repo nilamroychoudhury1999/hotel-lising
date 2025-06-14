@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
 import {
   getFirestore,
@@ -29,6 +29,7 @@ import {
 } from "react-router-dom";
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 
+// --- Firebase Configuration ---
 const firebaseConfig = {
   apiKey: "AIzaSyCQJ3dX_ZcxVKzlCD8H19JM3KYh7qf8wYk",
   authDomain: "form-ca7cc.firebaseapp.com",
@@ -45,14 +46,14 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
+// --- Cloudinary Configuration ---
 const CLOUDINARY_UPLOAD_PRESET = "unsigned_preset_1";
 const CLOUDINARY_CLOUD_NAME = "dyrmi2zkl";
 
+// --- Geocoding Function ---
 async function geocodeAddress(address) {
   if (!address) return null;
-  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-    address
-  )}`;
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
   try {
     const res = await fetch(url);
     const data = await res.json();
@@ -67,360 +68,691 @@ async function geocodeAddress(address) {
   }
 }
 
+// --- Utility: Slug Generation ---
+function generateSlug(title) {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '') // Remove non-alphanumeric, spaces, or hyphens
+    .trim()                       // Trim whitespace from both ends
+    .replace(/\s+/g, '-')        // Replace spaces with hyphens
+    .replace(/-+/g, '-');         // Replace multiple hyphens with single hyphen
+}
+
+// --- Global Styles Definition (CSS Variables) ---
+const setGlobalCssVariables = () => {
+    const root = document.documentElement.style;
+
+    // MMT-inspired Color Palette
+    root.setProperty('--primary-color', '#008CFF'); // MMT Blue
+    root.setProperty('--primary-dark', '#0066CC');
+    root.setProperty('--secondary-color', '#FAAF41'); // MMT Orange
+    root.setProperty('--secondary-dark', '#E5942B');
+    root.setProperty('--success-color', '#28a745');
+    root.setProperty('--danger-color', '#dc3545');
+    
+    // Neutrals
+    root.setProperty('--background-color', '#FFFFFF');
+    root.setProperty('--card-background', '#FFFFFF');
+    root.setProperty('--text-color', '#333333');
+    root.setProperty('--light-text-color', '#666666');
+    root.setProperty('--border-color', '#E5E5E5');
+    root.setProperty('--shadow-light', 'rgba(0,0,0,0.05)');
+    root.setProperty('--shadow-medium', 'rgba(0,0,0,0.08)');
+    root.setProperty('--shadow-heavy', 'rgba(0,0,0,0.15)');
+    
+    // Typography
+    root.setProperty('--font-family-body', "'Poppins', 'Roboto', 'Helvetica Neue', sans-serif");
+    root.setProperty('--font-family-heading', "'Montserrat', sans-serif");
+    
+    // Spacing
+    root.setProperty('--spacing-xs', '8px');
+    root.setProperty('--spacing-sm', '12px');
+    root.setProperty('--spacing-md', '20px');
+    root.setProperty('--spacing-lg', '30px');
+    root.setProperty('--spacing-xl', '40px');
+    
+    // Border Radius
+    root.setProperty('--border-radius-sm', '8px');
+    root.setProperty('--border-radius-md', '12px');
+    root.setProperty('--border-radius-lg', '16px');
+    root.setProperty('--border-radius-pill', '30px');
+};
+
+
+// --- Inline Styles Object ---
 const styles = {
+  // General Layout & Structure
   container: {
-    maxWidth: 1000, // Slightly wider container
-    margin: "40px auto",
-    fontFamily: "'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", // Modern font
-    color: "#333",
-    padding: 20,
-    backgroundColor: "#f0f2f5", // Lighter background
-    borderRadius: 12, // More rounded corners
-    boxShadow: "0 6px 20px rgba(0,0,0,0.08)", // Softer, more pronounced shadow
+    maxWidth: '1200px',
+    margin: 'var(--spacing-xl) auto',
+    fontFamily: 'var(--font-family-body)',
+    color: 'var(--text-color)',
+    backgroundColor: 'transparent',
+    borderRadius: 'var(--border-radius-lg)',
   },
-  header: {
-    textAlign: "center",
-    marginBottom: 40,
-    fontSize: 42, // Larger, bolder header
-    fontWeight: "900",
-    color: "#2c3e50",
-    letterSpacing: "1px",
-    textShadow: "1px 1px 2px rgba(0,0,0,0.05)", // Subtle text shadow
+  mainContentArea: {
+    padding: 'var(--spacing-md)',
+    backgroundColor: 'var(--background-color)',
+    borderRadius: 'var(--border-radius-lg)',
+    boxShadow: '0 8px 30px var(--shadow-medium)',
   },
-  authBar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 30,
-    padding: "18px 25px", // More padding
-    backgroundColor: "#ffffff",
-    borderRadius: 10,
-    boxShadow: "0 3px 12px rgba(0,0,0,0.06)",
+  headerWrapper: {
+    backgroundColor: 'var(--card-background)',
+    boxShadow: '0 4px 15px var(--shadow-light)',
+    padding: '10px var(--spacing-lg)',
+    position: 'sticky',
+    top: 0,
+    zIndex: 1000,
+    width: '100%',
+    boxSizing: 'border-box',
+    borderRadius: '0 0 var(--border-radius-md) var(--border-radius-md)',
   },
-  button: {
-    padding: "12px 24px", // More padding for buttons
-    fontSize: 16,
-    borderRadius: 8, // More rounded buttons
-    cursor: "pointer",
-    border: "none",
-    fontWeight: "700",
-    transition: "background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease", // Added box-shadow transition
-    "&:hover": { // These need to be handled by CSS-in-JS or actual CSS
-      transform: "translateY(-2px)",
-      boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+  headerInner: {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  siteTitle: {
+    fontSize: '36px',
+    fontWeight: '800',
+    color: 'var(--primary-color)',
+    letterSpacing: '1px',
+    fontFamily: 'var(--font-family-heading)',
+    textDecoration: 'none',
+  },
+  footer: {
+    textAlign: 'center',
+    marginTop: 'var(--spacing-xl)',
+    padding: 'var(--spacing-md) 0',
+    borderTop: '1px solid var(--border-color)',
+    backgroundColor: 'var(--card-background)',
+    borderRadius: '0 0 var(--border-radius-lg) var(--border-radius-lg)',
+    fontSize: '14px',
+    color: 'var(--light-text-color)',
+    boxShadow: '0 -4px 15px var(--shadow-light)',
+  },
+
+  // Auth Bar (now part of header) Styles
+  authControls: {
+    display: 'flex',
+    gap: 'var(--spacing-sm)',
+    alignItems: 'center',
+  },
+  userGreeting: {
+    fontSize: '16px',
+    color: 'var(--text-color)',
+    fontWeight: '500',
+    marginRight: 'var(--spacing-sm)',
+  },
+
+  // Button Base & Variants
+  buttonBase: {
+    padding: '12px 24px',
+    fontSize: '16px',
+    borderRadius: 'var(--border-radius-md)',
+    cursor: 'pointer',
+    border: 'none',
+    fontWeight: '600',
+    transition: 'all 0.3s ease',
+    whiteSpace: 'nowrap',
+    '&:hover': {
+      transform: 'translateY(-2px)',
+      boxShadow: '0 4px 10px var(--shadow-light)',
+    },
+    '&:active': {
+      transform: 'translateY(0)',
+      boxShadow: '0 1px 3px var(--shadow-light)',
     },
   },
   btnPrimary: {
-    backgroundColor: "#007bff", // Standard blue
-    color: "white",
-    "&:hover": {
-      backgroundColor: "#0056b3",
+    backgroundColor: 'var(--primary-color)',
+    color: 'white',
+    '&:hover': {
+      backgroundColor: 'var(--primary-dark)',
     },
   },
-  btnDanger: {
-    backgroundColor: "#dc3545", // Standard red
-    color: "white",
-    "&:hover": {
-      backgroundColor: "#c82333",
+  btnSecondary: {
+    backgroundColor: 'var(--secondary-color)',
+    color: 'white',
+    '&:hover': {
+      backgroundColor: 'var(--secondary-dark)',
     },
   },
   btnSuccess: {
-    backgroundColor: "#28a745", // Standard green
-    color: "white",
-    "&:hover": {
-      backgroundColor: "#218838",
+    backgroundColor: 'var(--success-color)',
+    color: 'white',
+    '&:hover': {
+      backgroundColor: '#218838',
     },
   },
-  searchInput: {
-    width: "100%",
-    padding: "14px", // More padding
-    fontSize: 17,
-    borderRadius: 10, // More rounded
-    border: "1px solid #ced4da",
-    outline: "none",
-    marginBottom: 25, // More margin
-    boxSizing: "border-box",
-    transition: "border-color 0.3s ease, box-shadow 0.3s ease",
-    "&:focus": {
-      borderColor: "#80bdff",
-      boxShadow: "0 0 0 0.3rem rgba(0,123,255,.25)", // Larger, softer shadow on focus
+  btnDanger: {
+    backgroundColor: 'var(--danger-color)',
+    color: 'white',
+    '&:hover': {
+      backgroundColor: '#c82333',
     },
-  },
-  categoryFilter: {
-    display: "flex",
-    justifyContent: "center",
-    flexWrap: "wrap",
-    gap: 12, // Slightly more gap
-    marginBottom: 35,
-  },
-  categoryButton: {
-    padding: "10px 20px", // More padding
-    fontSize: 15,
-    borderRadius: 25, // Pill-shaped buttons
-    border: "1px solid #007bff",
-    backgroundColor: "white",
-    color: "#007bff",
-    cursor: "pointer",
-    transition: "background-color 0.3s, color 0.3s, transform 0.2s",
-    "&:hover": {
-      backgroundColor: "#e7f2ff", // Light blue hover
-      transform: "translateY(-1px)",
-    },
-  },
-  categoryButtonActive: {
-    backgroundColor: "#007bff",
-    color: "white",
-    fontWeight: "600",
-    boxShadow: "0 2px 8px rgba(0,123,255,0.2)",
-  },
-  eventList: {
-    listStyle: "none",
-    paddingLeft: 0,
-    marginBottom: 40,
-  },
-  eventItem: {
-    backgroundColor: "white",
-    marginBottom: 20, // More space between items
-    padding: 25, // More padding
-    borderRadius: 12,
-    boxShadow: "0 4px 15px rgba(0,0,0,0.07)",
-    display: "flex",
-    gap: 25,
-    alignItems: "flex-start",
-    transition: "transform 0.2s ease, box-shadow 0.2s ease",
-    "&:hover": {
-      transform: "translateY(-3px)", // Lift effect on hover
-      boxShadow: "0 8px 25px rgba(0,0,0,0.12)",
-    },
-  },
-  eventImage: {
-    width: 180, // Larger image preview
-    height: 120,
-    objectFit: "cover",
-    borderRadius: 10,
-    flexShrink: 0,
-    boxShadow: "0 2px 8px rgba(0,0,0,0.1)", // Shadow for image
-  },
-  eventContent: {
-    flexGrow: 1,
-  },
-  eventTitle: {
-    fontSize: 24, // Slightly larger title
-    marginBottom: 8,
-    color: "#2c3e50",
-    fontWeight: "700", // Bolder title
-  },
-  eventDetails: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    marginBottom: 12,
-  },
-  eventDate: {
-    color: "#5a6268", // Darker gray
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  eventLocation: {
-    color: "#5a6268",
-    fontSize: 16,
-    fontStyle: "normal", // Remove italic
-  },
-  eventCategory: {
-    color: "#5a6268",
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  eventDesc: {
-    marginTop: 10,
-    fontSize: 16,
-    color: "#555",
-    lineHeight: 1.6,
-  },
-  eventContact: {
-    fontSize: 15,
-    color: "#007bff",
-    marginTop: 8,
-    fontWeight: "500",
-  },
-  interestedBtn: {
-    marginTop: 18, // More margin
-    padding: "10px 20px",
-    borderRadius: 8,
-    fontWeight: "600",
-    cursor: "pointer",
-    border: "none",
-    transition: "background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease",
-    "&:hover": {
-      transform: "translateY(-1px)",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-    },
-  },
-  interestedCount: {
-    marginLeft: 12,
-    fontSize: 15,
-    color: "#555",
-    fontWeight: "500",
-  },
-  formContainer: {
-    backgroundColor: "#ffffff",
-    padding: 35, // More padding
-    borderRadius: 12,
-    boxShadow: "0 4px 15px rgba(0,0,0,0.07)",
-  },
-  formTitle: {
-    fontSize: 28, // Larger title
-    marginBottom: 30,
-    color: "#2c3e50",
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  formGroup: {
-    marginBottom: 25, // More space between form groups
-    display: "flex",
-    flexDirection: "column",
-  },
-  label: {
-    marginBottom: 10, // More space
-    fontWeight: "600",
-    fontSize: 16,
-    color: "#333",
-  },
-  input: {
-    padding: 14, // More padding
-    fontSize: 16,
-    borderRadius: 8,
-    border: "1px solid #ced4da",
-    outline: "none",
-    transition: "border-color 0.3s ease, box-shadow 0.3s ease",
-    "&:focus": {
-      borderColor: "#80bdff",
-      boxShadow: "0 0 0 0.25rem rgba(0,123,255,.25)",
-    },
-  },
-  textarea: {
-    padding: 14,
-    fontSize: 16,
-    borderRadius: 8,
-    border: "1px solid #ced4da",
-    outline: "none",
-    resize: "vertical",
-    minHeight: 120, // Taller textarea
-    transition: "border-color 0.3s ease, box-shadow 0.3s ease",
-    "&:focus": {
-      borderColor: "#80bdff",
-      boxShadow: "0 0 0 0.25rem rgba(0,123,255,.25)",
-    },
-  },
-  select: {
-    padding: 14,
-    fontSize: 16,
-    borderRadius: 8,
-    border: "1px solid #ced4da",
-    outline: "none",
-    backgroundColor: "white",
-    cursor: "pointer",
-    transition: "border-color 0.3s ease",
   },
   disabledButton: {
-    opacity: 0.5, // Slightly more opaque when disabled
-    cursor: "not-allowed",
+    opacity: '0.6',
+    cursor: 'not-allowed',
   },
   backButton: {
     display: 'inline-block',
-    margin: '25px 0', // More margin
+    margin: 'var(--spacing-md) 0',
     padding: '12px 22px',
     backgroundColor: '#6c757d',
     color: 'white',
-    borderRadius: 8,
+    borderRadius: 'var(--border-radius-sm)',
     textDecoration: 'none',
     fontWeight: 'bold',
     transition: 'background-color 0.3s ease, transform 0.2s ease',
-    "&:hover": {
+    '&:hover': {
         backgroundColor: '#5a6268',
         transform: 'translateY(-1px)',
     }
   },
+
+  // Input & Form Elements
+  searchInput: {
+    width: '100%',
+    padding: '16px',
+    fontSize: '18px',
+    borderRadius: 'var(--border-radius-md)',
+    border: '1px solid var(--border-color)',
+    outline: 'none',
+    marginBottom: 'var(--spacing-md)',
+    boxSizing: 'border-box',
+    boxShadow: '0 2px 8px var(--shadow-light)',
+    transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+    '&:focus': {
+      borderColor: 'var(--primary-color)',
+      boxShadow: '0 0 0 0.3rem rgba(0,140,255,.15)',
+    },
+  },
+  formContainer: {
+    backgroundColor: 'var(--card-background)',
+    padding: 'var(--spacing-xl)',
+    borderRadius: 'var(--border-radius-lg)',
+    boxShadow: '0 6px 20px var(--shadow-medium)',
+    marginBottom: 'var(--spacing-xl)',
+  },
+  formTitle: {
+    fontSize: '32px',
+    marginBottom: 'var(--spacing-lg)',
+    color: 'var(--text-color)',
+    fontWeight: '700',
+    textAlign: 'center',
+    fontFamily: 'var(--font-family-heading)',
+  },
+  formGroup: {
+    marginBottom: 'var(--spacing-md)',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  label: {
+    marginBottom: 'var(--spacing-xs)',
+    fontWeight: '600',
+    fontSize: '16px',
+    color: 'var(--text-color)',
+  },
+  input: {
+    padding: '14px',
+    fontSize: '16px',
+    borderRadius: 'var(--border-radius-sm)',
+    border: '1px solid var(--border-color)',
+    outline: 'none',
+    transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+    '&:focus': {
+      borderColor: 'var(--primary-color)',
+      boxShadow: '0 0 0 0.25rem rgba(0,140,255,.15)',
+    },
+  },
+  textarea: {
+    padding: '14px',
+    fontSize: '16px',
+    borderRadius: 'var(--border-radius-sm)',
+    border: '1px solid var(--border-color)',
+    outline: 'none',
+    resize: 'vertical',
+    minHeight: '120px',
+    transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+    '&:focus': {
+      borderColor: 'var(--primary-color)',
+      boxShadow: '0 0 0 0.25rem rgba(0,140,255,.15)',
+    },
+  },
+  select: {
+    padding: '14px',
+    fontSize: '16px',
+    borderRadius: 'var(--border-radius-sm)',
+    border: '1px solid var(--border-color)',
+    outline: 'none',
+    backgroundColor: 'white',
+    cursor: 'pointer',
+    transition: 'border-color 0.3s ease',
+    '&:focus': {
+      borderColor: 'var(--primary-color)',
+      boxShadow: '0 0 0 0.25rem rgba(0,140,255,.15)',
+    },
+  },
+
+  // Event Listing Card Styles
+  eventList: {
+    listStyle: 'none',
+    paddingLeft: 0,
+    marginBottom: 'var(--spacing-xl)',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gap: 'var(--spacing-lg)',
+  },
+  eventItem: {
+    backgroundColor: 'var(--card-background)',
+    borderRadius: 'var(--border-radius-lg)',
+    boxShadow: '0 6px 20px var(--shadow-medium)',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+    '&:hover': {
+      transform: 'translateY(-5px)',
+      boxShadow: '0 12px 30px var(--shadow-heavy)',
+    },
+  },
+  eventImage: {
+    width: '100%',
+    height: '200px',
+    objectFit: 'cover',
+    borderRadius: 'var(--border-radius-lg) var(--border-radius-lg) 0 0',
+    boxShadow: '0 2px 8px var(--shadow-light)',
+  },
+  eventContent: {
+    padding: 'var(--spacing-md)',
+    display: 'flex',
+    flexDirection: 'column',
+    flexGrow: 1,
+    justifyContent: 'space-between',
+  },
+  eventTitle: {
+    fontSize: '22px',
+    marginBottom: 'var(--spacing-sm)',
+    color: 'var(--text-color)',
+    fontWeight: '700',
+    lineHeight: '1.3',
+    minHeight: '2.6em',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
+  },
+  eventDetails: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    marginBottom: 'var(--spacing-md)',
+    fontSize: '15px',
+    color: 'var(--light-text-color)',
+  },
+  eventDetailLine: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontWeight: '500',
+  },
+  eventIcon: {
+    fontSize: '18px',
+    color: 'var(--primary-color)',
+  },
+  eventDesc: {
+    marginTop: '5px',
+    fontSize: '15px',
+    color: 'var(--light-text-color)',
+    lineHeight: '1.6',
+    marginBottom: 'var(--spacing-md)',
+    minHeight: '4.8em',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    display: '-webkit-box',
+    WebkitLineClamp: 3,
+    WebkitBoxOrient: 'vertical',
+  },
+  interestedSection: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 'auto',
+    paddingTop: 'var(--spacing-sm)',
+    borderTop: '1px solid var(--border-color)',
+    margin: '0 calc(var(--spacing-md) * -1) calc(var(--spacing-md) * -1) calc(var(--spacing-md) * -1)',
+    padding: 'var(--spacing-sm) var(--spacing-md) var(--spacing-md) var(--spacing-md)',
+  },
+  interestedBtn: {
+    padding: '10px 18px',
+    borderRadius: 'var(--border-radius-sm)',
+    fontWeight: '600',
+    cursor: 'pointer',
+    border: 'none',
+    transition: 'all 0.3s ease',
+    '&:hover': {
+      transform: 'translateY(-1px)',
+      boxShadow: '0 2px 8px var(--shadow-light)',
+    },
+  },
+  interestedCount: {
+    marginLeft: 'var(--spacing-sm)',
+    fontSize: '15px',
+    color: 'var(--light-text-color)',
+    fontWeight: '500',
+  },
+
+  // Event Detail Page Styles
   detailContainer: {
-    backgroundColor: "white",
-    padding: 35,
-    borderRadius: 12,
-    boxShadow: "0 4px 15px rgba(0,0,0,0.07)",
-    marginTop: 25,
+    backgroundColor: 'var(--card-background)',
+    padding: 'var(--spacing-xl)',
+    borderRadius: 'var(--border-radius-lg)',
+    boxShadow: '0 6px 20px var(--shadow-medium)',
+    marginTop: 'var(--spacing-md)',
+    marginBottom: 'var(--spacing-xl)',
   },
   detailImage: {
     width: '100%',
-    maxHeight: 450, // Slightly taller image
+    maxHeight: '500px',
     objectFit: 'cover',
-    borderRadius: 12,
-    marginBottom: 25,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+    borderRadius: 'var(--border-radius-md)',
+    marginBottom: 'var(--spacing-lg)',
+    boxShadow: '0 6px 15px var(--shadow-light)',
   },
   detailTitle: {
-    fontSize: 36, // Larger title
-    color: "#2c3e50",
-    marginBottom: 18,
-    fontWeight: "800",
+    fontSize: '40px',
+    color: 'var(--text-color)',
+    marginBottom: 'var(--spacing-md)',
+    fontWeight: '800',
+    fontFamily: 'var(--font-family-heading)',
   },
   detailInfo: {
-    fontSize: 18,
-    color: "#555",
-    marginBottom: 10,
-    lineHeight: 1.5,
+    fontSize: '18px',
+    color: 'var(--light-text-color)',
+    marginBottom: 'var(--spacing-xs)',
+    lineHeight: '1.6',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
   },
   detailDescription: {
-    fontSize: 17,
-    lineHeight: 1.7,
-    color: "#444",
-    marginTop: 25,
-    marginBottom: 25,
+    fontSize: '17px',
+    lineHeight: '1.8',
+    color: 'var(--text-color)',
+    marginTop: 'var(--spacing-lg)',
+    marginBottom: 'var(--spacing-lg)',
+    whiteSpace: 'pre-wrap',
   },
-  footer: {
+
+  // New Styles for Hero and Category Cards
+  heroSection: {
+    background: 'linear-gradient(135deg, #008CFF 0%, #0066CC 100%)',
+    padding: 'var(--spacing-xl) var(--spacing-md)',
+    borderRadius: 'var(--border-radius-lg)',
+    color: 'white',
     textAlign: 'center',
-    marginTop: 40, // More margin
-    padding: '25px 0',
-    borderTop: '1px solid #e0e0e0', // Lighter border
-    backgroundColor: '#ffffff', // Footer background
-    borderRadius: '0 0 12px 12px', // Match container border-radius
+    marginBottom: 'var(--spacing-xl)',
+    boxShadow: '0 8px 30px rgba(0,0,0,0.15)'
+  },
+  heroTitle: {
+    fontSize: '42px',
+    fontWeight: '800',
+    marginBottom: 'var(--spacing-sm)',
+    fontFamily: 'var(--font-family-heading)',
+    textShadow: '0 2px 4px rgba(0,0,0,0.2)'
+  },
+  heroSubtitle: {
+    fontSize: '20px',
+    fontWeight: '400',
+    marginBottom: 'var(--spacing-lg)',
+    maxWidth: '800px',
+    marginLeft: 'auto',
+    marginRight: 'auto'
+  },
+  categoryGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: 'var(--spacing-md)',
+    marginBottom: 'var(--spacing-xl)'
+  },
+  categoryCard: {
+    backgroundColor: 'var(--card-background)',
+    borderRadius: 'var(--border-radius-md)',
+    padding: 'var(--spacing-md)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 4px 15px var(--shadow-light)',
+    transition: 'all 0.3s ease',
+    cursor: 'pointer',
+    border: '2px solid transparent',
+    '&:hover': {
+      transform: 'translateY(-5px)',
+      boxShadow: '0 8px 25px var(--shadow-medium)',
+      borderColor: 'var(--primary-color)'
+    }
+  },
+  categoryCardActive: {
+    borderColor: 'var(--primary-color)',
+    backgroundColor: 'rgba(0, 140, 255, 0.05)'
+  },
+  categoryIcon: {
+    fontSize: '40px',
+    marginBottom: 'var(--spacing-sm)'
+  },
+  categoryName: {
+    fontSize: '18px',
+    fontWeight: '600',
+    color: 'var(--text-color)'
+  },
+  sectionTitle: {
+    fontSize: '32px',
+    fontWeight: '700',
+    color: 'var(--text-color)',
+    marginBottom: 'var(--spacing-lg)',
+    fontFamily: 'var(--font-family-heading)',
+    position: 'relative',
+    paddingBottom: 'var(--spacing-sm)',
+    '&::after': {
+      content: '""',
+      position: 'absolute',
+      bottom: '0',
+      left: '0',
+      width: '80px',
+      height: '4px',
+      backgroundColor: 'var(--secondary-color)',
+      borderRadius: '2px'
+    }
+  },
+
+  // Responsive Styles
+  responsive: {
+    headerWrapperMobile: {
+      padding: '8px var(--spacing-md)',
+    },
+    siteTitleMobile: {
+      fontSize: '28px',
+    },
+    authControlsMobile: {
+      flexDirection: 'column',
+      alignItems: 'stretch',
+      gap: '8px',
+      marginTop: '8px',
+      width: '100%',
+    },
+    userGreetingMobile: {
+        textAlign: 'center',
+        marginBottom: '5px',
+        marginRight: 0,
+    },
+    buttonBaseMobile: {
+        padding: '10px 15px',
+        fontSize: '14px',
+        width: '100%',
+        textAlign: 'center',
+    },
+    eventListMobile: {
+      gridTemplateColumns: '1fr',
+    },
+    detailTitleMobile: {
+      fontSize: '32px',
+    },
+    heroTitleMobile: {
+      fontSize: '32px',
+    },
+    sectionTitleMobile: {
+      fontSize: '28px',
+    },
+    categoryGridMobile: {
+      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+    }
   },
 };
 
-function AuthBar({ user, handleLogin, handleLogout }) {
+// Category Icons
+const categoryIcons = {
+  Music: '🎵',
+  Sports: '⚽',
+  Art: '🎨',
+  Tech: '💻',
+  Food: '🍔',
+  Other: '🎉'
+};
+
+// --- Component Definitions ---
+
+// Top Navigation Component
+function TopNavigation({ user, handleLogin, handleLogout }) {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+        setIsMobile(window.innerWidth < 768);
+        if (window.innerWidth >= 768) {
+            setMenuOpen(false);
+        }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const toggleMenu = () => setMenuOpen(!menuOpen);
+
   return (
-    <header style={styles.authBar}>
-      {user ? (
-        <>
-          <div>
-            Welcome, <strong>{user.displayName}</strong>
-          </div>
-          <div style={{ display: 'flex', gap: 12 }}> {/* Increased gap */}
-            <Link to="/add-event" style={{ ...styles.button, ...styles.btnSuccess }}>
-              + Add New Event
-            </Link>
-            <button style={{ ...styles.button, ...styles.btnDanger }} onClick={handleLogout}>
-              Logout
+    <nav style={{ ...styles.headerWrapper, ...(isMobile && styles.responsive.headerWrapperMobile) }}>
+      <div style={styles.headerInner}>
+        <Link to="/" style={styles.siteTitle}>
+          Listeve
+        </Link>
+
+        {isMobile ? (
+          <>
+            <button
+              onClick={toggleMenu}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '28px',
+                color: 'var(--text-color)',
+                cursor: 'pointer',
+                padding: '5px',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-nav-menu"
+              aria-label="Toggle navigation menu"
+            >
+              ☰
             </button>
+            {menuOpen && (
+              <div id="mobile-nav-menu" style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                width: '100%',
+                backgroundColor: 'var(--card-background)',
+                boxShadow: '0 4px 15px var(--shadow-light)',
+                padding: 'var(--spacing-md)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--spacing-sm)',
+                zIndex: 999,
+              }}>
+                {user ? (
+                  <>
+                    <span style={{ ...styles.userGreeting, ...styles.responsive.userGreetingMobile }}>
+                      Welcome, <strong>{user.displayName}</strong>
+                    </span>
+                    <Link to="/add-event" style={{ ...styles.buttonBase, ...styles.btnSuccess, ...styles.responsive.buttonBaseMobile }} onClick={() => setMenuOpen(false)}>
+                      + Add New Event
+                    </Link>
+                    <button style={{ ...styles.buttonBase, ...styles.btnDanger, ...styles.responsive.buttonBaseMobile }} onClick={() => { handleLogout(); setMenuOpen(false); }}>
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/add-event" style={{ ...styles.buttonBase, ...styles.btnSecondary, ...styles.responsive.buttonBaseMobile }} onClick={() => setMenuOpen(false)}>
+                      Add Event
+                    </Link>
+                    <button style={{ ...styles.buttonBase, ...styles.btnPrimary, ...styles.responsive.buttonBaseMobile }} onClick={() => { handleLogin(); setMenuOpen(false); }}>
+                      Login
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={styles.authControls}>
+            {user ? (
+              <>
+                <span style={styles.userGreeting}>
+                  Welcome, <strong>{user.displayName}</strong>
+                </span>
+                <Link to="/add-event" style={{ ...styles.buttonBase, ...styles.btnSuccess }}>
+                  + Add New Event
+                </Link>
+                <button style={{ ...styles.buttonBase, ...styles.btnDanger }} onClick={handleLogout}>
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/add-event" style={{ ...styles.buttonBase, ...styles.btnSecondary }}>
+                  Add Event
+                </Link>
+                <button style={{ ...styles.buttonBase, ...styles.btnPrimary }} onClick={handleLogin}>
+                  Login
+                </button>
+              </>
+            )}
           </div>
-        </>
-      ) : (
-        <div style={{ display: 'flex', gap: 12 }}>
-          <Link to="/add-event" style={{ ...styles.button, ...styles.btnSuccess }}>
-            Add Event
-          </Link>
-          <button style={{ ...styles.button, ...styles.btnPrimary }} onClick={handleLogin}>
-            Login
-          </button>
-        </div>
-      )}
-    </header>
+        )}
+      </div>
+    </nav>
   );
 }
-
 
 function EventListingPage({ user, events, loading, toggleInterest }) {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const categories = ["All", "Music", "Sports", "Art", "Tech", "Food", "Other"];
+  const [isMobileGrid, setIsMobileGrid] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobileGrid(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const filteredEvents = events
     .filter((event) => {
@@ -429,7 +761,8 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
         event.title.toLowerCase().includes(lowerSearch) ||
         (event.city?.toLowerCase().includes(lowerSearch) ?? false) ||
         (event.state?.toLowerCase().includes(lowerSearch) ?? false) ||
-        (event.country?.toLowerCase().includes(lowerSearch) ?? false);
+        (event.country?.toLowerCase().includes(lowerSearch) ?? false) ||
+        (event.description?.toLowerCase().includes(lowerSearch) ?? false);
 
       const matchesCategory =
         selectedCategory === "All" || event.category === selectedCategory;
@@ -438,50 +771,134 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
     })
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
+  // Construct current canonical URL for the homepage
+  const currentUrl = window.location.origin;
+
+  // Website Schema for SEO
+  const webSiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Listeve - Your Event Discovery Platform for India",
+    "url": currentUrl,
+    "description": "Discover and list upcoming events across India: music concerts, sports, tech meetups, art exhibitions, food festivals, and more. Find local events near you!",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": `${currentUrl}/?search={search_term_string}`
+      },
+      "query-input": "required name=search_term_string"
+    }
+  };
+
+  // Organization Schema for SEO
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Listeve",
+    "url": currentUrl,
+    "logo": `${currentUrl}/logo.png`,
+    "sameAs": [
+      "https://www.facebook.com/ListeveEvents",
+      "https://twitter.com/ListeveEvents",
+      "https://www.instagram.com/ListeveEvents"
+    ],
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "telephone": "+91-9876543210",
+      "contactType": "Customer service"
+    }
+  };
+
   return (
-    <main>
+    <main style={{ padding: 'var(--spacing-md)' }}>
       <Helmet>
-        <title>Listeve - Discover & List Events in India</title>
-        <meta name="description" content="Discover and list upcoming events in India, including music concerts, sports, tech meetups, art exhibitions, food festivals, and more. Find local events near you!" />
+        <title>Listeve - Discover & List Events in India | Music, Sports, Tech, Art & More</title>
+        <meta name="description" content="Discover and list upcoming events across India, including music concerts, sports, tech meetups, art exhibitions, food festivals, and more. Find local events near you!" />
+        <link rel="canonical" href={currentUrl} />
+
+        {/* Open Graph Tags */}
+        <meta property="og:title" content="Listeve - Discover & List Events in India" />
+        <meta property="og:description" content="Find and list events across India: music, sports, tech, art, food, and more. Your go-to platform for local happenings." />
+        <meta property="og:image" content={`${currentUrl}/social_banner.jpg`} />
+        <meta property="og:url" content={currentUrl} />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Listeve" />
+
+        {/* Twitter Card Tags */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Listeve - Discover & List Events in India" />
+        <meta name="twitter:description" content="Find and list events across India: music, sports, tech, art, food, and more. Your go-to platform for local happenings." />
+        <meta name="twitter:image" content={`${currentUrl}/twitter_banner.jpg`} />
+        <meta name="twitter:creator" content="@ListeveEvents" />
+
+        {/* JSON-LD Schemas */}
+        <script type="application/ld+json">
+          {JSON.stringify(webSiteSchema)}
+        </script>
+        <script type="application/ld+json">
+          {JSON.stringify(organizationSchema)}
+        </script>
       </Helmet>
 
-      <section>
-        <input
-          style={styles.searchInput}
-          type="search"
-          placeholder="Search events by title, city, state, or country..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          disabled={!events.length && !loading}
-          aria-label="Search events"
-        />
-
-        {events.length > 0 && (
-          <nav style={styles.categoryFilter} aria-label="Filter events by category">
-            {categories.map((category) => (
-              <button
-                key={category}
-                style={{
-                  ...styles.categoryButton,
-                  ...(selectedCategory === category
-                    ? styles.categoryButtonActive
-                    : {}),
-                }}
-                onClick={() => setSelectedCategory(category)}
-                aria-pressed={selectedCategory === category}
-              >
-                {category}
-              </button>
-            ))}
-          </nav>
-        )}
+      {/* Hero Section */}
+      <section style={styles.heroSection}>
+        <h1 style={{ ...styles.heroTitle, ...(isMobileGrid && styles.responsive.heroTitleMobile) }}>Discover Amazing Events Near You</h1>
+        <p style={styles.heroSubtitle}>
+          Find concerts, sports events, tech meetups, food festivals and more - 
+          all happening across India
+        </p>
+        
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          <input
+            style={{ 
+              ...styles.searchInput, 
+              padding: '18px 24px',
+              fontSize: '18px',
+              border: 'none',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+            }}
+            type="search"
+            placeholder="Search events, cities, or categories..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            disabled={!events.length && !loading}
+            aria-label="Search events"
+          />
+        </div>
       </section>
 
+      {/* Category Cards */}
       <section>
-        <h2 style={{ ...styles.formTitle, marginTop: 0 }}>Upcoming Events</h2>
-        <ul style={styles.eventList}>
+        <h2 style={{ ...styles.sectionTitle, ...(isMobileGrid && styles.responsive.sectionTitleMobile) }}>Browse by Category</h2>
+        <div style={{ ...styles.categoryGrid, ...(isMobileGrid && styles.responsive.categoryGridMobile) }}>
+          {categories.map((category) => (
+            <div
+              key={category}
+              style={{
+                ...styles.categoryCard,
+                ...(selectedCategory === category && styles.categoryCardActive)
+              }}
+              onClick={() => setSelectedCategory(category)}
+              aria-label={`Filter by ${category} category`}
+              role="button"
+              tabIndex={0}
+            >
+              <div style={styles.categoryIcon}>
+                {categoryIcons[category] || '🎉'}
+              </div>
+              <div style={styles.categoryName}>{category}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Event List */}
+      <section>
+        <h2 style={{ ...styles.sectionTitle, ...(isMobileGrid && styles.responsive.sectionTitleMobile) }}>Upcoming Events</h2>
+        <ul style={{ ...styles.eventList, ...(isMobileGrid && styles.responsive.eventListMobile) }}>
           {filteredEvents.length === 0 && (
-            <li style={{ textAlign: "center", color: "#777", fontSize: 18, padding: 30, backgroundColor: 'white', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <li style={{ textAlign: "center", color: "var(--light-text-color)", fontSize: '18px', padding: 'var(--spacing-lg)', backgroundColor: 'var(--card-background)', borderRadius: 'var(--border-radius-md)', boxShadow: '0 2px 8px var(--shadow-light)', gridColumn: '1 / -1' }}>
               No events found matching your criteria. Try adjusting your search or filters.
             </li>
           )}
@@ -489,66 +906,66 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
           {filteredEvents.map((event) => {
             const interestedCount = event.interestedUsers?.length || 0;
             const isInterested = user ? event.interestedUsers?.includes(user.uid) : false;
+            const eventUrl = `/events/${event.slug || 'default-slug'}/${event.id}`;
             return (
               <li key={event.id} style={styles.eventItem}>
-                {event.imageUrl && (
-                  <img
-                    src={event.imageUrl}
-                    alt={`${event.title} event ${event.category ? `(${event.category})` : ''}`}
-                    title={event.title}
-                    style={styles.eventImage}
-                    loading="lazy"
-                  />
-                )}
-                <article style={styles.eventContent}>
-                  <Link to={`/events/${event.id}`} style={{ textDecoration: 'none' }}>
+                <Link to={eventUrl} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  {event.imageUrl && (
+                    <img
+                      src={event.imageUrl}
+                      alt={`${event.title} event ${event.category ? `(${event.category})` : ''}`}
+                      title={event.title}
+                      style={styles.eventImage}
+                      loading="lazy"
+                    />
+                  )}
+                  <article style={styles.eventContent}>
                     <h3 style={styles.eventTitle}>{event.title}</h3>
-                  </Link>
-                  <div style={styles.eventDetails}>
-                    <time dateTime={event.date} style={styles.eventDate}>
-                      Date: {new Date(event.date).toLocaleDateString('en-IN', {
-                        year: 'numeric', month: 'long', day: 'numeric'
-                      })}
-                    </time>
-                    {(event.city || event.state || event.country) && (
-                      <address style={styles.eventLocation}>
-                        Location: {[event.city, event.state, event.country].filter(Boolean).join(", ")}
-                      </address>
+                    <div style={styles.eventDetails}>
+                        <div style={styles.eventDetailLine}>
+                            <span style={styles.eventIcon}>🗓️</span>
+                            <time dateTime={event.date}>
+                                {new Date(event.date).toLocaleDateString('en-IN', {
+                                    year: 'numeric', month: 'long', day: 'numeric'
+                                })}
+                            </time>
+                        </div>
+                        {(event.city || event.state || event.country) && (
+                            <address style={styles.eventDetailLine}>
+                                <span style={styles.eventIcon}>📍</span>
+                                {[event.city, event.state, event.country].filter(Boolean).join(", ")}
+                            </address>
+                        )}
+                        {event.category && (
+                            <div style={styles.eventDetailLine}>
+                                <span style={styles.eventIcon}>🏷️</span>
+                                <strong>{event.category}</strong>
+                            </div>
+                        )}
+                    </div>
+                    {event.description && (
+                      <p style={styles.eventDesc}>
+                        {event.description}
+                      </p>
                     )}
-                    {event.category && (
-                      <div style={styles.eventCategory}>
-                        Category: <strong>{event.category}</strong>
-                      </div>
-                    )}
-                  </div>
-                  {event.description && (
-                    <p style={styles.eventDesc}>
-                      {event.description.length > 150
-                        ? `${event.description.substring(0, 150)}... `
-                        : event.description}
-                      {event.description.length > 150 && (
-                        <Link to={`/events/${event.id}`} style={{ color: '#007bff', textDecoration: 'none', fontWeight: '500' }}>Read more</Link>
-                      )}
-                    </p>
-                  )}
-                  {event.contact && (
-                    <p style={styles.eventContact}>Contact: <a href={`mailto:${event.contact}`} style={{ color: 'inherit', textDecoration: 'none' }}>{event.contact}</a></p>
-                  )}
+                  </article>
+                </Link>
+                <div style={styles.interestedSection}>
                   <button
                     style={{
                       ...styles.interestedBtn,
-                      backgroundColor: isInterested ? "#28a745" : "#007bff",
-                      color: "white",
+                      backgroundColor: isInterested ? 'var(--primary-color)' : 'var(--secondary-color)',
+                      color: 'white',
                       ...(loading ? styles.disabledButton : {}),
                     }}
-                    onClick={() => toggleInterest(event)}
+                    onClick={(e) => { e.stopPropagation(); toggleInterest(event); }}
                     disabled={loading}
                     aria-pressed={isInterested}
                   >
                     {isInterested ? "Interested ✓" : "Show Interest"}
                   </button>
                   <span style={styles.interestedCount}>{interestedCount} interested</span>
-                </article>
+                </div>
               </li>
             );
           })}
@@ -559,10 +976,17 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
 }
 
 function EventDetailPage({ user, toggleInterest }) {
-  const { id } = useParams();
+  const { slug, id } = useParams();
   const [event, setEvent] = useState(null);
   const [loadingEvent, setLoadingEvent] = useState(true);
   const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 600);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 600);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     async function fetchEvent() {
@@ -572,7 +996,13 @@ function EventDetailPage({ user, toggleInterest }) {
         const eventRef = doc(db, "events", id);
         const eventSnap = await getDoc(eventRef);
         if (eventSnap.exists()) {
-          setEvent({ id: eventSnap.id, ...eventSnap.data() });
+          const eventData = { id: eventSnap.id, ...eventSnap.data() };
+          // Optional: If slug in URL doesn't match stored slug, navigate to correct URL
+          if (eventData.slug && eventData.slug !== slug) {
+              navigate(`/events/${eventData.slug}/${event.id}`, { replace: true });
+              return;
+          }
+          setEvent(eventData);
         } else {
           console.log("No such document!");
           navigate('/not-found');
@@ -584,14 +1014,14 @@ function EventDetailPage({ user, toggleInterest }) {
       setLoadingEvent(false);
     }
     fetchEvent();
-  }, [id, navigate]);
+  }, [id, slug, navigate]);
 
   if (loadingEvent) {
-    return <div style={{ textAlign: 'center', fontSize: 20, padding: 50, color: '#555' }}>Loading event details...</div>;
+    return <div style={{ textAlign: 'center', fontSize: '20px', padding: '50px', color: 'var(--light-text-color)' }}>Loading event details...</div>;
   }
 
   if (!event) {
-    return <div style={{ textAlign: 'center', fontSize: 20, padding: 50, color: '#dc3545' }}>Event not found.</div>;
+    return <div style={{ textAlign: 'center', fontSize: '20px', padding: '50px', color: 'var(--danger-color)' }}>Event not found.</div>;
   }
 
   const interestedCount = event.interestedUsers?.length || 0;
@@ -601,11 +1031,13 @@ function EventDetailPage({ user, toggleInterest }) {
     year: 'numeric', month: 'long', day: 'numeric'
   });
   const locationString = [event.city, event.state, event.country].filter(Boolean).join(", ");
+  const currentUrl = `${window.location.origin}/events/${event.slug || 'default-slug'}/${event.id}`;
   const pageTitle = `${event.title} - ${eventDateFormatted} - ${event.category ? `${event.category} Events - ` : ''}Listeve`;
   const metaDescription = event.description
     ? event.description.substring(0, 160) + ` Find event details, date, and location in ${locationString}.`
     : `Details about the event "${event.title}" happening on ${eventDateFormatted} in ${locationString}. Join us!`;
 
+  // Event Schema for SEO
   const eventSchema = {
     "@context": "https://schema.org",
     "@type": "Event",
@@ -625,12 +1057,25 @@ function EventDetailPage({ user, toggleInterest }) {
       }
     },
     "description": event.description,
-    "image": event.imageUrl || "URL_TO_DEFAULT_EVENT_IMAGE.jpg",
+    "image": event.imageUrl || "https://via.placeholder.com/1200x630.png?text=Event+Image",
     "organizer": {
       "@type": event.createdByName ? "Person" : "Organization",
       "name": event.createdByName || "Listeve Community"
     },
-    "url": window.location.href
+    "url": currentUrl
+  };
+
+  // Location Schema for SEO
+  const locationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Place",
+    "name": locationString,
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": event.city,
+      "addressRegion": event.state,
+      "addressCountry": event.country
+    }
   };
 
   return (
@@ -638,19 +1083,22 @@ function EventDetailPage({ user, toggleInterest }) {
       <Helmet>
         <title>{pageTitle}</title>
         <meta name="description" content={metaDescription} />
-        <link rel="canonical" href={window.location.href} />
+        <link rel="canonical" href={currentUrl} />
         <meta property="og:title" content={pageTitle} />
         <meta property="og:description" content={metaDescription} />
-        <meta property="og:image" content={event.imageUrl || 'URL_TO_DEFAULT_EVENT_IMAGE.jpg'} />
-        <meta property="og:url" content={window.location.href} />
+        <meta property="og:image" content={event.imageUrl || 'https://via.placeholder.com/1200x630.png?text=Event+Image'} />
+        <meta property="og:url" content={currentUrl} />
         <meta property="og:type" content="event" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={pageTitle} />
         <meta name="twitter:description" content={metaDescription} />
-        <meta name="twitter:image" content={event.imageUrl || 'URL_TO_DEFAULT_EVENT_IMAGE.jpg'} />
+        <meta name="twitter:image" content={event.imageUrl || 'https://via.placeholder.com/1200x630.png?text=Event+Image'} />
 
         <script type="application/ld+json">
           {JSON.stringify(eventSchema)}
+        </script>
+        <script type="application/ld+json">
+          {JSON.stringify(locationSchema)}
         </script>
       </Helmet>
 
@@ -658,48 +1106,76 @@ function EventDetailPage({ user, toggleInterest }) {
       {event.imageUrl && (
         <img
           src={event.imageUrl}
-          alt={`${event.title} event in ${locationString}`}
-          title={`Click to view ${event.title}`}
+          alt={`Image for ${event.title} event`}
+          title={event.title}
           style={styles.detailImage}
+          loading="lazy"
         />
       )}
-      <h1 style={styles.detailTitle}>{event.title}</h1>
-      <p style={styles.detailInfo}><strong>Date:</strong> <time dateTime={event.date}>{eventDateFormatted}</time></p>
+      <h1 style={{ ...styles.detailTitle, ...(isMobile && styles.responsive.detailTitleMobile) }}>{event.title}</h1>
+      <p style={styles.detailInfo}>
+          <span style={styles.eventIcon}>🗓️</span>
+          <strong>Date:</strong> <time dateTime={event.date}>{eventDateFormatted}</time>
+      </p>
       {(event.city || event.state || event.country) && (
         <p style={styles.detailInfo}>
+          <span style={styles.eventIcon}>📍</span>
           <strong>Location:</strong> <address>{locationString}</address>
         </p>
       )}
       {event.category && (
-        <p style={styles.detailInfo}><strong>Category:</strong> {event.category}</p>
+        <p style={styles.detailInfo}>
+            <span style={styles.eventIcon}>🏷️</span>
+            <strong>Category:</strong> {event.category}
+        </p>
       )}
       {event.contact && (
-        <p style={styles.detailInfo}><strong>Contact:</strong> <a href={`mailto:${event.contact}`} title="Contact event organizer" style={{ color: 'inherit', textDecoration: 'none' }}>{event.contact}</a></p>
+        <p style={styles.detailInfo}>
+            <span style={styles.eventIcon}>✉️</span>
+            <strong>Contact:</strong> <a href={`mailto:${event.contact}`} title="Contact event organizer" style={{ color: 'inherit', textDecoration: 'none' }}>{event.contact}</a>
+        </p>
       )}
       {event.description && (
         <p style={styles.detailDescription}>{event.description}</p>
       )}
-
-      <button
-        style={{
-          ...styles.interestedBtn,
-          backgroundColor: isInterested ? "#28a745" : "#007bff",
-          color: "white",
-          ...(loadingEvent ? styles.disabledButton : {}),
-        }}
-        onClick={() => toggleInterest(event)}
-        disabled={loadingEvent}
-        aria-pressed={isInterested}
-      >
-        {isInterested ? "Interested ✓" : "Show Interest"}
-      </button>
-      <span style={styles.interestedCount}>{interestedCount} interested</span>
+      <div style={styles.interestedSection}>
+        <button
+          style={{
+            ...styles.interestedBtn,
+            backgroundColor: isInterested ? 'var(--primary-color)' : 'var(--secondary-color)',
+            color: 'white',
+            ...(loadingEvent ? styles.disabledButton : {}),
+          }}
+          onClick={() => toggleInterest(event)}
+          disabled={loadingEvent}
+          aria-pressed={isInterested}
+        >
+          {isInterested ? "Interested ✓" : "Show Interest"}
+        </button>
+        <span style={styles.interestedCount}>{interestedCount} interested</span>
+      </div>
     </article>
   );
 }
 
 function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, handleImageChange, loading }) {
-  const categories = ["All", "Music", "Sports", "Art", "Tech", "Food", "Other"];
+  const categories = ["Select Category", "Music", "Sports", "Art", "Tech", "Food", "Other"];
+
+  const isFormValid = () => {
+    const { title, date, category, city, state, country, contact, description } = form;
+    return (
+      title.trim() !== "" &&
+      date.trim() !== "" &&
+      category.trim() !== "" &&
+      city.trim() !== "" &&
+      state.trim() !== "" &&
+      country.trim() !== "" &&
+      contact.trim() !== "" &&
+      description.trim() !== "" &&
+      imageFile !== null
+    );
+  };
+
   return (
     <section style={styles.formContainer}>
       <Helmet>
@@ -738,106 +1214,123 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
         </div>
 
         <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="category">Category *</label>
-          <select
-            style={styles.select}
-            id="category"
-            name="category"
-            value={form.category}
-            onChange={handleChange}
-            required
-            aria-required="true"
-          >
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
+            <label style={styles.label} htmlFor="category">Category *</label>
+            <select
+                style={styles.select}
+                id="category"
+                name="category"
+                value={form.category}
+                onChange={handleChange}
+                required
+                aria-required="true"
+            >
+                {categories.map((cat) => (
+                    <option key={cat} value={cat === "Select Category" ? "" : cat} disabled={cat === "Select Category"}>
+                        {cat}
+                    </option>
+                ))}
+            </select>
         </div>
 
         <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="city">City</label>
+          <label style={styles.label} htmlFor="city">City *</label>
           <input
             style={styles.input}
             id="city"
             name="city"
             value={form.city}
             onChange={handleChange}
+            required
             placeholder="e.g., Mumbai"
+            aria-required="true"
           />
         </div>
 
         <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="state">State</label>
+          <label style={styles.label} htmlFor="state">State *</label>
           <input
             style={styles.input}
             id="state"
             name="state"
             value={form.state}
             onChange={handleChange}
+            required
             placeholder="e.g., Maharashtra"
+            aria-required="true"
           />
         </div>
 
         <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="country">Country</label>
+          <label style={styles.label} htmlFor="country">Country *</label>
           <input
             style={styles.input}
             id="country"
             name="country"
             value={form.country}
             onChange={handleChange}
+            required
             placeholder="e.g., India"
+            aria-required="true"
           />
         </div>
         <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="contact">Contact Info</label>
+          <label style={styles.label} htmlFor="contact">Contact Info *</label>
           <input
             style={styles.input}
             id="contact"
             name="contact"
             value={form.contact}
             onChange={handleChange}
+            required
             placeholder="e.g., email@example.com or phone number"
-            type="email" // Suggesting email type for better validation
+            type="email"
+            aria-required="true"
           />
         </div>
 
         <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="imageUpload">Event Image (Optional)</label>
-          <input
-            style={styles.input}
-            type="file"
-            id="imageUpload"
-            name="imageUpload"
-            accept="image/*"
-            onChange={handleImageChange}
-          />
+            <label style={styles.label} htmlFor="imageUpload">Event Image *</label>
+            <input
+                style={styles.input}
+                type="file"
+                id="imageUpload"
+                name="imageUpload"
+                accept="image/*"
+                onChange={handleImageChange}
+                required
+                aria-required="true"
+            />
         </div>
 
         <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="description">Description</label>
+          <label style={styles.label} htmlFor="description">Description *</label>
           <textarea
             style={styles.textarea}
             id="description"
             name="description"
             value={form.description}
             onChange={handleChange}
+            required
             placeholder="Provide a detailed description of the event..."
+            aria-required="true"
           />
         </div>
 
         <button
           type="submit"
           style={{
-            ...styles.button,
-            ...styles.btnSuccess,
-            ...(loading || !user ? styles.disabledButton : {}),
+            ...styles.buttonBase,
+            ...styles.btnPrimary,
+            ...(loading || !user || !isFormValid() ? styles.disabledButton : {}),
+            width: '100%',
+            marginTop: '10px',
           }}
-          disabled={loading || !user}
+          disabled={loading || !user || !isFormValid()}
         >
           {loading ? "Adding..." : "Add Event"}
         </button>
-        {!user && <p style={{ color: '#dc3545', marginTop: 15, textAlign: 'center', fontSize: 14 }}>Please login to add events.</p>}
+        {!user && <p style={{ color: 'var(--danger-color)', marginTop: '15px', textAlign: 'center', fontSize: '14px' }}>Please login to add events.</p>}
+        {user && !isFormValid() && <p style={{ color: 'var(--danger-color)', marginTop: '15px', textAlign: 'center', fontSize: '14px' }}>Please fill all required fields.</p>}
       </form>
     </section>
   );
@@ -855,10 +1348,14 @@ export default function EventListingApp() {
     country: "",
     description: "",
     contact: "",
-    category: "All",
+    category: "",
     imageUrl: "",
   });
   const [imageFile, setImageFile] = useState(null);
+
+  useEffect(() => {
+    setGlobalCssVariables();
+  }, []);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((u) => setUser(u));
@@ -937,8 +1434,20 @@ export default function EventListingApp() {
       alert("Please login to add an event.");
       return;
     }
-    if (!form.title.trim() || !form.date.trim() || !form.category.trim()) {
-      alert("Please fill in at least Title, Date, and Category.");
+
+    if (
+      !form.title.trim() ||
+      !form.date.trim() ||
+      !form.category.trim() ||
+      !form.city.trim() ||
+      !form.state.trim() ||
+      !form.country.trim() ||
+      !form.contact.trim() ||
+      !form.description.trim() ||
+      !imageFile
+    ) {
+      alert("All fields are compulsory. Please fill them out.");
+      setLoading(false);
       return;
     }
 
@@ -955,6 +1464,8 @@ export default function EventListingApp() {
     const locationString = [form.city, form.state, form.country]
       .filter(Boolean)
       .join(", ");
+    
+    const eventSlug = generateSlug(form.title);
 
     try {
       const coords = await geocodeAddress(locationString);
@@ -969,6 +1480,7 @@ export default function EventListingApp() {
         category: form.category,
         imageUrl: imageUrl,
         coords,
+        slug: eventSlug,
         interestedUsers: [],
         createdBy: user.uid,
         createdByName: user.displayName,
@@ -982,7 +1494,7 @@ export default function EventListingApp() {
         country: "",
         description: "",
         contact: "",
-        category: "All",
+        category: "",
         imageUrl: "",
       });
       setImageFile(null);
@@ -999,7 +1511,7 @@ export default function EventListingApp() {
       alert("Please login to show interest.");
       return;
     }
-    setLoading(true); // Set loading to true for interest toggle
+    setLoading(true);
     const eventRef = doc(db, "events", event.id);
     const isInterested = event.interestedUsers?.includes(user.uid);
 
@@ -1013,57 +1525,56 @@ export default function EventListingApp() {
       alert("Failed to update interest: " + error.message);
       console.error("Toggle interest error:", error);
     } finally {
-        setLoading(false); // Ensure loading is reset
+        setLoading(false);
     }
   }
 
   return (
     <HelmetProvider>
       <Router>
+        <TopNavigation user={user} handleLogin={handleLogin} handleLogout={handleLogout} />
+
         <div style={styles.container}>
-          <h1 style={styles.header}>
-            <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-              Listeve - Your Event Hub
-            </Link>
-          </h1>
-
-          <AuthBar user={user} handleLogin={handleLogin} handleLogout={handleLogout} />
-
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <EventListingPage
-                  user={user}
-                  events={events}
-                  loading={loading}
-                  toggleInterest={toggleInterest}
-                />
-              }
-            />
-            <Route
-              path="/events/:id"
-              element={<EventDetailPage user={user} toggleInterest={toggleInterest} />}
-            />
-            <Route
-              path="/add-event"
-              element={
-                <AddEventForm
-                  user={user}
-                  handleAddEvent={handleAddEvent}
-                  form={form}
-                  handleChange={handleChange}
-                  imageFile={imageFile}
-                  handleImageChange={handleImageChange}
-                  loading={loading}
-                />
-              }
-            />
-            <Route path="*" element={<div style={{ textAlign: 'center', fontSize: 24, padding: 50, color: '#dc3545' }}>404 - Page Not Found</div>} />
-          </Routes>
-
+          <div style={styles.mainContentArea}>
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <EventListingPage
+                    user={user}
+                    events={events}
+                    loading={loading}
+                    toggleInterest={toggleInterest}
+                  />
+                }
+              />
+              <Route
+                path="/events/:slug/:id"
+                element={<EventDetailPage user={user} toggleInterest={toggleInterest} />}
+              />
+              <Route
+                path="/add-event"
+                element={
+                  <AddEventForm
+                    user={user}
+                    handleAddEvent={handleAddEvent}
+                    form={form}
+                    handleChange={handleChange}
+                    imageFile={imageFile}
+                    handleImageChange={handleImageChange}
+                    loading={loading}
+                  />
+                }
+              />
+              <Route path="*" element={<div style={{ textAlign: 'center', fontSize: '24px', padding: '50px', color: 'var(--danger-color)' }}>404 - Page Not Found</div>} />
+            </Routes>
+          </div>
           <footer style={styles.footer}>
-            <p style={{ marginTop: 15, fontSize: 14, color: '#777' }}>&copy; {new Date().getFullYear()} Listeve. All rights reserved. | <Link to="/privacy" style={{ color: '#007bff', textDecoration: 'none' }}>Privacy Policy</Link> | <Link to="/terms" style={{ color: '#007bff', textDecoration: 'none' }}>Terms of Service</Link></p>
+            <p style={{ margin: 0 }}>&copy; {new Date().getFullYear()} Listeve. All rights reserved.</p>
+            <p style={{ margin: '5px 0 0 0' }}>
+              <Link to="/privacy" style={{ color: 'var(--secondary-color)', textDecoration: 'none', marginRight: '10px' }}>Privacy Policy</Link>
+              <Link to="/terms" style={{ color: 'var(--secondary-color)', textDecoration: 'none' }}>Terms of Service</Link>
+            </p>
           </footer>
         </div>
       </Router>
