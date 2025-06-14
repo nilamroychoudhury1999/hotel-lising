@@ -1450,4 +1450,4 @@ export default function EventListingApp() {
       </Router>
     </HelmetProvider>
   );
-} Make it more seo friendly and give professional look like mmt and add category card like all events.in
+} 
