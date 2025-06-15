@@ -692,7 +692,7 @@ function TopNavigation({ user, handleLogin, handleLogout }) {
                       Welcome, <strong>{user.displayName}</strong>
                     </span>
                     <Link to="/add-event" style={{ ...styles.buttonBase, ...styles.btnSuccess, ...styles.responsive.buttonBaseMobile }} onClick={() => setMenuOpen(false)}>
-                      + Add New Event
+                     Add Event
                     </Link>
                     <button style={{ ...styles.buttonBase, ...styles.btnDanger, ...styles.responsive.buttonBaseMobile }} onClick={() => { handleLogout(); setMenuOpen(false); }}>
                       Logout
@@ -1106,7 +1106,7 @@ function EventDetailPage({ user, toggleInterest }) {
       {event.imageUrl && (
         <img
           src={event.imageUrl}
-          alt={`Image for ${event.title} event`}
+          alt={`for ${event.title} event`}
           title={event.title}
           style={styles.detailImage}
           loading="lazy"
