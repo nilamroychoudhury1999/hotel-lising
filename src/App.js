@@ -184,7 +184,7 @@ const styles = {
     padding: 25, // More padding
     borderRadius: 12,
     boxShadow: "0 4px 15px rgba(0,0,0,0.07)",
-    display: "flex",
+    // display: "flex",
     gap: 25,
     alignItems: "flex-start",
     transition: "transform 0.2s ease, box-shadow 0.2s ease",
