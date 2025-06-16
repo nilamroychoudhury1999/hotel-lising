@@ -395,7 +395,7 @@ function AuthBar({ user, handleLogin, handleLogout }) {
           </div>
           <div style={{ display: 'flex', gap: 12 }}> {/* Increased gap */}
             <Link to="/add-event" style={{ ...styles.button, ...styles.btnSuccess }}>
-              + Add New Event
+              Add Event
             </Link>
             <button style={{ ...styles.button, ...styles.btnDanger }} onClick={handleLogout}>
               Logout
