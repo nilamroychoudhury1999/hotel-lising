@@ -5,9 +5,6 @@ import {
   collection,
   addDoc,
   onSnapshot,
-  updateDoc,
-  arrayUnion,
-  arrayRemove,
   doc,
   query,
   orderBy,
@@ -34,7 +31,7 @@ const firebaseConfig = {
   authDomain: "form-ca7cc.firebaseapp.com",
   databaseURL: "https://form-ca7cc-default-rtdb.firebaseio.com",
   projectId: "form-ca7cc",
-  storageBucket: "form-ca7cc.firebaseapp.com",
+  storageBucket: "form-ca7cc.appspot.com",
   messagingSenderId: "1054208318782",
   appId: "1:1054208318782:web:f64f43412902afcd7aa06f",
   measurementId: "G-CQSLK7PCFQ",
@@ -69,63 +66,56 @@ async function geocodeAddress(address) {
 
 const styles = {
   container: {
-    maxWidth: 1000, // Slightly wider container
-    margin: "40px auto",
-    fontFamily: "'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", // Modern font
+    maxWidth: 1200,
+    margin: "20px auto",
+    fontFamily: "'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
     color: "#333",
     padding: 20,
-    backgroundColor: "#f0f2f5", // Lighter background
-    borderRadius: 12, // More rounded corners
-    boxShadow: "0 6px 20px rgba(0,0,0,0.08)", // Softer, more pronounced shadow
+    backgroundColor: "#f5f5f5",
+    borderRadius: 8,
   },
   header: {
     textAlign: "center",
-    marginBottom: 40,
-    fontSize: 42, // Larger, bolder header
-    fontWeight: "900",
+    marginBottom: 30,
+    fontSize: 36,
+    fontWeight: "bold",
     color: "#2c3e50",
-    letterSpacing: "1px",
-    textShadow: "1px 1px 2px rgba(0,0,0,0.05)", // Subtle text shadow
   },
   authBar: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 30,
-    padding: "18px 25px", // More padding
+    marginBottom: 20,
+    padding: "15px 20px",
     backgroundColor: "#ffffff",
-    borderRadius: 10,
-    boxShadow: "0 3px 12px rgba(0,0,0,0.06)",
+    borderRadius: 8,
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
   },
   button: {
-    padding: "12px 24px", // More padding for buttons
+    padding: "10px 20px",
     fontSize: 16,
-    borderRadius: 8, // More rounded buttons
+    borderRadius: 6,
     cursor: "pointer",
     border: "none",
-    fontWeight: "700",
-    transition: "background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease", // Added box-shadow transition
-    "&:hover": { // These need to be handled by CSS-in-JS or actual CSS
-      transform: "translateY(-2px)",
-      boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-    },
+    fontWeight: "600",
+    transition: "background-color 0.3s ease",
   },
   btnPrimary: {
-    backgroundColor: "#007bff", // Standard blue
+    backgroundColor: "#007bff",
     color: "white",
     "&:hover": {
       backgroundColor: "#0056b3",
     },
   },
   btnDanger: {
-    backgroundColor: "#dc3545", // Standard red
+    backgroundColor: "#dc3545",
     color: "white",
     "&:hover": {
       backgroundColor: "#c82333",
     },
   },
   btnSuccess: {
-    backgroundColor: "#28a745", // Standard green
+    backgroundColor: "#28a745",
     color: "white",
     "&:hover": {
       backgroundColor: "#218838",
@@ -133,256 +123,185 @@ const styles = {
   },
   searchInput: {
     width: "100%",
-    padding: "14px", // More padding
-    fontSize: 17,
-    borderRadius: 10, // More rounded
+    padding: "12px",
+    fontSize: 16,
+    borderRadius: 8,
     border: "1px solid #ced4da",
     outline: "none",
-    marginBottom: 25, // More margin
+    marginBottom: 20,
     boxSizing: "border-box",
-    transition: "border-color 0.3s ease, box-shadow 0.3s ease",
-    "&:focus": {
-      borderColor: "#80bdff",
-      boxShadow: "0 0 0 0.3rem rgba(0,123,255,.25)", // Larger, softer shadow on focus
-    },
   },
   categoryFilter: {
     display: "flex",
     justifyContent: "center",
     flexWrap: "wrap",
-    gap: 12, // Slightly more gap
-    marginBottom: 35,
+    gap: 10,
+    marginBottom: 25,
   },
   categoryButton: {
-    padding: "10px 20px", // More padding
-    fontSize: 15,
-    borderRadius: 25, // Pill-shaped buttons
+    padding: "8px 16px",
+    fontSize: 14,
+    borderRadius: 20,
     border: "1px solid #007bff",
     backgroundColor: "white",
     color: "#007bff",
     cursor: "pointer",
-    transition: "background-color 0.3s, color 0.3s, transform 0.2s",
-    "&:hover": {
-      backgroundColor: "#e7f2ff", // Light blue hover
-      transform: "translateY(-1px)",
-    },
+    transition: "background-color 0.3s, color 0.3s",
   },
   categoryButtonActive: {
     backgroundColor: "#007bff",
     color: "white",
-    fontWeight: "600",
-    boxShadow: "0 2px 8px rgba(0,123,255,0.2)",
   },
-  eventList: {
+  hotelList: {
     listStyle: "none",
     paddingLeft: 0,
     marginBottom: 40,
   },
-  eventItem: {
+  hotelItem: {
     backgroundColor: "white",
-    marginBottom: 20, // More space between items
-    padding: 25, // More padding
-    borderRadius: 12,
-    boxShadow: "0 4px 15px rgba(0,0,0,0.07)",
-    // display: "flex",
-    gap: 25,
-    alignItems: "flex-start",
-    transition: "transform 0.2s ease, box-shadow 0.2s ease",
-    "&:hover": {
-      transform: "translateY(-3px)", // Lift effect on hover
-      boxShadow: "0 8px 25px rgba(0,0,0,0.12)",
-    },
+    marginBottom: 15,
+    padding: 20,
+    borderRadius: 8,
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+    display: "flex",
+    gap: 20,
   },
-  eventImage: {
-    width: 180, // Larger image preview
-    height: 120,
+  hotelImage: {
+    width: 200,
+    height: 150,
     objectFit: "cover",
-    borderRadius: 10,
-    flexShrink: 0,
-    boxShadow: "0 2px 8px rgba(0,0,0,0.1)", // Shadow for image
+    borderRadius: 6,
   },
-  eventContent: {
+  hotelContent: {
     flexGrow: 1,
   },
-  eventTitle: {
-    fontSize: 24, // Slightly larger title
+  hotelTitle: {
+    fontSize: 20,
     marginBottom: 8,
     color: "#2c3e50",
-    fontWeight: "700", // Bolder title
+    fontWeight: "bold",
   },
-  eventDetails: {
+  hotelDetails: {
     display: "flex",
     flexDirection: "column",
-    gap: 6,
-    marginBottom: 12,
+    gap: 5,
+    marginBottom: 10,
   },
-  eventDate: {
-    color: "#5a6268", // Darker gray
-    fontSize: 16,
-    fontWeight: "500",
+  hotelRating: {
+    color: "#ffc107",
+    fontWeight: "bold",
   },
-  eventLocation: {
-    color: "#5a6268",
-    fontSize: 16,
-    fontStyle: "normal", // Remove italic
+  hotelLocation: {
+    color: "#6c757d",
   },
-  eventCategory: {
-    color: "#5a6268",
-    fontSize: 16,
-    fontWeight: "500",
+  hotelPrice: {
+    color: "#28a745",
+    fontWeight: "bold",
   },
-  eventDesc: {
+  hotelAmenities: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
     marginTop: 10,
-    fontSize: 16,
-    color: "#555",
-    lineHeight: 1.6,
   },
-  eventContact: {
-    fontSize: 15,
-    color: "#007bff",
-    marginTop: 8,
-    fontWeight: "500",
-  },
-  interestedBtn: {
-    marginTop: 18, // More margin
-    padding: "10px 20px",
-    borderRadius: 8,
-    fontWeight: "600",
-    cursor: "pointer",
-    border: "none",
-    transition: "background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease",
-    "&:hover": {
-      transform: "translateY(-1px)",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-    },
-  },
-  interestedCount: {
-    marginLeft: 12,
-    fontSize: 15,
-    color: "#555",
-    fontWeight: "500",
+  amenityTag: {
+    backgroundColor: "#e9ecef",
+    padding: "4px 8px",
+    borderRadius: 4,
+    fontSize: 12,
   },
   formContainer: {
     backgroundColor: "#ffffff",
-    padding: 35, // More padding
-    borderRadius: 12,
-    boxShadow: "0 4px 15px rgba(0,0,0,0.07)",
+    padding: 25,
+    borderRadius: 8,
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
   },
   formTitle: {
-    fontSize: 28, // Larger title
-    marginBottom: 30,
+    fontSize: 24,
+    marginBottom: 20,
     color: "#2c3e50",
-    fontWeight: "700",
-    textAlign: "center",
+    fontWeight: "bold",
   },
   formGroup: {
-    marginBottom: 25, // More space between form groups
-    display: "flex",
-    flexDirection: "column",
+    marginBottom: 20,
   },
   label: {
-    marginBottom: 10, // More space
+    marginBottom: 8,
     fontWeight: "600",
-    fontSize: 16,
-    color: "#333",
+    fontSize: 14,
   },
   input: {
-    padding: 14, // More padding
-    fontSize: 16,
-    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+    borderRadius: 6,
     border: "1px solid #ced4da",
     outline: "none",
-    transition: "border-color 0.3s ease, box-shadow 0.3s ease",
-    "&:focus": {
-      borderColor: "#80bdff",
-      boxShadow: "0 0 0 0.25rem rgba(0,123,255,.25)",
-    },
+    width: "100%",
+    boxSizing: "border-box",
   },
   textarea: {
-    padding: 14,
-    fontSize: 16,
-    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+    borderRadius: 6,
     border: "1px solid #ced4da",
     outline: "none",
     resize: "vertical",
-    minHeight: 120, // Taller textarea
-    transition: "border-color 0.3s ease, box-shadow 0.3s ease",
-    "&:focus": {
-      borderColor: "#80bdff",
-      boxShadow: "0 0 0 0.25rem rgba(0,123,255,.25)",
-    },
+    minHeight: 100,
+    width: "100%",
   },
   select: {
-    padding: 14,
-    fontSize: 16,
-    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+    borderRadius: 6,
     border: "1px solid #ced4da",
     outline: "none",
-    backgroundColor: "white",
-    cursor: "pointer",
-    transition: "border-color 0.3s ease",
-  },
-  disabledButton: {
-    opacity: 0.5, // Slightly more opaque when disabled
-    cursor: "not-allowed",
-  },
-  backButton: {
-    display: 'inline-block',
-    margin: '25px 0', // More margin
-    padding: '12px 22px',
-    backgroundColor: '#6c757d',
-    color: 'white',
-    borderRadius: 8,
-    textDecoration: 'none',
-    fontWeight: 'bold',
-    transition: 'background-color 0.3s ease, transform 0.2s ease',
-    "&:hover": {
-        backgroundColor: '#5a6268',
-        transform: 'translateY(-1px)',
-    }
+    width: "100%",
   },
   detailContainer: {
     backgroundColor: "white",
-    padding: 35,
-    borderRadius: 12,
-    boxShadow: "0 4px 15px rgba(0,0,0,0.07)",
-    marginTop: 25,
+    padding: 25,
+    borderRadius: 8,
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
   },
   detailImage: {
     width: '100%',
-    maxHeight: 450, // Slightly taller image
+    maxHeight: 400,
     objectFit: 'cover',
-    borderRadius: 12,
-    marginBottom: 25,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+    borderRadius: 8,
+    marginBottom: 20,
   },
   detailTitle: {
-    fontSize: 36, // Larger title
+    fontSize: 28,
     color: "#2c3e50",
-    marginBottom: 18,
-    fontWeight: "800",
+    marginBottom: 15,
+    fontWeight: "bold",
   },
   detailInfo: {
-    fontSize: 18,
+    fontSize: 16,
     color: "#555",
-    marginBottom: 10,
-    lineHeight: 1.5,
+    marginBottom: 8,
   },
-  detailDescription: {
-    fontSize: 17,
-    lineHeight: 1.7,
-    color: "#444",
-    marginTop: 25,
-    marginBottom: 25,
+  backButton: {
+    display: 'inline-block',
+    margin: '20px 0',
+    padding: '10px 20px',
+    backgroundColor: '#6c757d',
+    color: 'white',
+    borderRadius: 6,
+    textDecoration: 'none',
+    fontWeight: 'bold',
   },
   footer: {
     textAlign: 'center',
-    marginTop: 40, // More margin
-    padding: '25px 0',
-    borderTop: '1px solid #e0e0e0', // Lighter border
-    backgroundColor: '#ffffff', // Footer background
-    borderRadius: '0 0 12px 12px', // Match container border-radius
+    marginTop: 30,
+    padding: '20px 0',
+    borderTop: '1px solid #e0e0e0',
   },
+  starRating: {
+    color: '#ffc107',
+    fontSize: '18px',
+    marginRight: '5px',
+  }
 };
 
 function AuthBar({ user, handleLogin, handleLogout }) {
@@ -393,9 +312,9 @@ function AuthBar({ user, handleLogin, handleLogout }) {
           <div>
             Welcome, <strong>{user.displayName}</strong>
           </div>
-          <div style={{ display: 'flex', gap: 12 }}> {/* Increased gap */}
-            <Link to="/add-event" style={{ ...styles.button, ...styles.btnSuccess }}>
-              Add Event
+          <div style={{ display: 'flex', gap: 10 }}>
+            <Link to="/add-hotel" style={{ ...styles.button, ...styles.btnSuccess }}>
+              Add Hotel
             </Link>
             <button style={{ ...styles.button, ...styles.btnDanger }} onClick={handleLogout}>
               Logout
@@ -403,9 +322,9 @@ function AuthBar({ user, handleLogin, handleLogout }) {
           </div>
         </>
       ) : (
-        <div style={{ display: 'flex', gap: 12 }}>
-          <Link to="/add-event" style={{ ...styles.button, ...styles.btnSuccess }}>
-            Add Event
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Link to="/add-hotel" style={{ ...styles.button, ...styles.btnSuccess }}>
+            Add Hotel
           </Link>
           <button style={{ ...styles.button, ...styles.btnPrimary }} onClick={handleLogin}>
             Login
@@ -416,48 +335,58 @@ function AuthBar({ user, handleLogin, handleLogout }) {
   );
 }
 
-
-function EventListingPage({ user, events, loading, toggleInterest }) {
+function HotelListingPage({ user, hotels, loading }) {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const categories = ["All", "Music", "Sports", "Art", "Tech", "Food", "Other"];
+  const categories = ["All", "Luxury", "Budget", "Resort", "Boutique", "Business", "Family"];
 
-  const filteredEvents = events
-    .filter((event) => {
+  const filteredHotels = hotels
+    .filter((hotel) => {
       const lowerSearch = search.toLowerCase();
       const matchesSearch =
-        event.title.toLowerCase().includes(lowerSearch) ||
-        (event.city?.toLowerCase().includes(lowerSearch) ?? false) ||
-        (event.state?.toLowerCase().includes(lowerSearch) ?? false) ||
-        (event.country?.toLowerCase().includes(lowerSearch) ?? false);
+        hotel.name.toLowerCase().includes(lowerSearch) ||
+        (hotel.city?.toLowerCase().includes(lowerSearch) ?? false) ||
+        (hotel.state?.toLowerCase().includes(lowerSearch) ?? false) ||
+        (hotel.country?.toLowerCase().includes(lowerSearch) ?? false);
 
       const matchesCategory =
-        selectedCategory === "All" || event.category === selectedCategory;
+        selectedCategory === "All" || hotel.category === selectedCategory;
 
       return matchesSearch && matchesCategory;
     })
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
+    .sort((a, b) => b.rating - a.rating);
+
+  const renderStars = (rating) => {
+    const stars = [];
+    for (let i = 0; i < 5; i++) {
+      stars.push(
+        <span key={i} style={styles.starRating}>
+          {i < rating ? '★' : '☆'}
+        </span>
+      );
+    }
+    return stars;
+  };
 
   return (
     <main>
       <Helmet>
-        <title>Listeve - Discover & List Events in India</title>
-        <meta name="description" content="Discover and list upcoming events in India, including music concerts, sports, tech meetups, art exhibitions, food festivals, and more. Find local events near you!" />
+        <title>Hotel Finder - Discover Hotels in Guwahati</title>
+        <meta name="description" content="Find and book hotels, resorts, and accommodations in Guwahati. Compare prices, amenities, and ratings." />
       </Helmet>
 
       <section>
         <input
           style={styles.searchInput}
           type="search"
-          placeholder="Search events by title, city, state, or country..."
+          placeholder="Search hotels by name, area, or location..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          disabled={!events.length && !loading}
-          aria-label="Search events"
+          disabled={!hotels.length && !loading}
         />
 
-        {events.length > 0 && (
-          <nav style={styles.categoryFilter} aria-label="Filter events by category">
+        {hotels.length > 0 && (
+          <div style={styles.categoryFilter}>
             {categories.map((category) => (
               <button
                 key={category}
@@ -468,272 +397,287 @@ function EventListingPage({ user, events, loading, toggleInterest }) {
                     : {}),
                 }}
                 onClick={() => setSelectedCategory(category)}
-                aria-pressed={selectedCategory === category}
               >
                 {category}
               </button>
             ))}
-          </nav>
+          </div>
         )}
       </section>
 
       <section>
-        <h2 style={{ ...styles.formTitle, marginTop: 0 }}>Upcoming Events</h2>
-        <ul style={styles.eventList}>
-          {filteredEvents.length === 0 && (
-            <li style={{ textAlign: "center", color: "#777", fontSize: 18, padding: 30, backgroundColor: 'white', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-              No events found matching your criteria. Try adjusting your search or filters.
+        <h2 style={{ ...styles.formTitle, marginTop: 0 }}>Hotels in Guwahati</h2>
+        <ul style={styles.hotelList}>
+          {filteredHotels.length === 0 && (
+            <li style={{ textAlign: "center", color: "#777", padding: 30 }}>
+              No hotels found matching your criteria. Try adjusting your search or filters.
             </li>
           )}
 
-          {filteredEvents.map((event) => {
-            const interestedCount = event.interestedUsers?.length || 0;
-            const isInterested = user ? event.interestedUsers?.includes(user.uid) : false;
-            return (
-              <li key={event.id} style={styles.eventItem}>
-                {event.imageUrl && (
-                  <img
-                    src={event.imageUrl}
-                    alt={`${event.title} event ${event.category ? `(${event.category})` : ''}`}
-                    title={event.title}
-                    style={styles.eventImage}
-                    loading="lazy"
-                  />
-                )}
-                <article style={styles.eventContent}>
-                  <Link to={`/events/${event.id}`} style={{ textDecoration: 'none' }}>
-                    <h3 style={styles.eventTitle}>{event.title}</h3>
-                  </Link>
-                  <div style={styles.eventDetails}>
-                    <time dateTime={event.date} style={styles.eventDate}>
-                      Date: {new Date(event.date).toLocaleDateString('en-IN', {
-                        year: 'numeric', month: 'long', day: 'numeric'
-                      })}
-                    </time>
-                    {(event.city || event.state || event.country) && (
-                      <address style={styles.eventLocation}>
-                        Location: {[event.city, event.state, event.country].filter(Boolean).join(", ")}
-                      </address>
-                    )}
-                    {event.category && (
-                      <div style={styles.eventCategory}>
-                        Category: <strong>{event.category}</strong>
-                      </div>
+          {filteredHotels.map((hotel) => (
+            <li key={hotel.id} style={styles.hotelItem}>
+              {hotel.imageUrl && (
+                <img
+                  src={hotel.imageUrl}
+                  alt={hotel.name}
+                  style={styles.hotelImage}
+                  loading="lazy"
+                />
+              )}
+              <div style={styles.hotelContent}>
+                <Link to={`/hotels/${hotel.id}`} style={{ textDecoration: 'none' }}>
+                  <h3 style={styles.hotelTitle}>{hotel.name}</h3>
+                </Link>
+                <div style={styles.hotelDetails}>
+                  <div style={styles.hotelRating}>
+                    {renderStars(hotel.rating)} ({hotel.rating}/5)
+                  </div>
+                  <div style={styles.hotelLocation}>
+                    {hotel.city}, Guwahati
+                  </div>
+                  <div style={styles.hotelPrice}>
+                    ₹{hotel.price} per night
+                  </div>
+                </div>
+                {hotel.amenities && hotel.amenities.length > 0 && (
+                  <div style={styles.hotelAmenities}>
+                    {hotel.amenities.slice(0, 5).map((amenity, index) => (
+                      <span key={index} style={styles.amenityTag}>{amenity}</span>
+                    ))}
+                    {hotel.amenities.length > 5 && (
+                      <span style={styles.amenityTag}>+{hotel.amenities.length - 5} more</span>
                     )}
                   </div>
-                  {event.description && (
-                    <p style={styles.eventDesc}>
-                      {event.description.length > 150
-                        ? `${event.description.substring(0, 150)}... `
-                        : event.description}
-                      {event.description.length > 150 && (
-                        <Link to={`/events/${event.id}`} style={{ color: '#007bff', textDecoration: 'none', fontWeight: '500' }}>Read more</Link>
-                      )}
-                    </p>
-                  )}
-                  {event.contact && (
-                    <p style={styles.eventContact}>Contact: <a href={`mailto:${event.contact}`} style={{ color: 'inherit', textDecoration: 'none' }}>{event.contact}</a></p>
-                  )}
-                  <button
-                    style={{
-                      ...styles.interestedBtn,
-                      backgroundColor: isInterested ? "#28a745" : "#007bff",
-                      color: "white",
-                      ...(loading ? styles.disabledButton : {}),
-                    }}
-                    onClick={() => toggleInterest(event)}
-                    disabled={loading}
-                    aria-pressed={isInterested}
-                  >
-                    {isInterested ? "Interested ✓" : "Show Interest"}
-                  </button>
-                  <span style={styles.interestedCount}>{interestedCount} interested</span>
-                </article>
-              </li>
-            );
-          })}
+                )}
+              </div>
+            </li>
+          ))}
         </ul>
       </section>
     </main>
   );
 }
 
-function EventDetailPage({ user, toggleInterest }) {
+function HotelDetailPage({ user }) {
   const { id } = useParams();
-  const [event, setEvent] = useState(null);
-  const [loadingEvent, setLoadingEvent] = useState(true);
+  const [hotel, setHotel] = useState(null);
+  const [loadingHotel, setLoadingHotel] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    async function fetchEvent() {
+    async function fetchHotel() {
       if (!id) return;
-      setLoadingEvent(true);
+      setLoadingHotel(true);
       try {
-        const eventRef = doc(db, "events", id);
-        const eventSnap = await getDoc(eventRef);
-        if (eventSnap.exists()) {
-          setEvent({ id: eventSnap.id, ...eventSnap.data() });
+        const hotelRef = doc(db, "hotels", id);
+        const hotelSnap = await getDoc(hotelRef);
+        if (hotelSnap.exists()) {
+          setHotel({ id: hotelSnap.id, ...hotelSnap.data() });
         } else {
           console.log("No such document!");
           navigate('/not-found');
         }
       } catch (error) {
-        console.error("Error fetching event:", error);
-        alert("Failed to load event details.");
+        console.error("Error fetching hotel:", error);
+        alert("Failed to load hotel details.");
       }
-      setLoadingEvent(false);
+      setLoadingHotel(false);
     }
-    fetchEvent();
+    fetchHotel();
   }, [id, navigate]);
 
-  if (loadingEvent) {
-    return <div style={{ textAlign: 'center', fontSize: 20, padding: 50, color: '#555' }}>Loading event details...</div>;
+  const renderStars = (rating) => {
+    const stars = [];
+    for (let i = 0; i < 5; i++) {
+      stars.push(
+        <span key={i} style={styles.starRating}>
+          {i < rating ? '★' : '☆'}
+        </span>
+      );
+    }
+    return stars;
+  };
+
+  if (loadingHotel) {
+    return <div style={{ textAlign: 'center', padding: 50 }}>Loading hotel details...</div>;
   }
 
-  if (!event) {
-    return <div style={{ textAlign: 'center', fontSize: 20, padding: 50, color: '#dc3545' }}>Event not found.</div>;
+  if (!hotel) {
+    return <div style={{ textAlign: 'center', padding: 50 }}>Hotel not found.</div>;
   }
 
-  const interestedCount = event.interestedUsers?.length || 0;
-  const isInterested = user ? event.interestedUsers?.includes(user.uid) : false;
+  const pageTitle = `${hotel.name} - ${hotel.rating}★ Hotel in ${hotel.city}, Guwahati`;
 
-  const eventDateFormatted = new Date(event.date).toLocaleDateString('en-IN', {
-    year: 'numeric', month: 'long', day: 'numeric'
-  });
-  const locationString = [event.city, event.state, event.country].filter(Boolean).join(", ");
-  const pageTitle = `${event.title} - ${eventDateFormatted} - ${event.category ? `${event.category} Events - ` : ''}Listeve`;
-  const metaDescription = event.description
-    ? event.description.substring(0, 160) + ` Find event details, date, and location in ${locationString}.`
-    : `Details about the event "${event.title}" happening on ${eventDateFormatted} in ${locationString}. Join us!`;
-
-  const eventSchema = {
+  const hotelSchema = {
     "@context": "https://schema.org",
-    "@type": "Event",
-    "name": event.title,
-    "startDate": event.date,
-    "endDate": event.date,
-    "eventStatus": "https://schema.org/EventScheduled",
-    "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
-    "location": {
-      "@type": "Place",
-      "name": locationString || event.title,
-      "address": {
-        "@type": "PostalAddress",
-        "addressLocality": event.city,
-        "addressRegion": event.state,
-        "addressCountry": "IN"
-      }
+    "@type": "Hotel",
+    "name": hotel.name,
+    "description": hotel.description || `Hotel ${hotel.name} in ${hotel.city}, Guwahati`,
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": hotel.address,
+      "addressLocality": hotel.city,
+      "addressRegion": "Assam",
+      "postalCode": hotel.pincode,
+      "addressCountry": "India"
     },
-    "description": event.description,
-    "image": event.imageUrl || "URL_TO_DEFAULT_EVENT_IMAGE.jpg",
-    "organizer": {
-      "@type": event.createdByName ? "Person" : "Organization",
-      "name": event.createdByName || "Listeve Community"
-    },
-    "url": window.location.href
+    "priceRange": `₹${hotel.price}`,
+    "telephone": hotel.contact,
+    "starRating": {
+      "@type": "Rating",
+      "ratingValue": hotel.rating
+    }
   };
 
   return (
     <article style={styles.detailContainer}>
       <Helmet>
         <title>{pageTitle}</title>
-        <meta name="description" content={metaDescription} />
-        <link rel="canonical" href={window.location.href} />
-        <meta property="og:title" content={pageTitle} />
-        <meta property="og:description" content={metaDescription} />
-        <meta property="og:image" content={event.imageUrl || 'URL_TO_DEFAULT_EVENT_IMAGE.jpg'} />
-        <meta property="og:url" content={window.location.href} />
-        <meta property="og:type" content="event" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={pageTitle} />
-        <meta name="twitter:description" content={metaDescription} />
-        <meta name="twitter:image" content={event.imageUrl || 'URL_TO_DEFAULT_EVENT_IMAGE.jpg'} />
-
+        <meta name="description" content={`Book ${hotel.name} - ${hotel.rating} star hotel in ${hotel.city}, Guwahati. ${hotel.description?.substring(0, 160) || ''}`} />
         <script type="application/ld+json">
-          {JSON.stringify(eventSchema)}
+          {JSON.stringify(hotelSchema)}
         </script>
       </Helmet>
 
-      <Link to="/" style={styles.backButton}>&larr; Back to All Events</Link>
-      {event.imageUrl && (
+      <Link to="/" style={styles.backButton}>&larr; Back to All Hotels</Link>
+      {hotel.imageUrl && (
         <img
-          src={event.imageUrl}
-          alt={`${event.title} event in ${locationString}`}
-          title={`Click to view ${event.title}`}
+          src={hotel.imageUrl}
+          alt={hotel.name}
           style={styles.detailImage}
         />
       )}
-      <h1 style={styles.detailTitle}>{event.title}</h1>
-      <p style={styles.detailInfo}><strong>Date:</strong> <time dateTime={event.date}>{eventDateFormatted}</time></p>
-      {(event.city || event.state || event.country) && (
-        <p style={styles.detailInfo}>
-          <strong>Location:</strong> <address>{locationString}</address>
-        </p>
+      <h1 style={styles.detailTitle}>{hotel.name}</h1>
+      <div style={styles.detailInfo}>
+        {renderStars(hotel.rating)} ({hotel.rating}/5)
+      </div>
+      <div style={styles.detailInfo}>
+        <strong>Price:</strong> ₹{hotel.price} per night
+      </div>
+      <div style={styles.detailInfo}>
+        <strong>Location:</strong> {hotel.city}, Guwahati
+      </div>
+      {hotel.address && (
+        <div style={styles.detailInfo}>
+          <strong>Address:</strong> {hotel.address}
+        </div>
       )}
-      {event.category && (
-        <p style={styles.detailInfo}><strong>Category:</strong> {event.category}</p>
+      {hotel.contact && (
+        <div style={styles.detailInfo}>
+          <strong>Contact:</strong> {hotel.contact}
+        </div>
       )}
-      {event.contact && (
-        <p style={styles.detailInfo}><strong>Contact:</strong> <a href={`mailto:${event.contact}`} title="Contact event organizer" style={{ color: 'inherit', textDecoration: 'none' }}>{event.contact}</a></p>
+      {hotel.amenities && hotel.amenities.length > 0 && (
+        <div style={styles.detailInfo}>
+          <strong>Amenities:</strong>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+            {hotel.amenities.map((amenity, index) => (
+              <span key={index} style={styles.amenityTag}>{amenity}</span>
+            ))}
+          </div>
+        </div>
       )}
-      {event.description && (
-        <p style={styles.detailDescription}>{event.description}</p>
+      {hotel.description && (
+        <div style={{ ...styles.detailInfo, marginTop: 20 }}>
+          <strong>Description:</strong>
+          <p>{hotel.description}</p>
+        </div>
       )}
-
-      <button
-        style={{
-          ...styles.interestedBtn,
-          backgroundColor: isInterested ? "#28a745" : "#007bff",
-          color: "white",
-          ...(loadingEvent ? styles.disabledButton : {}),
-        }}
-        onClick={() => toggleInterest(event)}
-        disabled={loadingEvent}
-        aria-pressed={isInterested}
-      >
-        {isInterested ? "Interested ✓" : "Show Interest"}
-      </button>
-      <span style={styles.interestedCount}>{interestedCount} interested</span>
     </article>
   );
 }
 
-function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, handleImageChange, loading }) {
-  const categories = ["All", "Music", "Sports", "Art", "Tech", "Food", "Other"];
+function AddHotelForm({ user, handleAddHotel, form, handleChange, imageFile, handleImageChange, loading }) {
+  const categories = ["Luxury", "Budget", "Resort", "Boutique", "Business", "Family"];
+  const amenitiesList = ["WiFi", "Pool", "Gym", "Spa", "Restaurant", "Parking", "AC", "Breakfast", "Bar", "Laundry"];
+  
+  // List of Guwahati areas
+  const guwahatiAreas = [
+    "Paltan Bazaar",
+    "Fancy Bazaar",
+    "Uzan Bazaar",
+    "Pan Bazaar",
+    "Lachit Nagar",
+    "Dispur",
+    "Beltola",
+    "Ganeshguri",
+    "Six Mile",
+    "Kahilipara",
+    "Zoo Road",
+    "Maligaon",
+    "Chandmari",
+    "Silpukhuri",
+    "Geetanagar",
+    "Hengrabari",
+    "Bhangagarh",
+    "Ulubari",
+    "Rehabari",
+    "Birubari",
+    "Noonmati",
+    "Lokhra",
+    "Bhetapara",
+    "Bamunimaidan",
+    "Jalukbari",
+    "North Guwahati",
+    "Amingaon",
+    "Azara",
+    "VIP Road",
+    "GS Road",
+    "RG Baruah Road"
+  ];
+
   return (
     <section style={styles.formContainer}>
       <Helmet>
-        <title>Add New Event - List Your Event on Listeve</title>
-        <meta name="description" content="Add your event to Listeve, the best platform to discover and promote local events in India. List your music, sports, art, tech, or food event for free." />
+        <title>Add New Hotel - Guwahati Hotel Listing</title>
+        <meta name="description" content="Add your hotel in Guwahati to our platform and reach more customers. List your property with photos, amenities, and pricing." />
       </Helmet>
-      <h2 style={styles.formTitle}>Add New Event</h2>
+      <h2 style={styles.formTitle}>Add New Hotel in Guwahati</h2>
 
-      <form onSubmit={handleAddEvent}>
+      <form onSubmit={handleAddHotel}>
         <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="title">Event Title *</label>
+          <label style={styles.label} htmlFor="name">Hotel Name *</label>
           <input
             style={styles.input}
-            id="title"
-            name="title"
-            value={form.title}
+            id="name"
+            name="name"
+            value={form.name}
             onChange={handleChange}
             required
-            placeholder="e.g., Local Music Festival"
-            aria-required="true"
+            placeholder="e.g., Grand Plaza Hotel"
           />
         </div>
 
         <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="date">Event Date *</label>
-          <input
-            style={styles.input}
-            id="date"
-            name="date"
-            type="date"
-            value={form.date}
+          <label style={styles.label} htmlFor="rating">Rating (1-5) *</label>
+          <select
+            style={styles.select}
+            id="rating"
+            name="rating"
+            value={form.rating}
             onChange={handleChange}
             required
-            aria-required="true"
+          >
+            <option value="">Select Rating</option>
+            <option value="1">1 ★</option>
+            <option value="2">2 ★★</option>
+            <option value="3">3 ★★★</option>
+            <option value="4">4 ★★★★</option>
+            <option value="5">5 ★★★★★</option>
+          </select>
+        </div>
+
+        <div style={styles.formGroup}>
+          <label style={styles.label} htmlFor="price">Price Per Night (₹) *</label>
+          <input
+            style={styles.input}
+            id="price"
+            name="price"
+            type="number"
+            value={form.price}
+            onChange={handleChange}
+            required
+            placeholder="e.g., 2500"
           />
         </div>
 
@@ -746,8 +690,8 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
             value={form.category}
             onChange={handleChange}
             required
-            aria-required="true"
           >
+            <option value="">Select Category</option>
             {categories.map((cat) => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
@@ -755,55 +699,90 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
         </div>
 
         <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="city">City</label>
+          <label style={styles.label} htmlFor="address">Address</label>
           <input
             style={styles.input}
+            id="address"
+            name="address"
+            value={form.address}
+            onChange={handleChange}
+            placeholder="e.g., 123 Main Street"
+          />
+        </div>
+
+        <div style={styles.formGroup}>
+          <label style={styles.label} htmlFor="city">Area in Guwahati *</label>
+          <select
+            style={styles.select}
             id="city"
             name="city"
             value={form.city}
             onChange={handleChange}
-            placeholder="e.g., Mumbai"
+            required
+          >
+            <option value="">Select Area in Guwahati</option>
+            {guwahatiAreas.map(area => (
+              <option key={area} value={area}>{area}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={styles.formGroup}>
+          <label style={styles.label} htmlFor="pincode">Pincode</label>
+          <input
+            style={styles.input}
+            id="pincode"
+            name="pincode"
+            value={form.pincode}
+            onChange={handleChange}
+            placeholder="e.g., 781001"
           />
         </div>
 
         <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="state">State</label>
-          <input
-            style={styles.input}
-            id="state"
-            name="state"
-            value={form.state}
-            onChange={handleChange}
-            placeholder="e.g., Maharashtra"
-          />
-        </div>
-
-        <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="country">Country</label>
-          <input
-            style={styles.input}
-            id="country"
-            name="country"
-            value={form.country}
-            onChange={handleChange}
-            placeholder="e.g., India"
-          />
-        </div>
-        <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="contact">Contact Info</label>
+          <label style={styles.label} htmlFor="contact">Contact Info *</label>
           <input
             style={styles.input}
             id="contact"
             name="contact"
             value={form.contact}
             onChange={handleChange}
-            placeholder="e.g., email@example.com or phone number"
-            type="email" // Suggesting email type for better validation
+            required
+            placeholder="e.g., +91 9876543210 or info@hotel.com"
           />
         </div>
 
         <div style={styles.formGroup}>
-          <label style={styles.label} htmlFor="imageUpload">Event Image (Optional)</label>
+          <label style={styles.label} htmlFor="amenities">Amenities</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {amenitiesList.map(amenity => (
+              <div key={amenity} style={{ display: 'flex', alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  id={`amenity-${amenity}`}
+                  name="amenities"
+                  value={amenity}
+                  checked={form.amenities?.includes(amenity) || false}
+                  onChange={(e) => {
+                    const { checked, value } = e.target;
+                    handleChange({
+                      target: {
+                        name: 'amenities',
+                        value: checked
+                          ? [...(form.amenities || []), value]
+                          : form.amenities?.filter(a => a !== value) || []
+                      }
+                    });
+                  }}
+                />
+                <label htmlFor={`amenity-${amenity}`} style={{ marginLeft: 5 }}>{amenity}</label>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={styles.formGroup}>
+          <label style={styles.label} htmlFor="imageUpload">Hotel Image (Optional)</label>
           <input
             style={styles.input}
             type="file"
@@ -822,7 +801,7 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
             name="description"
             value={form.description}
             onChange={handleChange}
-            placeholder="Provide a detailed description of the event..."
+            placeholder="Describe your hotel, rooms, services, etc..."
           />
         </div>
 
@@ -831,31 +810,35 @@ function AddEventForm({ user, handleAddEvent, form, handleChange, imageFile, han
           style={{
             ...styles.button,
             ...styles.btnSuccess,
-            ...(loading || !user ? styles.disabledButton : {}),
+            ...(loading || !user ? { opacity: 0.5, cursor: 'not-allowed' } : {}),
           }}
           disabled={loading || !user}
         >
-          {loading ? "Adding..." : "Add Event"}
+          {loading ? "Adding..." : "Add Hotel"}
         </button>
-        {!user && <p style={{ color: '#dc3545', marginTop: 15, textAlign: 'center', fontSize: 14 }}>Please login to add events.</p>}
+        {!user && <p style={{ color: '#dc3545', marginTop: 10 }}>Please login to add hotels.</p>}
       </form>
     </section>
   );
 }
 
-export default function EventListingApp() {
+export default function HotelListingApp() {
   const [user, setUser] = useState(null);
-  const [events, setEvents] = useState([]);
+  const [hotels, setHotels] = useState([]);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
-    title: "",
-    date: "",
-    state: "",
+    name: "",
+    rating: "",
+    price: "",
+    category: "",
+    address: "",
     city: "",
-    country: "",
-    description: "",
+    state: "Assam",
+    pincode: "",
+    country: "India",
     contact: "",
-    category: "All",
+    amenities: [],
+    description: "",
     imageUrl: "",
   });
   const [imageFile, setImageFile] = useState(null);
@@ -866,9 +849,9 @@ export default function EventListingApp() {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, "events"), orderBy("date", "asc"));
+    const q = query(collection(db, "hotels"), orderBy("rating", "desc"));
     const unsub = onSnapshot(q, (snapshot) => {
-      setEvents(
+      setHotels(
         snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
@@ -897,7 +880,8 @@ export default function EventListingApp() {
   }
 
   function handleChange(e) {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
   }
 
   function handleImageChange(e) {
@@ -931,14 +915,14 @@ export default function EventListingApp() {
     }
   }
 
-  async function handleAddEvent(e) {
+  async function handleAddHotel(e) {
     e.preventDefault();
     if (!user) {
-      alert("Please login to add an event.");
+      alert("Please login to add a hotel.");
       return;
     }
-    if (!form.title.trim() || !form.date.trim() || !form.category.trim()) {
-      alert("Please fill in at least Title, Date, and Category.");
+    if (!form.name.trim() || !form.rating || !form.price || !form.category || !form.city || !form.contact) {
+      alert("Please fill in all required fields.");
       return;
     }
 
@@ -952,69 +936,47 @@ export default function EventListingApp() {
       }
     }
 
-    const locationString = [form.city, form.state, form.country]
-      .filter(Boolean)
-      .join(", ");
-
     try {
-      const coords = await geocodeAddress(locationString);
-      await addDoc(collection(db, "events"), {
-        title: form.title.trim(),
-        date: form.date,
-        state: form.state.trim(),
+      await addDoc(collection(db, "hotels"), {
+        name: form.name.trim(),
+        rating: parseFloat(form.rating),
+        price: parseFloat(form.price),
+        category: form.category,
+        address: form.address.trim(),
         city: form.city.trim(),
+        state: form.state.trim(),
+        pincode: form.pincode.trim(),
         country: form.country.trim(),
         contact: form.contact.trim(),
+        amenities: form.amenities || [],
         description: form.description.trim(),
-        category: form.category,
         imageUrl: imageUrl,
-        coords,
-        interestedUsers: [],
         createdBy: user.uid,
         createdByName: user.displayName,
         createdAt: new Date().toISOString(),
       });
       setForm({
-        title: "",
-        date: "",
-        state: "",
+        name: "",
+        rating: "",
+        price: "",
+        category: "",
+        address: "",
         city: "",
-        country: "",
-        description: "",
+        state: "Assam",
+        pincode: "",
+        country: "India",
         contact: "",
-        category: "All",
+        amenities: [],
+        description: "",
         imageUrl: "",
       });
       setImageFile(null);
-      alert("Event added successfully!");
+      alert("Hotel added successfully!");
     } catch (error) {
-      alert("Failed to add event: " + error.message);
-      console.error("Add event error:", error);
+      alert("Failed to add hotel: " + error.message);
+      console.error("Add hotel error:", error);
     }
     setLoading(false);
-  }
-
-  async function toggleInterest(event) {
-    if (!user) {
-      alert("Please login to show interest.");
-      return;
-    }
-    setLoading(true); // Set loading to true for interest toggle
-    const eventRef = doc(db, "events", event.id);
-    const isInterested = event.interestedUsers?.includes(user.uid);
-
-    try {
-      await updateDoc(eventRef, {
-        interestedUsers: isInterested
-          ? arrayRemove(user.uid)
-          : arrayUnion(user.uid),
-      });
-    } catch (error) {
-      alert("Failed to update interest: " + error.message);
-      console.error("Toggle interest error:", error);
-    } finally {
-        setLoading(false); // Ensure loading is reset
-    }
   }
 
   return (
@@ -1023,7 +985,7 @@ export default function EventListingApp() {
         <div style={styles.container}>
           <h1 style={styles.header}>
             <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-              Listeve - Your Event Hub
+              Guwahati Hotel Finder
             </Link>
           </h1>
 
@@ -1033,24 +995,23 @@ export default function EventListingApp() {
             <Route
               path="/"
               element={
-                <EventListingPage
+                <HotelListingPage
                   user={user}
-                  events={events}
+                  hotels={hotels}
                   loading={loading}
-                  toggleInterest={toggleInterest}
                 />
               }
             />
             <Route
-              path="/events/:id"
-              element={<EventDetailPage user={user} toggleInterest={toggleInterest} />}
+              path="/hotels/:id"
+              element={<HotelDetailPage user={user} />}
             />
             <Route
-              path="/add-event"
+              path="/add-hotel"
               element={
-                <AddEventForm
+                <AddHotelForm
                   user={user}
-                  handleAddEvent={handleAddEvent}
+                  handleAddHotel={handleAddHotel}
                   form={form}
                   handleChange={handleChange}
                   imageFile={imageFile}
@@ -1059,11 +1020,11 @@ export default function EventListingApp() {
                 />
               }
             />
-            <Route path="*" element={<div style={{ textAlign: 'center', fontSize: 24, padding: 50, color: '#dc3545' }}>404 - Page Not Found</div>} />
+            <Route path="*" element={<div style={{ textAlign: 'center', padding: 50 }}>404 - Page Not Found</div>} />
           </Routes>
 
           <footer style={styles.footer}>
-            <p style={{ marginTop: 15, fontSize: 14, color: '#777' }}>&copy; {new Date().getFullYear()} Listeve. All rights reserved. | <Link to="/privacy" style={{ color: '#007bff', textDecoration: 'none' }}>Privacy Policy</Link> | <Link to="/terms" style={{ color: '#007bff', textDecoration: 'none' }}>Terms of Service</Link></p>
+            <p>&copy; {new Date().getFullYear()} Guwahati Hotel Finder. All rights reserved.</p>
           </footer>
         </div>
       </Router>
