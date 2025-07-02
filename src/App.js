@@ -45,25 +45,6 @@ const provider = new GoogleAuthProvider();
 const CLOUDINARY_UPLOAD_PRESET = "unsigned_preset_1";
 const CLOUDINARY_CLOUD_NAME = "dyrmi2zkl";
 
-async function geocodeAddress(address) {
-  if (!address) return null;
-  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-    address
-  )}`;
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data.length === 0) return null;
-    return {
-      lat: parseFloat(data[0].lat),
-      lon: parseFloat(data[0].lon),
-    };
-  } catch (error) {
-    console.error("Geocoding failed:", error);
-    return null;
-  }
-}
-
 const styles = {
   container: {
     maxWidth: 1200,
@@ -591,7 +572,6 @@ function AddHotelForm({ user, handleAddHotel, form, handleChange, imageFile, han
   const categories = ["Luxury", "Budget", "Resort", "Boutique", "Business", "Family"];
   const amenitiesList = ["WiFi", "Pool", "Gym", "Spa", "Restaurant", "Parking", "AC", "Breakfast", "Bar", "Laundry"];
   
-  // List of Guwahati areas
   const guwahatiAreas = [
     "Paltan Bazaar",
     "Fancy Bazaar",
