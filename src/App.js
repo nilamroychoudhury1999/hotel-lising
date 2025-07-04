@@ -19,6 +19,10 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
+// Cloudinary configuration
+const CLOUDINARY_UPLOAD_PRESET = "unsigned_preset_1";
+const CLOUDINARY_CLOUD_NAME = "dyrmi2zkl";
+
 // Complete list of Guwahati areas
 const GUWAHATI_AREAS = [
   "Paltan Bazaar", "Fancy Bazaar", "Uzan Bazaar", "Pan Bazaar", 
@@ -90,6 +94,13 @@ const styles = {
     borderRadius: 8,
     boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
   },
+  homestayImage: {
+    width: "100%",
+    maxHeight: 200,
+    objectFit: "cover",
+    borderRadius: 8,
+    marginBottom: 15
+  },
   callButton: {
     display: "inline-block",
     padding: "8px 15px",
@@ -115,6 +126,16 @@ const styles = {
   activeFilter: {
     backgroundColor: "#007bff",
     color: "white"
+  },
+  imagePreview: {
+    maxWidth: "100%",
+    maxHeight: 200,
+    marginTop: 10,
+    borderRadius: 8
+  },
+  errorText: {
+    color: "red",
+    marginTop: 5
   }
 };
 
@@ -221,6 +242,13 @@ function HomestayListing({ homestays }) {
         ) : (
           filteredHomestays.map(homestay => (
             <li key={homestay.id} style={styles.homestayItem}>
+              {homestay.imageUrl && (
+                <img 
+                  src={homestay.imageUrl} 
+                  alt={homestay.name}
+                  style={styles.homestayImage}
+                />
+              )}
               <h3>{homestay.name}</h3>
               <p><strong>Area:</strong> {homestay.city}</p>
               <p><strong>Price:</strong> ₹{homestay.price} per night</p>
@@ -245,7 +273,7 @@ function HomestayListing({ homestays }) {
   );
 }
 
-function AddHomestayForm({ user, form, setForm, handleSubmit, loading }) {
+function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleImageChange, imageError }) {
   return (
     <div style={{ maxWidth: 600, margin: "0 auto" }}>
       <h2>Add New Homestay</h2>
@@ -299,6 +327,25 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading }) {
           />
         </div>
 
+        <div style={{ marginBottom: 15 }}>
+          <label>Homestay Image (Max 1MB) *</label>
+          <input
+            style={styles.searchInput}
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            required
+          />
+          {imageError && <p style={styles.errorText}>{imageError}</p>}
+          {form.imagePreview && (
+            <img 
+              src={form.imagePreview} 
+              alt="Preview" 
+              style={styles.imagePreview}
+            />
+          )}
+        </div>
+
         <div style={{ marginBottom: 15, display: "flex", gap: 20 }}>
           <label style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <input
@@ -321,7 +368,7 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading }) {
         <button 
           type="submit" 
           style={{ ...styles.button, ...styles.btnSuccess }}
-          disabled={loading || !user}
+          disabled={loading || !user || imageError}
         >
           {loading ? "Submitting..." : "Add Homestay"}
         </button>
@@ -353,6 +400,13 @@ function HomestayDetail() {
   return (
     <div style={{ maxWidth: 600, margin: "0 auto" }}>
       <div style={styles.homestayItem}>
+        {homestay.imageUrl && (
+          <img 
+            src={homestay.imageUrl} 
+            alt={homestay.name}
+            style={styles.homestayImage}
+          />
+        )}
         <h2>{homestay.name}</h2>
         <p><strong>Area:</strong> {homestay.city}</p>
         <p><strong>Price:</strong> ₹{homestay.price} per night</p>
@@ -385,8 +439,11 @@ export default function App() {
     city: "",
     contact: "",
     coupleFriendly: false,
-    hourly: false
+    hourly: false,
+    imagePreview: null
   });
+  const [imageFile, setImageFile] = useState(null);
+  const [imageError, setImageError] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -417,30 +474,90 @@ export default function App() {
     }
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Check file size (1MB max)
+    if (file.size > 1024 * 1024) {
+      setImageError("Image size must be less than 1MB");
+      return;
+    }
+
+    // Check file type
+    if (!file.type.match("image.*")) {
+      setImageError("Only image files are allowed");
+      return;
+    }
+
+    setImageError(null);
+    setImageFile(file);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setForm(prev => ({ ...prev, imagePreview: reader.result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const uploadImage = async () => {
+    if (!imageFile) return null;
+
+    const formData = new FormData();
+    formData.append("file", imageFile);
+    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+    try {
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+        { method: "POST", body: formData }
+      );
+      const data = await response.json();
+      return data.secure_url;
+    } catch (error) {
+      console.error("Upload failed:", error);
+      return null;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!user) return;
+    if (imageError) return;
 
     setLoading(true);
     try {
+      const imageUrl = await uploadImage();
+      if (!imageUrl) throw new Error("Image upload failed");
+
       await addDoc(collection(db, "homestays"), {
-        ...form,
+        name: form.name,
         price: Number(form.price),
+        city: form.city,
+        contact: form.contact,
+        coupleFriendly: form.coupleFriendly,
+        hourly: form.hourly,
+        imageUrl,
         createdBy: user.uid,
         createdByName: user.displayName,
         createdAt: new Date().toISOString()
       });
+      
+      // Reset form
       setForm({
         name: "",
         price: "",
         city: "",
         contact: "",
         coupleFriendly: false,
-        hourly: false
+        hourly: false,
+        imagePreview: null
       });
+      setImageFile(null);
       alert("Homestay added successfully!");
     } catch (error) {
-      console.error("Error adding homestay:", error);
+      console.error("Error:", error);
       alert("Failed to add homestay");
     }
     setLoading(false);
@@ -460,12 +577,14 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomestayListing homestays={homestays} />} />
           <Route path="/add-homestay" element={
-            <AddHomestayForm 
-              user={user} 
-              form={form} 
-              setForm={setForm} 
-              handleSubmit={handleSubmit} 
-              loading={loading} 
+            <AddHomestayForm
+              user={user}
+              form={form}
+              setForm={setForm}
+              handleSubmit={handleSubmit}
+              loading={loading}
+              handleImageChange={handleImageChange}
+              imageError={imageError}
             />
           } />
           <Route path="/homestays/:id" element={<HomestayDetail />} />
