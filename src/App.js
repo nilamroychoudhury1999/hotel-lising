@@ -44,11 +44,23 @@ const styles = {
     padding: 20,
     fontFamily: "'Inter', sans-serif"
   },
+  headerContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    flexWrap: 'wrap'
+  },
+  logo: {
+    height: 80,
+    marginRight: 15,
+    borderRadius: 8
+  },
   header: {
-    textAlign: "center",
-    margin: "20px 0",
+    margin: 0,
     fontSize: 36,
-    fontWeight: "bold"
+    fontWeight: "bold",
+    textAlign: 'center'
   },
   authBar: {
     display: "flex",
@@ -566,11 +578,18 @@ export default function App() {
   return (
     <Router>
       <div style={styles.container}>
-        <h1 style={styles.header}>
-          <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
-            Guwahati Homestay Finder
-          </Link>
-        </h1>
+        <div style={styles.headerContainer}>
+          <img 
+            src="/IMG-20250719-WA0042.jpg" 
+            alt="Guwahati Homestay Finder Logo"
+            style={styles.logo}
+          />
+          <h1 style={styles.header}>
+            <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
+              Guwahati Homestay Finder
+            </Link>
+          </h1>
+        </div>
 
         <AuthBar user={user} handleLogin={handleLogin} handleLogout={handleLogout} />
 
