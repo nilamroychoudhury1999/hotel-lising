@@ -3,8 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from "react-router-dom";
-import { FiSearch, FiHeart, FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiParking } from "react-icons/fi";
-import { FaAirbnb } from "react-icons/fa";
+import { FiSearch, FiHeart, FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet } from "react-icons/fi";
 import logo from "./IMG-20250719-WA0043.jpg";
 
 // Firebase configuration
@@ -45,7 +44,7 @@ const AMENITIES = [
   { id: "tv", name: "TV", icon: <FiTv /> },
   { id: "kitchen", name: "Kitchen", icon: <FiCoffee /> },
   { id: "ac", name: "Air Conditioning", icon: <FiDroplet /> },
-  { id: "parking", name: "Free Parking", icon: <FiParking /> },
+  { id: "parking", name: "Free Parking", icon: <FiDroplet /> },
   { id: "pool", name: "Swimming Pool" },
   { id: "breakfast", name: "Breakfast Included" },
   { id: "workspace", name: "Dedicated Workspace" },
@@ -446,7 +445,7 @@ function HomestayListing({ homestays }) {
             {area}
           </button>
         ))}
-        
+
         <button
           style={{
             ...styles.filterButton,
@@ -456,7 +455,7 @@ function HomestayListing({ homestays }) {
         >
           Couple Friendly
         </button>
-        
+
         <button
           style={{
             ...styles.filterButton,
@@ -466,7 +465,7 @@ function HomestayListing({ homestays }) {
         >
           Hourly Stays
         </button>
-        
+
         <select
           style={styles.filterButton}
           value={roomType}
@@ -540,17 +539,17 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
     const updatedAmenities = form.amenities.includes(amenityId)
       ? form.amenities.filter(id => id !== amenityId)
       : [...form.amenities, amenityId];
-    
+
     setForm({ ...form, amenities: updatedAmenities });
   };
 
   return (
     <div style={styles.formContainer}>
       <h1 style={styles.formTitle}>List your homestay</h1>
-      
+
       <div style={styles.formSection}>
         <h2 style={styles.sectionTitle}>Basic Information</h2>
-        
+
         <div style={styles.inputGroup}>
           <label style={styles.label}>Homestay Name *</label>
           <input
@@ -560,7 +559,7 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
             required
           />
         </div>
-        
+
         <div style={styles.inputGroup}>
           <label style={styles.label}>Description *</label>
           <textarea
@@ -571,7 +570,7 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
             placeholder="Tell guests what makes your place special..."
           />
         </div>
-        
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           <div style={styles.inputGroup}>
             <label style={styles.label}>Price (₹ per night) *</label>
@@ -583,7 +582,7 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
               required
             />
           </div>
-          
+
           <div style={styles.inputGroup}>
             <label style={styles.label}>Area in Guwahati *</label>
             <select
@@ -599,7 +598,7 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
             </select>
           </div>
         </div>
-        
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           <div style={styles.inputGroup}>
             <label style={styles.label}>Phone Number *</label>
@@ -613,7 +612,7 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
               title="10 digit phone number"
             />
           </div>
-          
+
           <div style={styles.inputGroup}>
             <label style={styles.label}>Room Type *</label>
             <select
@@ -629,7 +628,7 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
             </select>
           </div>
         </div>
-        
+
         <div style={styles.inputGroup}>
           <label style={styles.label}>Maximum Guests *</label>
           <input
@@ -642,7 +641,7 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
           />
         </div>
       </div>
-      
+
       <div style={styles.formSection}>
         <h2 style={styles.sectionTitle}>Photos</h2>
         <p style={{ color: '#717171', marginBottom: 15 }}>
@@ -667,7 +666,7 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
           )}
         </div>
       </div>
-      
+
       <div style={styles.formSection}>
         <h2 style={styles.sectionTitle}>Amenities</h2>
         <p style={{ color: '#717171', marginBottom: 15 }}>
@@ -687,10 +686,10 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
           ))}
         </div>
       </div>
-      
+
       <div style={styles.formSection}>
         <h2 style={styles.sectionTitle}>Additional Information</h2>
-        
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           <label style={styles.checkboxItem}>
             <input
@@ -700,7 +699,7 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
             />
             Couple Friendly
           </label>
-          
+
           <label style={styles.checkboxItem}>
             <input
               type="checkbox"
@@ -709,7 +708,7 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
             />
             Hourly Stays Available
           </label>
-          
+
           <label style={styles.checkboxItem}>
             <input
               type="checkbox"
@@ -718,7 +717,7 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
             />
             Pets Allowed
           </label>
-          
+
           <label style={styles.checkboxItem}>
             <input
               type="checkbox"
@@ -729,7 +728,7 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
           </label>
         </div>
       </div>
-      
+
       <button
         type="submit"
         style={styles.submitButton}
@@ -781,7 +780,7 @@ function HomestayDetail() {
           <FiStar fill="#000" /> {homestay.rating || 'New'}
         </div>
       </div>
-      
+
       <div style={styles.detailImages}>
         <img
           src={homestay.imageUrl}
@@ -809,12 +808,12 @@ function HomestayDetail() {
           style={styles.secondaryImage}
         />
       </div>
-      
+
       <div style={styles.detailInfo}>
         <div>
           <h2 style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 20 }}>About this place</h2>
           <p style={{ lineHeight: 1.6, marginBottom: 30 }}>{homestay.description || 'No description provided.'}</p>
-          
+
           <h2 style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 20 }}>Amenities</h2>
           <div style={styles.detailAmenities}>
             {homestay.amenities && homestay.amenities.length > 0 ? (
@@ -832,12 +831,12 @@ function HomestayDetail() {
             )}
           </div>
         </div>
-        
+
         <div style={styles.bookingCard}>
           <div style={styles.priceDetail}>
             ₹{homestay.price} <span style={{ fontWeight: 'normal' }}>/ night</span>
           </div>
-          
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 15 }}>
             <div>
               <label style={{ display: 'block', fontSize: 14, fontWeight: 'bold', marginBottom: 5 }}>Check-in</label>
@@ -858,7 +857,7 @@ function HomestayDetail() {
               />
             </div>
           </div>
-          
+
           <div style={{ marginBottom: 20 }}>
             <label style={{ display: 'block', fontSize: 14, fontWeight: 'bold', marginBottom: 5 }}>Guests</label>
             <select style={styles.input}>
@@ -867,17 +866,17 @@ function HomestayDetail() {
               ))}
             </select>
           </div>
-          
+
           <button style={styles.bookButton}>
             Book Now
           </button>
-          
+
           {checkInDate && checkOutDate && (
             <div style={{ marginTop: 20, textAlign: 'center' }}>
               <p>Total: ₹{calculateTotal()}</p>
             </div>
           )}
-          
+
           <div style={{ marginTop: 20, textAlign: 'center' }}>
             <a href={`tel:${homestay.contact}`} style={{ color: '#ff385c', fontWeight: 'bold' }}>
               Contact Host
@@ -1052,7 +1051,7 @@ export default function App() {
             />
             <span>Guwahati Stays</span>
           </Link>
-          
+
           <div style={styles.searchBar}>
             <FiSearch style={{ color: '#717171' }} />
             <input
@@ -1061,7 +1060,7 @@ export default function App() {
               placeholder="Search homestays..."
             />
           </div>
-          
+
           <AuthBar user={user} handleLogin={handleLogin} handleLogout={handleLogout} />
         </header>
 
