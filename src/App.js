@@ -3,7 +3,8 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from "react-router-dom";
-import { FaBed, FaBath, FaHeart, FaStar, FaSearch, FaMapMarkerAlt, FaUser, FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FiSearch, FiHeart, FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiParking } from "react-icons/fi";
+import { FaAirbnb } from "react-icons/fa";
 import logo from "./IMG-20250719-WA0043.jpg";
 
 // Firebase configuration
@@ -39,502 +40,340 @@ const GUWAHATI_AREAS = [
   "Sarusajai", "Bora Service", "Gotanagar", "Nabin Nagar"
 ];
 
+const AMENITIES = [
+  { id: "wifi", name: "WiFi", icon: <FiWifi /> },
+  { id: "tv", name: "TV", icon: <FiTv /> },
+  { id: "kitchen", name: "Kitchen", icon: <FiCoffee /> },
+  { id: "ac", name: "Air Conditioning", icon: <FiDroplet /> },
+  { id: "parking", name: "Free Parking", icon: <FiParking /> },
+  { id: "pool", name: "Swimming Pool" },
+  { id: "breakfast", name: "Breakfast Included" },
+  { id: "workspace", name: "Dedicated Workspace" },
+  { id: "laundry", name: "Laundry Facilities" },
+  { id: "security", name: "24/7 Security" }
+];
+
+const ROOM_TYPES = [
+  "Entire Home", "Private Room", "Shared Room", "Studio", "Villa"
+];
+
 const styles = {
   container: {
-    maxWidth: 1400,
+    maxWidth: 1500,
     margin: "0 auto",
     padding: "0 20px",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
+    fontFamily: "'Inter', sans-serif"
   },
-  headerContainer: {
+  header: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: "20px 0",
-    marginBottom: 20,
-    borderBottom: "1px solid #e0e0e0"
+    padding: '20px 0',
+    borderBottom: '1px solid #ebebeb',
+    marginBottom: 30
   },
   logoContainer: {
     display: 'flex',
     alignItems: 'center',
-    gap: 15
+    gap: 10,
+    color: '#ff385c',
+    fontWeight: 'bold',
+    fontSize: 24,
+    textDecoration: 'none'
   },
   logo: {
-    height: 50,
+    height: 40,
     borderRadius: 8
   },
-  headerTitle: {
-    margin: 0,
-    fontSize: 28,
-    fontWeight: 700,
-    color: "#ff385c",
-    letterSpacing: "-0.5px"
-  },
   nav: {
-    display: "flex",
-    alignItems: "center",
-    gap: 25
-  },
-  navLink: {
-    color: "#222",
-    textDecoration: "none",
-    fontWeight: 500,
-    fontSize: 16,
-    padding: "8px 12px",
-    borderRadius: 30,
-    transition: "all 0.2s ease",
-    ":hover": {
-      backgroundColor: "#f7f7f7"
-    }
-  },
-  authBar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "15px 25px",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    marginBottom: 30,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-    border: "1px solid #e0e0e0"
-  },
-  button: {
-    padding: "12px 20px",
-    borderRadius: 8,
-    border: "none",
-    cursor: "pointer",
-    fontWeight: 600,
-    fontSize: 15,
-    transition: "all 0.2s ease",
-    display: "flex",
-    alignItems: "center",
-    gap: 8
-  },
-  btnPrimary: {
-    backgroundColor: "#ff385c",
-    color: "white",
-    ":hover": {
-      backgroundColor: "#e61e4d"
-    }
-  },
-  btnOutline: {
-    backgroundColor: "transparent",
-    border: "1px solid #dddddd",
-    color: "#222",
-    ":hover": {
-      backgroundColor: "#f7f7f7"
-    }
+    display: 'flex',
+    alignItems: 'center',
+    gap: 20
   },
   searchBar: {
-    display: "flex",
-    alignItems: "center",
-    padding: "0 15px",
-    height: 60,
-    borderRadius: 30,
-    border: "1px solid #dddddd",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-    marginBottom: 30,
-    ":hover": {
-      boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
-    }
+    display: 'flex',
+    alignItems: 'center',
+    border: '1px solid #ddd',
+    borderRadius: 40,
+    padding: '10px 15px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    marginBottom: 30
   },
   searchInput: {
-    flex: 1,
-    padding: "0 15px",
-    height: "100%",
-    border: "none",
+    border: 'none',
+    outline: 'none',
     fontSize: 16,
-    outline: "none",
-    fontWeight: 500
+    padding: '5px 10px',
+    width: '100%'
   },
   searchButton: {
-    backgroundColor: "#ff385c",
-    color: "white",
-    borderRadius: "50%",
+    backgroundColor: '#ff385c',
+    color: 'white',
+    border: 'none',
+    borderRadius: '50%',
     width: 40,
     height: 40,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    border: "none",
-    transition: "all 0.2s ease",
-    ":hover": {
-      backgroundColor: "#e61e4d"
-    }
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer'
+  },
+  authButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    padding: '10px 15px',
+    borderRadius: 30,
+    border: '1px solid #ddd',
+    backgroundColor: 'white',
+    cursor: 'pointer',
+    fontWeight: 500,
+    fontSize: 14
+  },
+  btnPrimary: {
+    backgroundColor: '#ff385c',
+    color: 'white',
+    border: 'none'
   },
   homestayList: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-    gap: 30,
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+    gap: 25,
     padding: 0,
-    margin: "30px 0"
+    listStyle: 'none'
   },
   homestayItem: {
-    position: "relative",
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    overflow: "hidden",
-    boxShadow: "0 6px 16px rgba(0,0,0,0.08)",
-    transition: "transform 0.3s ease, box-shadow 0.3s ease",
-    ":hover": {
-      transform: "translateY(-5px)",
-      boxShadow: "0 12px 24px rgba(0,0,0,0.12)"
+    borderRadius: 12,
+    overflow: 'hidden',
+    transition: 'transform 0.2s',
+    ':hover': {
+      transform: 'scale(1.02)'
     }
   },
   homestayImage: {
-    width: "100%",
-    height: 240,
-    objectFit: "cover",
-    borderBottom: "1px solid #f0f0f0"
-  },
-  favoriteIcon: {
-    position: "absolute",
-    top: 15,
-    right: 15,
-    color: "white",
-    fontSize: 20,
-    cursor: "pointer",
-    filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.2))"
+    width: '100%',
+    height: 250,
+    objectFit: 'cover',
+    borderRadius: 12,
+    marginBottom: 10
   },
   homestayInfo: {
-    padding: 20
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 5
   },
-  homestayTitle: {
-    margin: "0 0 10px",
-    fontSize: 18,
-    fontWeight: 600,
-    color: "#222",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap"
+  price: {
+    fontWeight: 'bold',
+    fontSize: 18
   },
-  homestayLocation: {
-    display: "flex",
-    alignItems: "center",
-    gap: 5,
-    color: "#717171",
+  title: {
+    fontWeight: 500,
+    fontSize: 16
+  },
+  location: {
+    color: '#717171',
     fontSize: 14,
-    marginBottom: 12
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5
   },
-  homestayFeatures: {
-    display: "flex",
-    gap: 15,
-    marginBottom: 15,
-    color: "#717171",
+  rating: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
     fontSize: 14
   },
-  featureItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: 4
-  },
-  homestayFooter: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderTop: "1px solid #f0f0f0",
-    paddingTop: 15,
-    marginTop: 15
-  },
-  homestayPrice: {
-    fontWeight: 600,
-    fontSize: 18,
-    color: "#222"
-  },
-  pricePerNight: {
-    fontWeight: 400,
-    fontSize: 14,
-    color: "#717171"
-  },
   filterContainer: {
-    display: "flex",
+    display: 'flex',
     gap: 15,
-    marginBottom: 30,
-    overflowX: "auto",
-    padding: "10px 0",
-    scrollbarWidth: "none",
-    "::-webkit-scrollbar": {
-      display: "none"
+    marginBottom: 25,
+    overflowX: 'auto',
+    paddingBottom: 10,
+    scrollbarWidth: 'none',
+    '::-webkit-scrollbar': {
+      display: 'none'
     }
   },
   filterButton: {
-    padding: "10px 20px",
+    padding: '10px 15px',
     borderRadius: 30,
-    border: "1px solid #dddddd",
-    backgroundColor: "white",
-    cursor: "pointer",
+    border: '1px solid #ddd',
+    backgroundColor: 'white',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
     fontSize: 14,
-    fontWeight: 500,
-    whiteSpace: "nowrap",
-    transition: "all 0.2s ease"
+    fontWeight: 500
   },
   activeFilter: {
-    backgroundColor: "#f7f7f7",
-    borderColor: "#222",
-    fontWeight: 600
-  },
-  imagePreview: {
-    width: "100%",
-    height: 200,
-    borderRadius: 12,
-    objectFit: "cover",
-    marginTop: 15
-  },
-  errorText: {
-    color: "#ff385c",
-    marginTop: 5,
-    fontSize: 14
+    backgroundColor: '#000',
+    color: 'white',
+    borderColor: '#000'
   },
   formContainer: {
-    maxWidth: 700,
-    margin: "0 auto",
-    padding: "30px 0"
+    maxWidth: 800,
+    margin: '0 auto',
+    padding: '20px 0'
   },
   formTitle: {
     fontSize: 28,
-    fontWeight: 700,
-    marginBottom: 30,
-    color: "#222"
-  },
-  formGroup: {
-    marginBottom: 25
-  },
-  formLabel: {
-    display: "block",
-    marginBottom: 10,
-    fontWeight: 500,
-    color: "#222",
-    fontSize: 16
-  },
-  formInput: {
-    width: "100%",
-    padding: "14px 16px",
-    borderRadius: 12,
-    border: "1px solid #dddddd",
-    fontSize: 16,
-    transition: "border 0.2s ease",
-    ":focus": {
-      outline: "none",
-      borderColor: "#ff385c",
-      boxShadow: "0 0 0 2px rgba(255, 56, 92, 0.2)"
-    }
-  },
-  formSelect: {
-    width: "100%",
-    padding: "14px 16px",
-    borderRadius: 12,
-    border: "1px solid #dddddd",
-    fontSize: 16,
-    backgroundColor: "white",
-    appearance: "none",
-    backgroundImage: "url(\"data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e\")",
-    backgroundRepeat: "no-repeat",
-    backgroundPosition: "right 16px center",
-    backgroundSize: "18px",
-    ":focus": {
-      outline: "none",
-      borderColor: "#ff385c",
-      boxShadow: "0 0 0 2px rgba(255, 56, 92, 0.2)"
-    }
-  },
-  checkboxContainer: {
-    display: "flex",
-    gap: 20,
-    marginBottom: 25
-  },
-  checkboxLabel: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    fontWeight: 500,
-    cursor: "pointer",
-    userSelect: "none"
-  },
-  checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    border: "1px solid #dddddd",
-    position: "relative",
-    ":after": {
-      content: "''",
-      position: "absolute",
-      top: "50%",
-      left: "50%",
-      transform: "translate(-50%, -50%)",
-      width: 10,
-      height: 10,
-      backgroundColor: "#ff385c",
-      borderRadius: 2,
-      display: "none"
-    }
-  },
-  checkboxInput: {
-    display: "none",
-    ":checked + $checkbox": {
-      ":after": {
-        display: "block"
-      }
-    }
-  },
-  detailContainer: {
-    maxWidth: 1000,
-    margin: "0 auto",
-    padding: "30px 0"
-  },
-  detailHeader: {
-    marginBottom: 20
-  },
-  detailTitle: {
-    fontSize: 32,
-    fontWeight: 700,
-    marginBottom: 10,
-    color: "#222"
-  },
-  detailSubtitle: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    color: "#717171",
-    marginBottom: 25
-  },
-  detailImage: {
-    width: "100%",
-    height: 500,
-    borderRadius: 16,
-    objectFit: "cover",
+    fontWeight: 'bold',
     marginBottom: 30
   },
-  detailGrid: {
-    display: "grid",
-    gridTemplateColumns: "2fr 1fr",
-    gap: 40
-  },
-  detailInfo: {
-    padding: "30px 0"
-  },
-  detailSection: {
-    marginBottom: 40
+  formSection: {
+    marginBottom: 30
   },
   sectionTitle: {
-    fontSize: 24,
-    fontWeight: 600,
-    marginBottom: 20,
-    color: "#222"
-  },
-  detailFeatures: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, 1fr)",
-    gap: 20
-  },
-  featureCard: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12
-  },
-  featureIcon: {
     fontSize: 20,
-    color: "#ff385c"
+    fontWeight: 'bold',
+    marginBottom: 15
+  },
+  inputGroup: {
+    marginBottom: 20
+  },
+  label: {
+    display: 'block',
+    marginBottom: 8,
+    fontWeight: 500
+  },
+  input: {
+    width: '100%',
+    padding: '12px 15px',
+    borderRadius: 8,
+    border: '1px solid #ddd',
+    fontSize: 16
+  },
+  textarea: {
+    width: '100%',
+    padding: '12px 15px',
+    borderRadius: 8,
+    border: '1px solid #ddd',
+    fontSize: 16,
+    minHeight: 100,
+    resize: 'vertical'
+  },
+  checkboxGroup: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 15,
+    marginTop: 15
+  },
+  checkboxItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 120
+  },
+  imagePreview: {
+    width: '100%',
+    maxHeight: 300,
+    objectFit: 'cover',
+    borderRadius: 12,
+    marginTop: 15
+  },
+  submitButton: {
+    backgroundColor: '#ff385c',
+    color: 'white',
+    border: 'none',
+    padding: '15px 25px',
+    borderRadius: 8,
+    fontSize: 16,
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    marginTop: 20
+  },
+  detailContainer: {
+    maxWidth: 1200,
+    margin: '0 auto',
+    padding: '20px 0'
+  },
+  detailHeader: {
+    marginBottom: 30
+  },
+  detailTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 10
+  },
+  detailLocation: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    color: '#717171',
+    fontSize: 16,
+    marginBottom: 20
+  },
+  detailImages: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, 1fr)',
+    gap: 10,
+    marginBottom: 30
+  },
+  mainImage: {
+    gridColumn: 'span 2',
+    gridRow: 'span 2',
+    height: '100%',
+    borderRadius: 12
+  },
+  secondaryImage: {
+    height: '100%',
+    borderRadius: 12
+  },
+  detailInfo: {
+    display: 'grid',
+    gridTemplateColumns: '2fr 1fr',
+    gap: 40,
+    marginTop: 40
+  },
+  detailAmenities: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: 15,
+    marginTop: 30
+  },
+  amenityItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10
   },
   bookingCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 25,
-    boxShadow: "0 6px 16px rgba(0,0,0,0.08)",
-    border: "1px solid #e0e0e0",
-    position: "sticky",
-    top: 20
+    border: '1px solid #ddd',
+    borderRadius: 12,
+    padding: 20,
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
   },
-  bookingPrice: {
-    fontSize: 26,
-    fontWeight: 600,
-    color: "#222",
-    marginBottom: 5
+  priceDetail: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 20
   },
-  bookingPerNight: {
+  bookButton: {
+    width: '100%',
+    padding: 15,
+    backgroundColor: '#ff385c',
+    color: 'white',
+    border: 'none',
+    borderRadius: 8,
     fontSize: 16,
-    color: "#717171",
-    marginBottom: 25
-  },
-  bookingButton: {
-    width: "100%",
-    padding: 16,
-    backgroundColor: "#ff385c",
-    color: "white",
-    border: "none",
-    borderRadius: 10,
-    fontSize: 16,
-    fontWeight: 600,
-    cursor: "pointer",
-    transition: "background-color 0.2s ease",
-    ":hover": {
-      backgroundColor: "#e61e4d"
-    }
-  },
-  backButton: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    color: "#222",
-    textDecoration: "none",
-    fontWeight: 500,
-    marginBottom: 30,
-    fontSize: 16,
-    ":hover": {
-      textDecoration: "underline"
-    }
-  },
-  emptyState: {
-    textAlign: "center",
-    padding: 60,
-    margin: "50px 0"
-  },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: 600,
-    marginBottom: 15,
-    color: "#222"
-  },
-  emptyText: {
-    color: "#717171",
-    maxWidth: 500,
-    margin: "0 auto 30px",
-    lineHeight: 1.6
-  },
-  userAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: "50%",
-    backgroundColor: "#f0f0f0",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: 600,
-    color: "#ff385c"
+    fontWeight: 'bold',
+    cursor: 'pointer'
   }
 };
 
 function AuthBar({ user, handleLogin, handleLogout }) {
   return (
-    <div style={styles.authBar}>
+    <div style={styles.nav}>
       {user ? (
         <>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Link to="/add-homestay" style={{ ...styles.button, ...styles.btnOutline }}>
-              <span>Add Homestay</span>
-            </Link>
-            <div style={{ ...styles.userAvatar }}>
-              {user.displayName ? user.displayName.charAt(0) : "U"}
-            </div>
-          </div>
-          <button style={{ ...styles.button, ...styles.btnOutline }} onClick={handleLogout}>
-            Logout
+          <Link to="/add-homestay" style={{ ...styles.authButton, ...styles.btnPrimary }}>
+            Add Homestay
+          </Link>
+          <button style={styles.authButton} onClick={handleLogout}>
+            <FiUser /> Logout
           </button>
         </>
       ) : (
-        <button style={{ ...styles.button, ...styles.btnPrimary }} onClick={handleLogin}>
-          <FaUser /> Login
+        <button style={styles.authButton} onClick={handleLogin}>
+          <FiUser /> Login
         </button>
       )}
     </div>
@@ -546,23 +385,16 @@ function HomestayListing({ homestays }) {
   const [selectedArea, setSelectedArea] = useState("All");
   const [coupleFriendlyOnly, setCoupleFriendlyOnly] = useState(false);
   const [hourlyOnly, setHourlyOnly] = useState(false);
-  const [favorites, setFavorites] = useState({});
-
-  const toggleFavorite = (id) => {
-    setFavorites(prev => ({
-      ...prev,
-      [id]: !prev[id]
-    }));
-  };
+  const [roomType, setRoomType] = useState("All");
 
   const filteredHomestays = homestays.filter(homestay => {
     const matchesSearch =
       homestay.name.toLowerCase().includes(search.toLowerCase()) ||
-      homestay.city.toLowerCase().includes(search.toLowerCase());
+      homestay.city.toLowerCase().includes(search.toLowerCase()) ||
+      homestay.description?.toLowerCase().includes(search.toLowerCase());
 
     const matchesArea =
-      selectedArea === "All" ||
-      homestay.city === selectedArea;
+      selectedArea === "All" || homestay.city === selectedArea;
 
     const matchesCoupleFriendly =
       !coupleFriendlyOnly || homestay.coupleFriendly;
@@ -570,22 +402,25 @@ function HomestayListing({ homestays }) {
     const matchesHourly =
       !hourlyOnly || homestay.hourly;
 
-    return matchesSearch && matchesArea && matchesCoupleFriendly && matchesHourly;
+    const matchesRoomType =
+      roomType === "All" || homestay.roomType === roomType;
+
+    return matchesSearch && matchesArea && matchesCoupleFriendly && matchesHourly && matchesRoomType;
   });
 
   return (
     <div>
       <div style={styles.searchBar}>
-        <FaSearch style={{ color: "#717171", fontSize: 18 }} />
+        <FiSearch style={{ color: '#717171' }} />
         <input
           style={styles.searchInput}
           type="text"
-          placeholder="Search homestays by name or area..."
+          placeholder="Search homestays by name, area, or description..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <button style={styles.searchButton}>
-          <FaSearch />
+          <FiSearch />
         </button>
       </div>
 
@@ -599,7 +434,6 @@ function HomestayListing({ homestays }) {
         >
           All Areas
         </button>
-        
         {GUWAHATI_AREAS.slice(0, 10).map(area => (
           <button
             key={area}
@@ -612,7 +446,7 @@ function HomestayListing({ homestays }) {
             {area}
           </button>
         ))}
-
+        
         <button
           style={{
             ...styles.filterButton,
@@ -622,6 +456,7 @@ function HomestayListing({ homestays }) {
         >
           Couple Friendly
         </button>
+        
         <button
           style={{
             ...styles.filterButton,
@@ -631,74 +466,67 @@ function HomestayListing({ homestays }) {
         >
           Hourly Stays
         </button>
+        
+        <select
+          style={styles.filterButton}
+          value={roomType}
+          onChange={(e) => setRoomType(e.target.value)}
+        >
+          <option value="All">All Types</option>
+          {ROOM_TYPES.map(type => (
+            <option key={type} value={type}>{type}</option>
+          ))}
+        </select>
       </div>
 
       {filteredHomestays.length === 0 ? (
-        <div style={styles.emptyState}>
-          <h3 style={styles.emptyTitle}>No homestays found</h3>
-          <p style={styles.emptyText}>Try adjusting your search filters or check back later for new listings.</p>
-          <button 
-            style={{ ...styles.button, ...styles.btnOutline }}
-            onClick={() => {
-              setSelectedArea("All");
-              setCoupleFriendlyOnly(false);
-              setHourlyOnly(false);
-              setSearch("");
-            }}
-          >
-            Reset Filters
-          </button>
+        <div style={{ textAlign: 'center', padding: 40 }}>
+          <h3>No homestays found matching your criteria</h3>
+          <p>Try adjusting your filters or search terms</p>
         </div>
       ) : (
         <ul style={styles.homestayList}>
           {filteredHomestays.map(homestay => (
             <li key={homestay.id} style={styles.homestayItem}>
-              <Link to={`/homestays/${homestay.id}`}>
-                {homestay.imageUrl ? (
+              <Link to={`/homestays/${homestay.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <div style={{ position: 'relative' }}>
                   <img
                     src={homestay.imageUrl}
                     alt={homestay.name}
                     style={styles.homestayImage}
                   />
-                ) : (
-                  <div style={{...styles.homestayImage, backgroundColor: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", color: "#717171"}}>
-                    No Image
+                  <button style={{
+                    position: 'absolute',
+                    top: 15,
+                    right: 15,
+                    backgroundColor: 'white',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: 30,
+                    height: 30,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer'
+                  }}>
+                    <FiHeart />
+                  </button>
+                </div>
+                <div style={styles.homestayInfo}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <h3 style={styles.title}>{homestay.name}</h3>
+                    <div style={styles.rating}>
+                      <FiStar fill="#000" /> {homestay.rating || 'New'}
+                    </div>
                   </div>
-                )}
+                  <p style={styles.location}><FiMapPin /> {homestay.city}</p>
+                  <p style={{ color: '#717171', fontSize: 14 }}>{homestay.roomType || 'Private Room'}</p>
+                  <p style={styles.price}>₹{homestay.price} <span style={{ fontWeight: 'normal' }}>night</span></p>
+                  {homestay.hourly && (
+                    <p style={{ color: '#717171', fontSize: 14 }}>Hourly rates available</p>
+                  )}
+                </div>
               </Link>
-              <FaHeart 
-                style={{...styles.favoriteIcon, color: favorites[homestay.id] ? "#ff385c" : "white"}} 
-                onClick={() => toggleFavorite(homestay.id)}
-              />
-              <div style={styles.homestayInfo}>
-                <Link to={`/homestays/${homestay.id}`} style={{ textDecoration: "none" }}>
-                  <h3 style={styles.homestayTitle}>{homestay.name}</h3>
-                </Link>
-                <div style={styles.homestayLocation}>
-                  <FaMapMarkerAlt style={{ fontSize: 14 }} />
-                  <span>{homestay.city}</span>
-                </div>
-                <div style={styles.homestayFeatures}>
-                  <div style={styles.featureItem}>
-                    <FaBed /> 
-                    <span>2 beds</span>
-                  </div>
-                  <div style={styles.featureItem}>
-                    <FaBath /> 
-                    <span>1 bath</span>
-                  </div>
-                </div>
-                <div style={styles.homestayFooter}>
-                  <div>
-                    <div style={styles.homestayPrice}>₹{homestay.price}</div>
-                    <div style={styles.pricePerNight}>per night</div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <FaStar style={{ color: "#ff385c" }} />
-                    <span>4.8</span>
-                  </div>
-                </div>
-              </div>
             </li>
           ))}
         </ul>
@@ -708,69 +536,128 @@ function HomestayListing({ homestays }) {
 }
 
 function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleImageChange, imageError }) {
+  const handleAmenityChange = (amenityId) => {
+    const updatedAmenities = form.amenities.includes(amenityId)
+      ? form.amenities.filter(id => id !== amenityId)
+      : [...form.amenities, amenityId];
+    
+    setForm({ ...form, amenities: updatedAmenities });
+  };
+
   return (
     <div style={styles.formContainer}>
-      <h2 style={styles.formTitle}>Add New Homestay</h2>
-      <form onSubmit={handleSubmit}>
-        <div style={styles.formGroup}>
-          <label style={styles.formLabel}>Homestay Name *</label>
+      <h1 style={styles.formTitle}>List your homestay</h1>
+      
+      <div style={styles.formSection}>
+        <h2 style={styles.sectionTitle}>Basic Information</h2>
+        
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Homestay Name *</label>
           <input
-            style={styles.formInput}
+            style={styles.input}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
           />
         </div>
-
-        <div style={styles.formGroup}>
-          <label style={styles.formLabel}>Price (₹ per night) *</label>
+        
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Description *</label>
+          <textarea
+            style={styles.textarea}
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            required
+            placeholder="Tell guests what makes your place special..."
+          />
+        </div>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Price (₹ per night) *</label>
+            <input
+              style={styles.input}
+              type="number"
+              value={form.price}
+              onChange={(e) => setForm({ ...form, price: e.target.value })}
+              required
+            />
+          </div>
+          
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Area in Guwahati *</label>
+            <select
+              style={styles.input}
+              value={form.city}
+              onChange={(e) => setForm({ ...form, city: e.target.value })}
+              required
+            >
+              <option value="">Select Area</option>
+              {GUWAHATI_AREAS.map(area => (
+                <option key={area} value={area}>{area}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Phone Number *</label>
+            <input
+              style={styles.input}
+              type="tel"
+              value={form.contact}
+              onChange={(e) => setForm({ ...form, contact: e.target.value })}
+              required
+              pattern="[0-9]{10}"
+              title="10 digit phone number"
+            />
+          </div>
+          
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Room Type *</label>
+            <select
+              style={styles.input}
+              value={form.roomType}
+              onChange={(e) => setForm({ ...form, roomType: e.target.value })}
+              required
+            >
+              <option value="">Select Room Type</option>
+              {ROOM_TYPES.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Maximum Guests *</label>
           <input
-            style={styles.formInput}
+            style={styles.input}
             type="number"
-            value={form.price}
-            onChange={(e) => setForm({ ...form, price: e.target.value })}
+            min="1"
+            value={form.maxGuests}
+            onChange={(e) => setForm({ ...form, maxGuests: e.target.value })}
             required
           />
         </div>
-
-        <div style={styles.formGroup}>
-          <label style={styles.formLabel}>Area in Guwahati *</label>
-          <select
-            style={styles.formSelect}
-            value={form.city}
-            onChange={(e) => setForm({ ...form, city: e.target.value })}
-            required
-          >
-            <option value="">Select Area</option>
-            {GUWAHATI_AREAS.map(area => (
-              <option key={area} value={area}>{area}</option>
-            ))}
-          </select>
-        </div>
-
-        <div style={styles.formGroup}>
-          <label style={styles.formLabel}>Phone Number *</label>
+      </div>
+      
+      <div style={styles.formSection}>
+        <h2 style={styles.sectionTitle}>Photos</h2>
+        <p style={{ color: '#717171', marginBottom: 15 }}>
+          Upload at least one high-quality photo to showcase your space.
+        </p>
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Main Photo *</label>
           <input
-            style={styles.formInput}
-            type="tel"
-            value={form.contact}
-            onChange={(e) => setForm({ ...form, contact: e.target.value })}
-            required
-            pattern="[0-9]{10}"
-            title="10 digit phone number"
-          />
-        </div>
-
-        <div style={styles.formGroup}>
-          <label style={styles.formLabel}>Homestay Image (Max 1MB) *</label>
-          <input
-            style={styles.formInput}
+            style={styles.input}
             type="file"
             accept="image/*"
             onChange={handleImageChange}
             required
           />
-          {imageError && <p style={styles.errorText}>{imageError}</p>}
+          {imageError && <p style={{ color: 'red', marginTop: 5 }}>{imageError}</p>}
           {form.imagePreview && (
             <img
               src={form.imagePreview}
@@ -779,38 +666,78 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
             />
           )}
         </div>
-
-        <div style={styles.checkboxContainer}>
-          <label style={styles.checkboxLabel}>
+      </div>
+      
+      <div style={styles.formSection}>
+        <h2 style={styles.sectionTitle}>Amenities</h2>
+        <p style={{ color: '#717171', marginBottom: 15 }}>
+          Select all amenities that your homestay offers
+        </p>
+        <div style={styles.checkboxGroup}>
+          {AMENITIES.map(amenity => (
+            <label key={amenity.id} style={styles.checkboxItem}>
+              <input
+                type="checkbox"
+                checked={form.amenities.includes(amenity.id)}
+                onChange={() => handleAmenityChange(amenity.id)}
+              />
+              {amenity.icon && <span>{amenity.icon}</span>}
+              {amenity.name}
+            </label>
+          ))}
+        </div>
+      </div>
+      
+      <div style={styles.formSection}>
+        <h2 style={styles.sectionTitle}>Additional Information</h2>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <label style={styles.checkboxItem}>
             <input
               type="checkbox"
               checked={form.coupleFriendly}
               onChange={(e) => setForm({ ...form, coupleFriendly: e.target.checked })}
-              style={styles.checkboxInput}
             />
-            <div style={styles.checkbox}></div>
             Couple Friendly
           </label>
-          <label style={styles.checkboxLabel}>
+          
+          <label style={styles.checkboxItem}>
             <input
               type="checkbox"
               checked={form.hourly}
               onChange={(e) => setForm({ ...form, hourly: e.target.checked })}
-              style={styles.checkboxInput}
             />
-            <div style={styles.checkbox}></div>
-            Hourly Stays
+            Hourly Stays Available
+          </label>
+          
+          <label style={styles.checkboxItem}>
+            <input
+              type="checkbox"
+              checked={form.petsAllowed}
+              onChange={(e) => setForm({ ...form, petsAllowed: e.target.checked })}
+            />
+            Pets Allowed
+          </label>
+          
+          <label style={styles.checkboxItem}>
+            <input
+              type="checkbox"
+              checked={form.smokingAllowed}
+              onChange={(e) => setForm({ ...form, smokingAllowed: e.target.checked })}
+            />
+            Smoking Allowed
           </label>
         </div>
-
-        <button
-          type="submit"
-          style={{ ...styles.button, ...styles.btnPrimary }}
-          disabled={loading || !user || imageError}
-        >
-          {loading ? "Submitting..." : "Add Homestay"}
-        </button>
-      </form>
+      </div>
+      
+      <button
+        type="submit"
+        style={styles.submitButton}
+        onClick={handleSubmit}
+        disabled={loading || !user || imageError}
+      >
+        {loading ? "Submitting..." : "List Your Homestay"}
+      </button>
     </div>
   );
 }
@@ -818,8 +745,9 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
 function HomestayDetail() {
   const { id } = useParams();
   const [homestay, setHomestay] = useState(null);
-  const [currentImage, setCurrentImage] = useState(0);
   const navigate = useNavigate();
+  const [checkInDate, setCheckInDate] = useState("");
+  const [checkOutDate, setCheckOutDate] = useState("");
 
   useEffect(() => {
     const fetchHomestay = async () => {
@@ -836,132 +764,125 @@ function HomestayDetail() {
 
   if (!homestay) return <div style={{ textAlign: "center", padding: 40 }}>Loading...</div>;
 
-  const nextImage = () => {
-    setCurrentImage((prev) => (prev + 1) % 1); // Only one image for now
-  };
-
-  const prevImage = () => {
-    setCurrentImage((prev) => (prev - 1 + 1) % 1); // Only one image for now
+  const calculateTotal = () => {
+    if (!checkInDate || !checkOutDate) return homestay.price;
+    const nights = (new Date(checkOutDate) - new Date(checkInDate)) / (1000 * 60 * 60 * 24);
+    return nights * homestay.price;
   };
 
   return (
     <div style={styles.detailContainer}>
-      <Link to="/" style={styles.backButton}>
-        <FaChevronLeft /> Back to listings
-      </Link>
-      
       <div style={styles.detailHeader}>
         <h1 style={styles.detailTitle}>{homestay.name}</h1>
-        <div style={styles.detailSubtitle}>
-          <FaMapMarkerAlt style={{ fontSize: 16 }} />
-          <span>{homestay.city}, Guwahati</span>
-          <span>·</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <FaStar style={{ color: "#ff385c" }} />
-            <span>4.8 (24 reviews)</span>
-          </div>
+        <div style={styles.detailLocation}>
+          <FiMapPin /> {homestay.city} • {homestay.roomType || 'Private Room'}
+        </div>
+        <div style={styles.rating}>
+          <FiStar fill="#000" /> {homestay.rating || 'New'}
         </div>
       </div>
       
-      <div style={{ position: "relative" }}>
-        {homestay.imageUrl ? (
-          <img
-            src={homestay.imageUrl}
-            alt={homestay.name}
-            style={styles.detailImage}
-          />
-        ) : (
-          <div style={{...styles.detailImage, backgroundColor: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", color: "#717171"}}>
-            No Image Available
-          </div>
-        )}
-        <button 
-          style={{ position: "absolute", left: 20, top: "50%", transform: "translateY(-50%)", backgroundColor: "white", borderRadius: "50%", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", border: "none", boxShadow: "0 2px 8px rgba(0,0,0,0.2)", cursor: "pointer" }}
-          onClick={prevImage}
-        >
-          <FaChevronLeft />
-        </button>
-        <button 
-          style={{ position: "absolute", right: 20, top: "50%", transform: "translateY(-50%)", backgroundColor: "white", borderRadius: "50%", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", border: "none", boxShadow: "0 2px 8px rgba(0,0,0,0.2)", cursor: "pointer" }}
-          onClick={nextImage}
-        >
-          <FaChevronRight />
-        </button>
+      <div style={styles.detailImages}>
+        <img
+          src={homestay.imageUrl}
+          alt={homestay.name}
+          style={styles.mainImage}
+        />
+        <img
+          src={homestay.imageUrl}
+          alt={homestay.name}
+          style={styles.secondaryImage}
+        />
+        <img
+          src={homestay.imageUrl}
+          alt={homestay.name}
+          style={styles.secondaryImage}
+        />
+        <img
+          src={homestay.imageUrl}
+          alt={homestay.name}
+          style={styles.secondaryImage}
+        />
+        <img
+          src={homestay.imageUrl}
+          alt={homestay.name}
+          style={styles.secondaryImage}
+        />
       </div>
       
-      <div style={styles.detailGrid}>
-        <div style={styles.detailInfo}>
-          <div style={styles.detailSection}>
-            <h3 style={styles.sectionTitle}>About this place</h3>
-            <p>This beautiful homestay in the heart of {homestay.city} offers a comfortable stay with modern amenities. Perfect for travelers looking for a home away from home in Guwahati.</p>
-          </div>
+      <div style={styles.detailInfo}>
+        <div>
+          <h2 style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 20 }}>About this place</h2>
+          <p style={{ lineHeight: 1.6, marginBottom: 30 }}>{homestay.description || 'No description provided.'}</p>
           
-          <div style={styles.detailSection}>
-            <h3 style={styles.sectionTitle}>Features</h3>
-            <div style={styles.detailFeatures}>
-              <div style={styles.featureCard}>
-                <FaBed style={styles.featureIcon} />
-                <div>
-                  <div style={{ fontWeight: 500 }}>2 beds</div>
-                  <div style={{ fontSize: 14, color: "#717171" }}>Comfortable sleeping</div>
-                </div>
-              </div>
-              <div style={styles.featureCard}>
-                <FaBath style={styles.featureIcon} />
-                <div>
-                  <div style={{ fontWeight: 500 }}>1 bath</div>
-                  <div style={{ fontSize: 14, color: "#717171" }}>Hot water available</div>
-                </div>
-              </div>
-              <div style={styles.featureCard}>
-                <div style={styles.featureIcon}>W</div>
-                <div>
-                  <div style={{ fontWeight: 500 }}>WiFi</div>
-                  <div style={{ fontSize: 14, color: "#717171" }}>High-speed internet</div>
-                </div>
-              </div>
-              <div style={styles.featureCard}>
-                <div style={styles.featureIcon}>A</div>
-                <div>
-                  <div style={{ fontWeight: 500 }}>AC</div>
-                  <div style={{ fontSize: 14, color: "#717171" }}>Air conditioning</div>
-                </div>
-              </div>
-              {homestay.coupleFriendly && (
-                <div style={styles.featureCard}>
-                  <div style={styles.featureIcon}>C</div>
-                  <div>
-                    <div style={{ fontWeight: 500 }}>Couple Friendly</div>
-                    <div style={{ fontSize: 14, color: "#717171" }}>Private and safe</div>
+          <h2 style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 20 }}>Amenities</h2>
+          <div style={styles.detailAmenities}>
+            {homestay.amenities && homestay.amenities.length > 0 ? (
+              homestay.amenities.map(amenityId => {
+                const amenity = AMENITIES.find(a => a.id === amenityId);
+                return amenity ? (
+                  <div key={amenityId} style={styles.amenityItem}>
+                    {amenity.icon || <FiHome />}
+                    <span>{amenity.name}</span>
                   </div>
-                </div>
-              )}
-              {homestay.hourly && (
-                <div style={styles.featureCard}>
-                  <div style={styles.featureIcon}>H</div>
-                  <div>
-                    <div style={{ fontWeight: 500 }}>Hourly Stays</div>
-                    <div style={{ fontSize: 14, color: "#717171" }}>Flexible booking</div>
-                  </div>
-                </div>
-              )}
-            </div>
+                ) : null;
+              })
+            ) : (
+              <p>No amenities listed</p>
+            )}
           </div>
         </div>
         
         <div style={styles.bookingCard}>
-          <div style={styles.bookingPrice}>₹{homestay.price} <span style={styles.bookingPerNight}>per night</span></div>
-          <button style={styles.bookingButton}>
-            Check Availability
+          <div style={styles.priceDetail}>
+            ₹{homestay.price} <span style={{ fontWeight: 'normal' }}>/ night</span>
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 15 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 'bold', marginBottom: 5 }}>Check-in</label>
+              <input
+                type="date"
+                style={styles.input}
+                value={checkInDate}
+                onChange={(e) => setCheckInDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 'bold', marginBottom: 5 }}>Check-out</label>
+              <input
+                type="date"
+                style={styles.input}
+                value={checkOutDate}
+                onChange={(e) => setCheckOutDate(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontSize: 14, fontWeight: 'bold', marginBottom: 5 }}>Guests</label>
+            <select style={styles.input}>
+              {Array.from({ length: homestay.maxGuests || 5 }, (_, i) => (
+                <option key={i + 1} value={i + 1}>{i + 1} guest{i + 1 !== 1 ? 's' : ''}</option>
+              ))}
+            </select>
+          </div>
+          
+          <button style={styles.bookButton}>
+            Book Now
           </button>
-          {homestay.contact && (
-            <div style={{ marginTop: 20, textAlign: "center" }}>
-              <p style={{ marginBottom: 10, color: "#717171" }}>Or contact directly</p>
-              <a href={`tel:${homestay.contact}`} style={{ ...styles.button, ...styles.btnOutline, display: "block", textAlign: "center" }}>
-                Call: {homestay.contact}
-              </a>
+          
+          {checkInDate && checkOutDate && (
+            <div style={{ marginTop: 20, textAlign: 'center' }}>
+              <p>Total: ₹{calculateTotal()}</p>
             </div>
           )}
+          
+          <div style={{ marginTop: 20, textAlign: 'center' }}>
+            <a href={`tel:${homestay.contact}`} style={{ color: '#ff385c', fontWeight: 'bold' }}>
+              Contact Host
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -973,11 +894,17 @@ export default function App() {
   const [homestays, setHomestays] = useState([]);
   const [form, setForm] = useState({
     name: "",
+    description: "",
     price: "",
     city: "",
     contact: "",
+    roomType: "",
+    maxGuests: 2,
     coupleFriendly: false,
     hourly: false,
+    petsAllowed: false,
+    smokingAllowed: false,
+    amenities: [],
     imagePreview: null
   });
   const [imageFile, setImageFile] = useState(null);
@@ -1016,9 +943,9 @@ export default function App() {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Check file size (1MB max)
-    if (file.size > 1024 * 1024) {
-      setImageError("Image size must be less than 1MB");
+    // Check file size (2MB max)
+    if (file.size > 2 * 1024 * 1024) {
+      setImageError("Image size must be less than 2MB");
       return;
     }
 
@@ -1071,11 +998,17 @@ export default function App() {
 
       await addDoc(collection(db, "homestays"), {
         name: form.name,
+        description: form.description,
         price: Number(form.price),
         city: form.city,
         contact: form.contact,
+        roomType: form.roomType,
+        maxGuests: Number(form.maxGuests),
         coupleFriendly: form.coupleFriendly,
         hourly: form.hourly,
+        petsAllowed: form.petsAllowed,
+        smokingAllowed: form.smokingAllowed,
+        amenities: form.amenities,
         imageUrl,
         createdBy: user.uid,
         createdByName: user.displayName,
@@ -1085,11 +1018,17 @@ export default function App() {
       // Reset form
       setForm({
         name: "",
+        description: "",
         price: "",
         city: "",
         contact: "",
+        roomType: "",
+        maxGuests: 2,
         coupleFriendly: false,
         hourly: false,
+        petsAllowed: false,
+        smokingAllowed: false,
+        amenities: [],
         imagePreview: null
       });
       setImageFile(null);
@@ -1104,28 +1043,27 @@ export default function App() {
   return (
     <Router>
       <div style={styles.container}>
-        <header style={styles.headerContainer}>
-          <div style={styles.logoContainer}>
+        <header style={styles.header}>
+          <Link to="/" style={styles.logoContainer}>
             <img
               src={logo}
               alt="Guwahati Homestay Finder Logo"
               style={styles.logo}
             />
-            <h1 style={styles.headerTitle}>
-              <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
-                Guwahati Homestay Finder
-              </Link>
-            </h1>
+            <span>Guwahati Stays</span>
+          </Link>
+          
+          <div style={styles.searchBar}>
+            <FiSearch style={{ color: '#717171' }} />
+            <input
+              style={styles.searchInput}
+              type="text"
+              placeholder="Search homestays..."
+            />
           </div>
           
-          <nav style={styles.nav}>
-            <Link to="/" style={styles.navLink}>Explore</Link>
-            <Link to="/add-homestay" style={styles.navLink}>Add Homestay</Link>
-            <Link to="#" style={styles.navLink}>Favorites</Link>
-          </nav>
+          <AuthBar user={user} handleLogin={handleLogin} handleLogout={handleLogout} />
         </header>
-
-        <AuthBar user={user} handleLogin={handleLogin} handleLogout={handleLogout} />
 
         <Routes>
           <Route path="/" element={<HomestayListing homestays={homestays} />} />
