@@ -4,14 +4,13 @@
   "private": true,
   "dependencies": {
     "firebase": "^11.9.0",
+    "lucide-react": "0.515.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-helmet-async": "^2.0.5",
-    "react-router-dom": "^6.23.1",
-    "react-scripts": "5.0.1",
-    "lucide-react": "0.515.0"
     "react-icons": "^5.5.0",
-    
+    "react-router-dom": "^6.23.1",
+    "react-scripts": "5.0.1"
   },
   "scripts": {
     "start": "react-scripts start",
