@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from "react-router-dom";
-import { FiSearch, FiHeart, FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet } from "react-icons/fi";
+import { FiHeart, FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet } from "react-icons/fi";
 import logo from "./IMG-20250719-WA0043.jpg";
 
 // Firebase configuration
@@ -88,34 +88,6 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: 20
-  },
-  searchBar: {
-    display: 'flex',
-    alignItems: 'center',
-    border: '1px solid #ddd',
-    borderRadius: 40,
-    padding: '10px 15px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-    marginBottom: 30
-  },
-  searchInput: {
-    border: 'none',
-    outline: 'none',
-    fontSize: 16,
-    padding: '5px 10px',
-    width: '100%'
-  },
-  searchButton: {
-    backgroundColor: '#ff385c',
-    color: 'white',
-    border: 'none',
-    borderRadius: '50%',
-    width: 40,
-    height: 40,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer'
   },
   authButton: {
     display: 'flex',
@@ -207,6 +179,16 @@ const styles = {
     backgroundColor: '#000',
     color: 'white',
     borderColor: '#000'
+  },
+  locationDropdown: {
+    padding: '12px 15px',
+    borderRadius: 8,
+    border: '1px solid #ddd',
+    fontSize: 16,
+    width: '100%',
+    marginBottom: 20,
+    backgroundColor: 'white',
+    cursor: 'pointer'
   },
   formContainer: {
     maxWidth: 800,
@@ -380,18 +362,12 @@ function AuthBar({ user, handleLogin, handleLogout }) {
 }
 
 function HomestayListing({ homestays }) {
-  const [search, setSearch] = useState("");
   const [selectedArea, setSelectedArea] = useState("All");
   const [coupleFriendlyOnly, setCoupleFriendlyOnly] = useState(false);
   const [hourlyOnly, setHourlyOnly] = useState(false);
   const [roomType, setRoomType] = useState("All");
 
   const filteredHomestays = homestays.filter(homestay => {
-    const matchesSearch =
-      homestay.name.toLowerCase().includes(search.toLowerCase()) ||
-      homestay.city.toLowerCase().includes(search.toLowerCase()) ||
-      homestay.description?.toLowerCase().includes(search.toLowerCase());
-
     const matchesArea =
       selectedArea === "All" || homestay.city === selectedArea;
 
@@ -404,48 +380,25 @@ function HomestayListing({ homestays }) {
     const matchesRoomType =
       roomType === "All" || homestay.roomType === roomType;
 
-    return matchesSearch && matchesArea && matchesCoupleFriendly && matchesHourly && matchesRoomType;
+    return matchesArea && matchesCoupleFriendly && matchesHourly && matchesRoomType;
   });
 
   return (
     <div>
-      <div style={styles.searchBar}>
-        <FiSearch style={{ color: '#717171' }} />
-        <input
-          style={styles.searchInput}
-          type="text"
-          placeholder="Search homestays by name, area, or description..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <button style={styles.searchButton}>
-          <FiSearch />
-        </button>
+      <div style={{ marginBottom: 20 }}>
+        <select
+          style={styles.locationDropdown}
+          value={selectedArea}
+          onChange={(e) => setSelectedArea(e.target.value)}
+        >
+          <option value="All">All Areas in Guwahati</option>
+          {GUWAHATI_AREAS.map(area => (
+            <option key={area} value={area}>{area}</option>
+          ))}
+        </select>
       </div>
 
       <div style={styles.filterContainer}>
-        <button
-          style={{
-            ...styles.filterButton,
-            ...(selectedArea === "All" ? styles.activeFilter : {})
-          }}
-          onClick={() => setSelectedArea("All")}
-        >
-          All Areas
-        </button>
-        {GUWAHATI_AREAS.slice(0, 10).map(area => (
-          <button
-            key={area}
-            style={{
-              ...styles.filterButton,
-              ...(selectedArea === area ? styles.activeFilter : {})
-            }}
-            onClick={() => setSelectedArea(area)}
-          >
-            {area}
-          </button>
-        ))}
-
         <button
           style={{
             ...styles.filterButton,
@@ -480,8 +433,8 @@ function HomestayListing({ homestays }) {
 
       {filteredHomestays.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 40 }}>
-          <h3>No homestays found matching your criteria</h3>
-          <p>Try adjusting your filters or search terms</p>
+          <h3>No homestays found in {selectedArea === "All" ? "Guwahati" : selectedArea}</h3>
+          <p>Try adjusting your filters</p>
         </div>
       ) : (
         <ul style={styles.homestayList}>
@@ -533,6 +486,8 @@ function HomestayListing({ homestays }) {
     </div>
   );
 }
+
+// ... [Keep all other components the same: AddHomestayForm, HomestayDetail, and App]
 
 function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleImageChange, imageError }) {
   const handleAmenityChange = (amenityId) => {
@@ -1051,15 +1006,6 @@ export default function App() {
             />
             <span>Guwahati Stays</span>
           </Link>
-
-          <div style={styles.searchBar}>
-            <FiSearch style={{ color: '#717171' }} />
-            <input
-              style={styles.searchInput}
-              type="text"
-              placeholder="Search homestays..."
-            />
-          </div>
 
           <AuthBar user={user} handleLogin={handleLogin} handleLogout={handleLogout} />
         </header>
