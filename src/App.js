@@ -4,7 +4,7 @@ import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc } from "fireb
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from "react-router-dom";
 import { FaBed, FaBath, FaHeart, FaStar, FaSearch, FaMapMarkerAlt, FaUser, FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
-import logo from "../IMG-20250719-WA0042.jpg";
+import logo from "./IMG-20250719-WA0043.jpg";
 
 // Firebase configuration
 const firebaseConfig = {
