@@ -3,7 +3,8 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from "react-router-dom";
-import { FiHeart, FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet } from "react-icons/fi";
+import { FiHeart, FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch } from "react-icons/fi";
+import { Helmet } from "react-helmet";
 import logo from "./IMG-20250719-WA0043.jpg";
 
 // Firebase configuration
@@ -283,21 +284,12 @@ const styles = {
     fontSize: 16,
     marginBottom: 20
   },
-  detailImages: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
-    gap: 10,
-    marginBottom: 30
-  },
-  mainImage: {
-    gridColumn: 'span 2',
-    gridRow: 'span 2',
-    height: '100%',
-    borderRadius: 12
-  },
-  secondaryImage: {
-    height: '100%',
-    borderRadius: 12
+  detailImage: {
+    width: '100%',
+    borderRadius: 12,
+    marginBottom: 30,
+    maxHeight: 500,
+    objectFit: 'cover'
   },
   detailInfo: {
     display: 'grid',
@@ -337,6 +329,46 @@ const styles = {
     fontSize: 16,
     fontWeight: 'bold',
     cursor: 'pointer'
+  },
+  searchContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 20
+  },
+  searchInput: {
+    flex: 1,
+    padding: '12px 15px',
+    borderRadius: 30,
+    border: '1px solid #ddd',
+    fontSize: 16
+  },
+  searchButton: {
+    padding: '12px 20px',
+    borderRadius: 30,
+    border: 'none',
+    backgroundColor: '#ff385c',
+    color: 'white',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5
+  },
+  callButton: {
+    width: '100%',
+    padding: 15,
+    backgroundColor: '#4CAF50',
+    color: 'white',
+    border: 'none',
+    borderRadius: 8,
+    fontSize: 16,
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    marginTop: 10,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5
   }
 };
 
@@ -366,6 +398,7 @@ function HomestayListing({ homestays }) {
   const [coupleFriendlyOnly, setCoupleFriendlyOnly] = useState(false);
   const [hourlyOnly, setHourlyOnly] = useState(false);
   const [roomType, setRoomType] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const filteredHomestays = homestays.filter(homestay => {
     const matchesArea =
@@ -380,11 +413,30 @@ function HomestayListing({ homestays }) {
     const matchesRoomType =
       roomType === "All" || homestay.roomType === roomType;
 
-    return matchesArea && matchesCoupleFriendly && matchesHourly && matchesRoomType;
+    const matchesSearch = 
+      searchQuery === "" || 
+      homestay.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      homestay.city.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      homestay.description.toLowerCase().includes(searchQuery.toLowerCase());
+
+    return matchesArea && matchesCoupleFriendly && matchesHourly && matchesRoomType && matchesSearch;
   });
 
   return (
     <div>
+      <div style={styles.searchContainer}>
+        <input
+          type="text"
+          placeholder="Search homestays by name, location or description..."
+          style={styles.searchInput}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        <button style={styles.searchButton}>
+          <FiSearch /> Search
+        </button>
+      </div>
+
       <div style={{ marginBottom: 20 }}>
         <select
           style={styles.locationDropdown}
@@ -433,8 +485,8 @@ function HomestayListing({ homestays }) {
 
       {filteredHomestays.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 40 }}>
-          <h3>No homestays found in {selectedArea === "All" ? "Guwahati" : selectedArea}</h3>
-          <p>Try adjusting your filters</p>
+          <h3>No homestays found matching your criteria</h3>
+          <p>Try adjusting your filters or search query</p>
         </div>
       ) : (
         <ul style={styles.homestayList}>
@@ -487,8 +539,6 @@ function HomestayListing({ homestays }) {
   );
 }
 
-// ... [Keep all other components the same: AddHomestayForm, HomestayDetail, and App]
-
 function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleImageChange, imageError }) {
   const handleAmenityChange = (amenityId) => {
     const updatedAmenities = form.amenities.includes(amenityId)
@@ -500,6 +550,11 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
 
   return (
     <div style={styles.formContainer}>
+      <Helmet>
+        <title>Add Homestay - Guwahati Stays</title>
+        <meta name="description" content="List your homestay on Guwahati Stays and connect with travelers looking for unique accommodations in Guwahati." />
+      </Helmet>
+
       <h1 style={styles.formTitle}>List your homestay</h1>
 
       <div style={styles.formSection}>
@@ -726,6 +781,11 @@ function HomestayDetail() {
 
   return (
     <div style={styles.detailContainer}>
+      <Helmet>
+        <title>{homestay.name} - Guwahati Stays</title>
+        <meta name="description" content={`${homestay.name} in ${homestay.city} - ${homestay.description.substring(0, 160)}...`} />
+      </Helmet>
+
       <div style={styles.detailHeader}>
         <h1 style={styles.detailTitle}>{homestay.name}</h1>
         <div style={styles.detailLocation}>
@@ -736,33 +796,11 @@ function HomestayDetail() {
         </div>
       </div>
 
-      <div style={styles.detailImages}>
-        <img
-          src={homestay.imageUrl}
-          alt={homestay.name}
-          style={styles.mainImage}
-        />
-        <img
-          src={homestay.imageUrl}
-          alt={homestay.name}
-          style={styles.secondaryImage}
-        />
-        <img
-          src={homestay.imageUrl}
-          alt={homestay.name}
-          style={styles.secondaryImage}
-        />
-        <img
-          src={homestay.imageUrl}
-          alt={homestay.name}
-          style={styles.secondaryImage}
-        />
-        <img
-          src={homestay.imageUrl}
-          alt={homestay.name}
-          style={styles.secondaryImage}
-        />
-      </div>
+      <img
+        src={homestay.imageUrl}
+        alt={homestay.name}
+        style={styles.detailImage}
+      />
 
       <div style={styles.detailInfo}>
         <div>
@@ -832,14 +870,24 @@ function HomestayDetail() {
             </div>
           )}
 
-          <div style={{ marginTop: 20, textAlign: 'center' }}>
-            <a href={`tel:${homestay.contact}`} style={{ color: '#ff385c', fontWeight: 'bold' }}>
-              Contact Host
-            </a>
-          </div>
+          <a href={`tel:${homestay.contact}`} style={styles.callButton}>
+            <FiUser /> Call Host
+          </a>
         </div>
       </div>
     </div>
+  );
+}
+
+function HomePage({ homestays }) {
+  return (
+    <>
+      <Helmet>
+        <title>Guwahati Stays - Find the Perfect Homestay in Guwahati</title>
+        <meta name="description" content="Discover unique homestays across Guwahati. Book comfortable and affordable accommodations for your stay in Guwahati." />
+      </Helmet>
+      <HomestayListing homestays={homestays} />
+    </>
   );
 }
 
@@ -1011,7 +1059,7 @@ export default function App() {
         </header>
 
         <Routes>
-          <Route path="/" element={<HomestayListing homestays={homestays} />} />
+          <Route path="/" element={<HomePage homestays={homestays} />} />
           <Route path="/add-homestay" element={
             <AddHomestayForm
               user={user}
