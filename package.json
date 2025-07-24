@@ -7,6 +7,7 @@
     "lucide-react": "0.515.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-helmet": "^6.1.0",
     "react-helmet-async": "^2.0.5",
     "react-icons": "^5.5.0",
     "react-router-dom": "^6.23.1",
@@ -16,8 +17,7 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "format": "prettier --write \"src/**/*.{js,jsx,json,css,scss}\""
+    "eject": "react-scripts eject"
   },
   "eslintConfig": {
     "extends": [
@@ -36,8 +36,5 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  },
-  "devDependencies": {
-    "prettier": "^3.0.0"
   }
 }
