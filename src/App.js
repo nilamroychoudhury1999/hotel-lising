@@ -755,8 +755,7 @@ function HomestayDetail() {
   const { id } = useParams();
   const [homestay, setHomestay] = useState(null);
   const navigate = useNavigate();
-  const [checkInDate, setCheckInDate] = useState("");
-  const [checkOutDate, setCheckOutDate] = useState("");
+
 
   useEffect(() => {
     const fetchHomestay = async () => {
@@ -773,11 +772,7 @@ function HomestayDetail() {
 
   if (!homestay) return <div style={{ textAlign: "center", padding: 40 }}>Loading...</div>;
 
-  const calculateTotal = () => {
-    if (!checkInDate || !checkOutDate) return homestay.price;
-    const nights = (new Date(checkOutDate) - new Date(checkInDate)) / (1000 * 60 * 60 * 24);
-    return nights * homestay.price;
-  };
+
 
   return (
     <div style={styles.detailContainer}>
@@ -833,11 +828,7 @@ function HomestayDetail() {
 
 
 
-          {checkInDate && checkOutDate && (
-            <div style={{ marginTop: 20, textAlign: 'center' }}>
-              <p>Total: ₹{calculateTotal()}</p>
-            </div>
-          )}
+
 
           <a href={`tel:${homestay.contact}`} style={styles.callButton}>
             <FiUser /> Call Host
