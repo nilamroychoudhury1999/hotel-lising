@@ -413,10 +413,10 @@ function HomestayListing({ homestays }) {
     const matchesRoomType =
       roomType === "All" || homestay.roomType === roomType;
 
-    const matchesSearch = 
-      searchQuery === "" || 
-      homestay.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      homestay.city.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const matchesSearch =
+      searchQuery === "" ||
+      homestay.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      homestay.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
       homestay.description.toLowerCase().includes(searchQuery.toLowerCase());
 
     return matchesArea && matchesCoupleFriendly && matchesHourly && matchesRoomType && matchesSearch;
@@ -783,7 +783,7 @@ function HomestayDetail() {
     <div style={styles.detailContainer}>
       <Helmet>
         <title>{homestay.name} - Guwahati Stays</title>
-        <meta name="description" content={`${homestay.name} in ${homestay.city} - ${homestay.description.substring(0, 160)}...`} />
+        <meta name="description" content={`${homestay.name} in ${homestay.city} - ${homestay.description?.substring(0, 160)}...`} />
       </Helmet>
 
       <div style={styles.detailHeader}>
@@ -830,39 +830,8 @@ function HomestayDetail() {
             ₹{homestay.price} <span style={{ fontWeight: 'normal' }}>/ night</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 15 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: 14, fontWeight: 'bold', marginBottom: 5 }}>Check-in</label>
-              <input
-                type="date"
-                style={styles.input}
-                value={checkInDate}
-                onChange={(e) => setCheckInDate(e.target.value)}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 14, fontWeight: 'bold', marginBottom: 5 }}>Check-out</label>
-              <input
-                type="date"
-                style={styles.input}
-                value={checkOutDate}
-                onChange={(e) => setCheckOutDate(e.target.value)}
-              />
-            </div>
-          </div>
 
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', fontSize: 14, fontWeight: 'bold', marginBottom: 5 }}>Guests</label>
-            <select style={styles.input}>
-              {Array.from({ length: homestay.maxGuests || 5 }, (_, i) => (
-                <option key={i + 1} value={i + 1}>{i + 1} guest{i + 1 !== 1 ? 's' : ''}</option>
-              ))}
-            </select>
-          </div>
 
-          <button style={styles.bookButton}>
-            Book Now
-          </button>
 
           {checkInDate && checkOutDate && (
             <div style={{ marginTop: 20, textAlign: 'center' }}>
