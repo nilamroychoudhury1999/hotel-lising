@@ -54,7 +54,7 @@ const AMENITIES = [
 ];
 
 const ROOM_TYPES = [
-  "Entire Home", "Private Room", "Shared Room", "Studio", "Villa"
+  "Entire Home", "Private Room", "Shared Room", "Studio", "Villa" ,"Apartment"
 ];
 
 const styles = {
