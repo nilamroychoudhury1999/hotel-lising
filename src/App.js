@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from "react-router-dom";
-import { FiHeart, FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch, FiMail, FiPhone, FiInfo, FiBook, FiCheck } from "react-icons/fi";
+import { FiHeart, FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch, FiMail, FiPhone, FiInfo,  FiCheck } from "react-icons/fi";
 import { Helmet } from "react-helmet";
 import logo from "./IMG-20250719-WA0043.jpg";
 
