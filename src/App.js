@@ -5,7 +5,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/
 import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from "react-router-dom";
 import { FiHeart, FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch, FiMail, FiPhone, FiInfo, FiCheck } from "react-icons/fi";
 import { Helmet } from "react-helmet";
-import logo from "./IMG-20250719-WA0043.jpg";
+import logo from "./IMG-20250818-WA0009.jpg";
 
 // Firebase configuration
 const firebaseConfig = {
