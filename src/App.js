@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from "react-router-dom";
-import { FiHeart, FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch, FiMail, FiPhone, FiInfo,  FiCheck } from "react-icons/fi";
+import { FiHeart, FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch, FiMail, FiPhone, FiInfo, FiCheck } from "react-icons/fi";
 import { Helmet } from "react-helmet";
 import logo from "./IMG-20250719-WA0043.jpg";
 
@@ -778,8 +778,8 @@ function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleIma
   return (
     <div style={styles.formContainer}>
       <Helmet>
-        <title>Add Homestay - Guwahati Stays</title>
-        <meta name="description" content="List your homestay on Guwahati Stays and connect with travelers looking for unique accommodations in Guwahati." />
+        <title>Add Homestay - Homavia</title>
+        <meta name="description" content="List your homestay on Homavia and connect with travelers looking for unique accommodations in Guwahati." />
       </Helmet>
 
       <h1 style={styles.formTitle}>List your homestay</h1>
@@ -1023,7 +1023,7 @@ function HomestayDetail() {
   return (
     <div style={styles.detailContainer}>
       <Helmet>
-        <title>{homestay.name} - Guwahati Stays</title>
+        <title>{homestay.name} - Homavia</title>
         <meta name="description" content={`${homestay.name} in ${homestay.city} - ${homestay.description?.substring(0, 160)}...`} />
       </Helmet>
 
@@ -1101,34 +1101,34 @@ function AboutUs() {
   return (
     <div style={styles.pageContainer}>
       <Helmet>
-        <title>About Us - Guwahati Stays</title>
-        <meta name="description" content="Learn about Guwahati Stays - your trusted platform for finding the perfect homestay in Guwahati." />
+        <title>About Us - Homavia</title>
+        <meta name="description" content="Learn about Homavia - your trusted platform for finding the perfect homestay in Guwahati." />
       </Helmet>
-      
-      <h1 style={styles.pageTitle}>About Guwahati Stays</h1>
-      
+
+      <h1 style={styles.pageTitle}>About Homavia</h1>
+
       <div style={styles.pageContent}>
         <p>
-          Founded in 2023, Guwahati Stays is dedicated to transforming how travelers experience Guwahati. 
-          We connect guests with unique, authentic homestays that offer more than just a place to sleep - 
+          Founded in 2023, Homavia is dedicated to transforming how travelers experience Guwahati.
+          We connect guests with unique, authentic homestays that offer more than just a place to sleep -
           they offer a true Assamese hospitality experience.
         </p>
-        
+
         <p>
-          Our mission is to empower local homeowners while providing travelers with memorable stays that 
-          showcase the rich culture and warm hospitality of Assam. We carefully vet every property to ensure 
+          Our mission is to empower local homeowners while providing travelers with memorable stays that
+          showcase the rich culture and warm hospitality of Assam. We carefully vet every property to ensure
           quality and comfort for our guests.
         </p>
-        
+
         <h2 style={{ fontSize: 24, fontWeight: 'bold', marginTop: 40, marginBottom: 20 }}>Our Team</h2>
-        
+
         <div style={styles.teamContainer}>
           <div style={styles.teamMember}>
-            <div style={{ 
-              width: 150, 
-              height: 150, 
-              borderRadius: '50%', 
-              backgroundColor: '#ff385c', 
+            <div style={{
+              width: 150,
+              height: 150,
+              borderRadius: '50%',
+              backgroundColor: '#ff385c',
               margin: '0 auto 15px',
               display: 'flex',
               alignItems: 'center',
@@ -1136,17 +1136,17 @@ function AboutUs() {
               color: 'white',
               fontSize: 50,
               fontWeight: 'bold'
-            }}>AK</div>
-            <h3 style={{ fontWeight: 'bold', marginBottom: 5 }}>Amit Kumar</h3>
-            <p>Founder & CEO</p>
+            }}>NR</div>
+            <h3 style={{ fontWeight: 'bold', marginBottom: 5 }}>Nilam Roychoudhury</h3>
+            <p>Founder & CTO</p>
           </div>
-          
+
           <div style={styles.teamMember}>
-            <div style={{ 
-              width: 150, 
-              height: 150, 
-              borderRadius: '50%', 
-              backgroundColor: '#ff385c', 
+            <div style={{
+              width: 150,
+              height: 150,
+              borderRadius: '50%',
+              backgroundColor: '#ff385c',
               margin: '0 auto 15px',
               display: 'flex',
               alignItems: 'center',
@@ -1154,45 +1154,29 @@ function AboutUs() {
               color: 'white',
               fontSize: 50,
               fontWeight: 'bold'
-            }}>PS</div>
-            <h3 style={{ fontWeight: 'bold', marginBottom: 5 }}>Priya Sharma</h3>
-            <p>Head of Operations</p>
+            }}>ML</div>
+            <h3 style={{ fontWeight: 'bold', marginBottom: 5 }}>Mayur Laskar</h3>
+            <p>Co-Founder and  CMO</p>
           </div>
-          
-          <div style={styles.teamMember}>
-            <div style={{ 
-              width: 150, 
-              height: 150, 
-              borderRadius: '50%', 
-              backgroundColor: '#ff385c', 
-              margin: '0 auto 15px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontSize: 50,
-              fontWeight: 'bold'
-            }}>RJ</div>
-            <h3 style={{ fontWeight: 'bold', marginBottom: 5 }}>Rajiv Jain</h3>
-            <p>Technology Director</p>
-          </div>
+
+
         </div>
-        
+
         <h2 style={{ fontSize: 24, fontWeight: 'bold', marginTop: 40, marginBottom: 20 }}>Our Values</h2>
-        
+
         <div style={styles.featureList}>
           <div style={styles.featureCard}>
             <div style={styles.featureIcon}><FiHome size={36} /></div>
             <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Authentic Experiences</h3>
             <p>We prioritize homestays that offer genuine local experiences and cultural immersion.</p>
           </div>
-          
+
           <div style={styles.featureCard}>
             <div style={styles.featureIcon}><FiCheck size={36} /></div>
             <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Quality Assurance</h3>
             <p>Every property is personally verified to meet our standards of comfort and cleanliness.</p>
           </div>
-          
+
           <div style={styles.featureCard}>
             <div style={styles.featureIcon}><FiStar size={36} /></div>
             <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Premium Service</h3>
@@ -1228,21 +1212,21 @@ function ContactUs() {
   return (
     <div style={styles.pageContainer}>
       <Helmet>
-        <title>Contact Us - Guwahati Stays</title>
-        <meta name="description" content="Get in touch with Guwahati Stays for any questions or support regarding your homestay bookings." />
+        <title>Contact Us - Homavia</title>
+        <meta name="description" content="Get in touch with Homavia for any questions or support regarding your homestay bookings." />
       </Helmet>
-      
+
       <h1 style={styles.pageTitle}>Contact Us</h1>
-      
+
       <div style={{ ...styles.pageContent, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40 }}>
         <div>
           <p style={{ marginBottom: 30 }}>
             Have questions about booking a homestay or listing your property? Our team is here to help!
           </p>
-          
+
           <div style={{ backgroundColor: '#fff', borderRadius: 12, padding: 30, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
             <h3 style={{ fontWeight: 'bold', marginBottom: 20, fontSize: 20 }}>Contact Information</h3>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
                 <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1250,10 +1234,10 @@ function ContactUs() {
                 </div>
                 <div>
                   <p style={{ fontWeight: 500 }}>Phone</p>
-                  <p>+91 98765 43210</p>
+                  <p>+91 8638572663</p>
                 </div>
               </div>
-              
+
               <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
                 <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <FiMail />
@@ -1263,7 +1247,7 @@ function ContactUs() {
                   <p>support@guwahatistays.com</p>
                 </div>
               </div>
-              
+
               <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
                 <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <FiMapPin />
@@ -1275,7 +1259,7 @@ function ContactUs() {
               </div>
             </div>
           </div>
-          
+
           <div style={{ marginTop: 40 }}>
             <h3 style={{ fontWeight: 'bold', marginBottom: 20, fontSize: 20 }}>Business Hours</h3>
             <p style={{ marginBottom: 10 }}>Monday - Friday: 9:00 AM - 6:00 PM</p>
@@ -1283,18 +1267,18 @@ function ContactUs() {
             <p>Sunday: Closed</p>
           </div>
         </div>
-        
+
         <div>
           <div style={{ backgroundColor: '#fff', borderRadius: 12, padding: 30, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
             <h3 style={{ fontWeight: 'bold', marginBottom: 20, fontSize: 20 }}>Send us a message</h3>
-            
+
             {submitted ? (
               <div style={{ textAlign: 'center', padding: 30 }}>
                 <FiCheck size={40} color="#4CAF50" style={{ marginBottom: 20 }} />
                 <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Message Sent!</h3>
                 <p>Thank you for contacting us. Our team will get back to you within 24 hours.</p>
-                <button 
-                  style={{ ...styles.submitButton, marginTop: 20 }} 
+                <button
+                  style={{ ...styles.submitButton, marginTop: 20 }}
                   onClick={() => setSubmitted(false)}
                 >
                   Send Another Message
@@ -1314,7 +1298,7 @@ function ContactUs() {
                       required
                     />
                   </div>
-                  
+
                   <div style={styles.inputGroup}>
                     <label style={styles.label}>Email *</label>
                     <input
@@ -1326,7 +1310,7 @@ function ContactUs() {
                       required
                     />
                   </div>
-                  
+
                   <div style={styles.inputGroup}>
                     <label style={styles.label}>Phone Number</label>
                     <input
@@ -1337,7 +1321,7 @@ function ContactUs() {
                       onChange={handleChange}
                     />
                   </div>
-                  
+
                   <div style={{ ...styles.inputGroup, ...styles.fullWidthInput }}>
                     <label style={styles.label}>Message *</label>
                     <textarea
@@ -1348,7 +1332,7 @@ function ContactUs() {
                       required
                     ></textarea>
                   </div>
-                  
+
                   <div style={{ ...styles.inputGroup, ...styles.fullWidthInput }}>
                     <button type="submit" style={styles.submitButton}>
                       Send Message
@@ -1368,40 +1352,40 @@ function PremiumPage() {
   return (
     <div style={styles.pageContainer}>
       <Helmet>
-        <title>Premium Features - Guwahati Stays</title>
-        <meta name="description" content="Upgrade to Guwahati Stays Premium to get more visibility for your homestay and increase your bookings." />
+        <title>Premium Features - Homavia</title>
+        <meta name="description" content="Upgrade to Homavia Premium to get more visibility for your homestay and increase your bookings." />
       </Helmet>
-      
+
       <h1 style={styles.pageTitle}>Premium Features</h1>
-      
+
       <div style={{ ...styles.pageContent, textAlign: 'center' }}>
         <p style={{ fontSize: 20, maxWidth: 700, margin: '0 auto 40px' }}>
           Elevate your homestay listing with our Premium features designed to increase your visibility and bookings.
         </p>
-        
+
         <div style={styles.featureList}>
           <div style={styles.featureCard}>
             <div style={styles.featureIcon}><FiStar size={36} /></div>
             <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Featured Listings</h3>
             <p>Your property appears at the top of search results with a premium badge.</p>
           </div>
-          
+
           <div style={styles.featureCard}>
             <div style={styles.featureIcon}><FiSearch size={36} /></div>
             <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>3x More Visibility</h3>
             <p>Get up to 3 times more views compared to regular listings.</p>
           </div>
-          
+
           <div style={styles.featureCard}>
             <div style={styles.featureIcon}><FiCheck size={36} /></div>
             <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Verified Badge</h3>
             <p>Gain trust with our verified badge that shows you're a premium host.</p>
           </div>
         </div>
-        
+
         <div style={{ backgroundColor: '#fff', borderRadius: 12, padding: 40, marginTop: 40, maxWidth: 800, margin: '40px auto 0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
           <h2 style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 30 }}>Premium Hosting Plans</h2>
-          
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20 }}>
             <div style={{ border: '1px solid #ddd', borderRadius: 12, padding: 30, textAlign: 'center' }}>
               <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Basic</h3>
@@ -1413,7 +1397,7 @@ function PremiumPage() {
               </ul>
               <button style={styles.submitButton}>Select Plan</button>
             </div>
-            
+
             <div style={{ border: '1px solid #ff385c', borderRadius: 12, padding: 30, textAlign: 'center', position: 'relative' }}>
               <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', backgroundColor: '#ff385c', color: 'white', padding: '5px 15px', borderRadius: 20, fontSize: 14 }}>
                 MOST POPULAR
@@ -1429,7 +1413,7 @@ function PremiumPage() {
               </ul>
               <button style={{ ...styles.submitButton, backgroundColor: '#333' }}>Select Plan</button>
             </div>
-            
+
             <div style={{ border: '1px solid #ddd', borderRadius: 12, padding: 30, textAlign: 'center' }}>
               <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Business</h3>
               <p style={{ fontSize: 36, fontWeight: 'bold', marginBottom: 20 }}>₹1499<span style={{ fontSize: 16, fontWeight: 'normal' }}>/month</span></p>
@@ -1445,21 +1429,21 @@ function PremiumPage() {
             </div>
           </div>
         </div>
-        
+
         <div style={{ marginTop: 60 }}>
           <h2 style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 20 }}>What Our Premium Hosts Say</h2>
-          
+
           <div style={styles.testimonialContainer}>
             <div style={styles.testimonialCard}>
               <p style={styles.testimonialText}>
                 "Since upgrading to Premium, my bookings have increased by 70%! The featured placement makes all the difference."
               </p>
               <div style={styles.testimonialAuthor}>
-                <div style={{ 
-                  width: 40, 
-                  height: 40, 
-                  borderRadius: '50%', 
-                  backgroundColor: '#ff385c', 
+                <div style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  backgroundColor: '#ff385c',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1472,17 +1456,17 @@ function PremiumPage() {
                 </div>
               </div>
             </div>
-            
+
             <div style={styles.testimonialCard}>
               <p style={styles.testimonialText}>
                 "The professional photography included in the Business plan transformed my listing. Worth every rupee!"
               </p>
               <div style={styles.testimonialAuthor}>
-                <div style={{ 
-                  width: 40, 
-                  height: 40, 
-                  borderRadius: '50%', 
-                  backgroundColor: '#ff385c', 
+                <div style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  backgroundColor: '#ff385c',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1495,17 +1479,17 @@ function PremiumPage() {
                 </div>
               </div>
             </div>
-            
+
             <div style={styles.testimonialCard}>
               <p style={styles.testimonialText}>
                 "As a new host, Premium gave me the visibility I needed to establish my homestay quickly."
               </p>
               <div style={styles.testimonialAuthor}>
-                <div style={{ 
-                  width: 40, 
-                  height: 40, 
-                  borderRadius: '50%', 
-                  backgroundColor: '#ff385c', 
+                <div style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  backgroundColor: '#ff385c',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1536,13 +1520,12 @@ function Footer() {
               alt="Guwahati Homestay Finder Logo"
               style={styles.logo}
             />
-            <span>Guwahati Stays</span>
           </div>
           <p style={{ color: '#666', lineHeight: 1.6 }}>
             Your trusted platform for authentic homestay experiences in Guwahati. Connect with local hosts and discover the real Assam.
           </p>
         </div>
-        
+
         <div style={styles.footerColumn}>
           <h4 style={styles.footerTitle}>Quick Links</h4>
           <Link to="/" style={styles.footerLink}><FiHome /> Home</Link>
@@ -1551,14 +1534,14 @@ function Footer() {
           <Link to="/premium" style={styles.footerLink}><FiStar /> Premium</Link>
           <Link to="/add-homestay" style={styles.footerLink}><FiHome /> List Your Homestay</Link>
         </div>
-        
+
         <div style={styles.footerColumn}>
           <h4 style={styles.footerTitle}>Contact Us</h4>
-          <a href="mailto:support@guwahatistays.com" style={styles.footerLink}><FiMail /> support@guwahatistays.com</a>
-          <a href="tel:+919876543210" style={styles.footerLink}><FiPhone /> +91 98765 43210</a>
+          <a href="mailto:support@homavia.com" style={styles.footerLink}><FiMail /> support@guwahatistays.com</a>
+          <a href="tel:+919876543210" style={styles.footerLink}><FiPhone /> +91 8638572663</a>
           <div style={styles.footerLink}><FiMapPin /> GS Road, Dispur, Guwahati, Assam 781006</div>
         </div>
-        
+
         <div style={styles.footerColumn}>
           <h4 style={styles.footerTitle}>Legal</h4>
           <Link to="/terms" style={styles.footerLink}>Terms of Service</Link>
@@ -1566,9 +1549,9 @@ function Footer() {
           <Link to="/cancellation" style={styles.footerLink}>Cancellation Policy</Link>
         </div>
       </div>
-      
+
       <div style={styles.copyright}>
-        © {new Date().getFullYear()} Guwahati Stays. All rights reserved.
+        © {new Date().getFullYear()} Homavia. All rights reserved.
       </div>
     </footer>
   );
@@ -1578,7 +1561,7 @@ function HomePage({ homestays }) {
   return (
     <>
       <Helmet>
-        <title>Guwahati Stays - Find the Perfect Homestay in Guwahati</title>
+        <title>Homavia - Find the Perfect Homestay in Guwahati</title>
         <meta name="description" content="Discover unique homestays across Guwahati. Book comfortable and affordable accommodations for your stay in Guwahati." />
       </Helmet>
       <HomestayListing homestays={homestays} />
@@ -1750,7 +1733,7 @@ export default function App() {
               alt="Guwahati Homestay Finder Logo"
               style={styles.logo}
             />
-            <span>Guwahati Stays</span>
+            <span>Homavia</span>
           </Link>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 40 }}>
