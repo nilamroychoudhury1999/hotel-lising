@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet";
-import { FiUser, FiStar, FiPhone, FiMapPin, FiSearch, FiHeart, FiCamera, FiHome, FiMusic, FiScissors, FiFeather, FiGift, FiTruck, FiCheck, FiInfo, FiMail } from "react-icons/fi";
+import { FiUser, FiStar, FiPhone, FiMapPin, FiSearch, FiHeart, FiCamera, FiHome, FiMusic, FiScissors, FiFeather, FiGift, FiTruck, FiCheck, FiMail } from "react-icons/fi";
 
 // ======= Firebase (Client) =======
 // 1) npm i firebase
