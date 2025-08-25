@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+    import React, { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from "react-router-dom";
-import { FiHeart, FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch, FiMail, FiPhone, FiInfo, FiCheck } from "react-icons/fi";
+import { FiHeart, FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch, FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiBike } from "react-icons/fi";
 import { Helmet } from "react-helmet";
 import logo from "./IMG-20250818-WA0009.jpg";
 
@@ -57,6 +57,15 @@ const ROOM_TYPES = [
   "Entire Home", "Private Room", "Shared Room", "Studio", "Villa"
 ];
 
+// Bike types and features
+const BIKE_TYPES = [
+  "Standard Bike", "Mountain Bike", "Road Bike", "Hybrid Bike", "Electric Bike", "Folding Bike"
+];
+
+const BIKE_FEATURES = [
+  "Helmet Included", "Lock Included", "Basket", "Phone Mount", "Repair Kit", "Water Bottle Holder"
+];
+
 const styles = {
   container: {
     maxWidth: 1500,
@@ -73,7 +82,8 @@ const styles = {
     justifyContent: 'space-between',
     padding: '20px 0',
     borderBottom: '1px solid #ebebeb',
-    marginBottom: 30
+    marginBottom: 30,
+    position: 'relative'
   },
   logoContainer: {
     display: 'flex',
@@ -91,11 +101,19 @@ const styles = {
   nav: {
     display: 'flex',
     alignItems: 'center',
-    gap: 20
+    gap: 20,
+    '@media (max-width: 768px)': {
+      display: 'none'
+    }
   },
   navLinks: {
     display: 'flex',
-    gap: 20
+    gap: 20,
+    '@media (max-width: 768px)': {
+      flexDirection: 'column',
+      gap: 15,
+      padding: '20px'
+    }
   },
   navLink: {
     color: '#333',
@@ -123,6 +141,30 @@ const styles = {
     backgroundColor: '#ff385c',
     color: 'white',
     border: 'none'
+  },
+  mobileMenuButton: {
+    display: 'none',
+    backgroundColor: 'transparent',
+    border: 'none',
+    fontSize: 24,
+    cursor: 'pointer',
+    '@media (max-width: 768px)': {
+      display: 'block'
+    }
+  },
+  mobileMenu: {
+    display: 'none',
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    zIndex: 1000,
+    padding: '20px 0',
+    '@media (max-width: 768px)': {
+      display: 'block'
+    }
   },
   homestayList: {
     display: 'grid',
@@ -319,7 +361,10 @@ const styles = {
     display: 'grid',
     gridTemplateColumns: '2fr 1fr',
     gap: 40,
-    marginTop: 40
+    marginTop: 40,
+    '@media (max-width: 768px)': {
+      gridTemplateColumns: '1fr'
+    }
   },
   detailAmenities: {
     display: 'grid',
@@ -454,7 +499,10 @@ const styles = {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
     gap: 20,
-    marginTop: 30
+    marginTop: 30,
+    '@media (max-width: 768px)': {
+      gridTemplateColumns: '1fr'
+    }
   },
   contactInput: {
     padding: '12px 15px',
@@ -464,7 +512,10 @@ const styles = {
     width: '100%'
   },
   fullWidthInput: {
-    gridColumn: '1 / span 2'
+    gridColumn: '1 / span 2',
+    '@media (max-width: 768px)': {
+      gridColumn: '1'
+    }
   },
   featureList: {
     display: 'grid',
@@ -569,20 +620,99 @@ const styles = {
   }
 };
 
-function AuthBar({ user, handleLogin, handleLogout }) {
+// Responsive Header Component
+function Header({ user, handleLogin, handleLogout, mobileMenuOpen, setMobileMenuOpen }) {
   return (
-    <div style={styles.nav}>
+    <header style={styles.header}>
+      <Link to="/" style={styles.logoContainer}>
+        <img
+          src={logo}
+          alt="Homavia Logo"
+          style={styles.logo}
+        />
+        <span>Homavia</span>
+      </Link>
+
+      <button 
+        style={styles.mobileMenuButton} 
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+      >
+        {mobileMenuOpen ? <FiX /> : <FiMenu />}
+      </button>
+
+      <div style={{ 
+        ...styles.nav, 
+        display: mobileMenuOpen ? 'flex' : styles.nav.display,
+        flexDirection: mobileMenuOpen ? 'column' : 'row',
+        position: mobileMenuOpen ? 'absolute' : 'static',
+        top: mobileMenuOpen ? '100%' : 'auto',
+        left: mobileMenuOpen ? 0 : 'auto',
+        right: mobileMenuOpen ? 0 : 'auto',
+        backgroundColor: mobileMenuOpen ? 'white' : 'transparent',
+        padding: mobileMenuOpen ? '20px' : 0,
+        boxShadow: mobileMenuOpen ? '0 4px 12px rgba(0,0,0,0.1)' : 'none',
+        zIndex: mobileMenuOpen ? 1000 : 'auto'
+      }}>
+        <NavigationBar mobile={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />
+        <AuthBar user={user} handleLogin={handleLogin} handleLogout={handleLogout} mobile={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />
+      </div>
+    </header>
+  );
+}
+
+function NavigationBar({ mobile, setMobileMenuOpen }) {
+  const handleLinkClick = () => {
+    if (mobile) {
+      setMobileMenuOpen(false);
+    }
+  };
+
+  return (
+    <div style={{
+      ...styles.navLinks,
+      flexDirection: mobile ? 'column' : 'row'
+    }}>
+      <Link to="/" style={styles.navLink} onClick={handleLinkClick}>Home</Link>
+      <Link to="/car-rentals" style={styles.navLink} onClick={handleLinkClick}>Car Rentals</Link>
+      <Link to="/bike-rentals" style={styles.navLink} onClick={handleLinkClick}>Bike Rentals</Link>
+      <Link to="/about" style={styles.navLink} onClick={handleLinkClick}>About Us</Link>
+      <Link to="/contact" style={styles.navLink} onClick={handleLinkClick}>Contact</Link>
+      <Link to="/premium" style={styles.navLink} onClick={handleLinkClick}>Premium</Link>
+    </div>
+  );
+}
+
+function AuthBar({ user, handleLogin, handleLogout, mobile, setMobileMenuOpen }) {
+  const handleAuthAction = (action) => {
+    if (mobile) {
+      setMobileMenuOpen(false);
+    }
+    action();
+  };
+
+  return (
+    <div style={{
+      ...styles.nav,
+      flexDirection: mobile ? 'column' : 'row',
+      gap: mobile ? 15 : 20
+    }}>
       {user ? (
         <>
-          <Link to="/add-homestay" style={{ ...styles.authButton, ...styles.btnPrimary }}>
+          <Link to="/add-homestay" style={{ ...styles.authButton, ...styles.btnPrimary }} onClick={() => handleAuthAction(() => {})}>
             Add Homestay
           </Link>
-          <button style={styles.authButton} onClick={handleLogout}>
+          <Link to="/add-car-rental" style={{ ...styles.authButton, ...styles.btnPrimary }} onClick={() => handleAuthAction(() => {})}>
+            Add Car Rental
+          </Link>
+          <Link to="/add-bike-rental" style={{ ...styles.authButton, ...styles.btnPrimary }} onClick={() => handleAuthAction(() => {})}>
+            Add Bike Rental
+          </Link>
+          <button style={styles.authButton} onClick={() => handleAuthAction(handleLogout)}>
             <FiUser /> Logout
           </button>
         </>
       ) : (
-        <button style={styles.authButton} onClick={handleLogin}>
+        <button style={styles.authButton} onClick={() => handleAuthAction(handleLogin)}>
           <FiUser /> Login
         </button>
       )}
@@ -590,44 +720,240 @@ function AuthBar({ user, handleLogin, handleLogout }) {
   );
 }
 
-function NavigationBar() {
+// Add Bike Rental Form Component
+function AddBikeRentalForm({ user, bikeForm, setBikeForm, handleBikeSubmit, bikeLoading, handleBikeImageChange, bikeImageError }) {
+  const handleFeatureChange = (feature) => {
+    const updatedFeatures = bikeForm.features.includes(feature)
+      ? bikeForm.features.filter(f => f !== feature)
+      : [...bikeForm.features, feature];
+
+    setBikeForm({ ...bikeForm, features: updatedFeatures });
+  };
+
   return (
-    <div style={styles.navLinks}>
-      <Link to="/" style={styles.navLink}>Home</Link>
-      <Link to="/about" style={styles.navLink}>About Us</Link>
-      <Link to="/contact" style={styles.navLink}>Contact</Link>
-      <Link to="/premium" style={styles.navLink}>Premium</Link>
+    <div style={styles.formContainer}>
+      <Helmet>
+        <title>Add Bike Rental - Homavia</title>
+        <meta name="description" content="List your bike for rental on Homavia and connect with travelers looking for vehicles in Guwahati." />
+      </Helmet>
+
+      <h1 style={styles.formTitle}>List your bike for rental</h1>
+
+      <div style={styles.formSection}>
+        <h2 style={styles.sectionTitle}>Basic Information</h2>
+
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Bike Name/Model *</label>
+          <input
+            style={styles.input}
+            value={bikeForm.name}
+            onChange={(e) => setBikeForm({ ...bikeForm, name: e.target.value })}
+            required
+            placeholder="e.g., Honda Activa, Yamaha MT-15"
+          />
+        </div>
+
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Description *</label>
+          <textarea
+            style={styles.textarea}
+            value={bikeForm.description}
+            onChange={(e) => setBikeForm({ ...bikeForm, description: e.target.value })}
+            required
+            placeholder="Describe your bike's features, condition, and any special notes..."
+          />
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Price (₹ per day) *</label>
+            <input
+              style={styles.input}
+              type="number"
+              value={bikeForm.price}
+              onChange={(e) => setBikeForm({ ...bikeForm, price: e.target.value })}
+              required
+            />
+          </div>
+
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Area in Guwahati *</label>
+            <select
+              style={styles.input}
+              value={bikeForm.city}
+              onChange={(e) => setBikeForm({ ...bikeForm, city: e.target.value })}
+              required
+            >
+              <option value="">Select Area</option>
+              {GUWAHATI_AREAS.map(area => (
+                <option key={area} value={area}>{area}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Phone Number *</label>
+            <input
+              style={styles.input}
+              type="tel"
+              value={bikeForm.contact}
+              onChange={(e) => setBikeForm({ ...bikeForm, contact: e.target.value })}
+              required
+              pattern="[0-9]{10}"
+              title="10 digit phone number"
+            />
+          </div>
+
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Bike Type *</label>
+            <select
+              style={styles.input}
+              value={bikeForm.bikeType}
+              onChange={(e) => setBikeForm({ ...bikeForm, bikeType: e.target.value })}
+              required
+            >
+              <option value="">Select Bike Type</option>
+              {BIKE_TYPES.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Engine Capacity (CC)</label>
+            <input
+              style={styles.input}
+              type="number"
+              min="0"
+              value={bikeForm.engineCapacity}
+              onChange={(e) => setBikeForm({ ...bikeForm, engineCapacity: e.target.value })}
+            />
+          </div>
+
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Year of Manufacture</label>
+            <input
+              style={styles.input}
+              type="number"
+              min="2000"
+              max={new Date().getFullYear()}
+              value={bikeForm.year}
+              onChange={(e) => setBikeForm({ ...bikeForm, year: e.target.value })}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div style={styles.formSection}>
+        <h2 style={styles.sectionTitle}>Photos</h2>
+        <p style={{ color: '#717171', marginBottom: 15 }}>
+          Upload at least one high-quality photo of your bike.
+        </p>
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Main Photo *</label>
+          <input
+            style={styles.input}
+            type="file"
+            accept="image/*"
+            onChange={handleBikeImageChange}
+            required
+          />
+          {bikeImageError && <p style={{ color: 'red', marginTop: 5 }}>{bikeImageError}</p>}
+          {bikeForm.imagePreview && (
+            <img
+              src={bikeForm.imagePreview}
+              alt="Preview"
+              style={styles.imagePreview}
+            />
+          )}
+        </div>
+      </div>
+
+      <div style={styles.formSection}>
+        <h2 style={styles.sectionTitle}>Features</h2>
+        <p style={{ color: '#717171', marginBottom: 15 }}>
+          Select all features that your bike offers
+        </p>
+        <div style={styles.checkboxGroup}>
+          {BIKE_FEATURES.map(feature => (
+            <label key={feature} style={styles.checkboxItem}>
+              <input
+                type="checkbox"
+                checked={bikeForm.features.includes(feature)}
+                onChange={() => handleFeatureChange(feature)}
+              />
+              {feature}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div style={styles.formSection}>
+        <h2 style={styles.sectionTitle}>Additional Information</h2>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <label style={styles.checkboxItem}>
+            <input
+              type="checkbox"
+              checked={bikeForm.withHelmet}
+              onChange={(e) => setBikeForm({ ...bikeForm, withHelmet: e.target.checked })}
+            />
+            Helmet Included
+          </label>
+
+          <label style={styles.checkboxItem}>
+            <input
+              type="checkbox"
+              checked={bikeForm.premium}
+              onChange={(e) => setBikeForm({ ...bikeForm, premium: e.target.checked })}
+            />
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              Premium Listing <span style={styles.premiumBadge}><FiStar /> FEATURED</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        style={styles.submitButton}
+        onClick={handleBikeSubmit}
+        disabled={bikeLoading || !user || bikeImageError}
+      >
+        {bikeLoading ? "Submitting..." : "List Your Bike"}
+      </button>
     </div>
   );
 }
 
-function HomestayListing({ homestays }) {
+// Bike Rental Listing Component
+function BikeRentalListing({ bikeRentals }) {
   const [selectedArea, setSelectedArea] = useState("All");
-  const [coupleFriendlyOnly, setCoupleFriendlyOnly] = useState(false);
-  const [hourlyOnly, setHourlyOnly] = useState(false);
-  const [roomType, setRoomType] = useState("All");
+  const [bikeType, setBikeType] = useState("All");
+  const [withHelmet, setWithHelmet] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredHomestays = homestays.filter(homestay => {
+  const filteredBikeRentals = bikeRentals.filter(bike => {
     const matchesArea =
-      selectedArea === "All" || homestay.city === selectedArea;
+      selectedArea === "All" || bike.city === selectedArea;
 
-    const matchesCoupleFriendly =
-      !coupleFriendlyOnly || homestay.coupleFriendly;
+    const matchesBikeType =
+      bikeType === "All" || bike.bikeType === bikeType;
 
-    const matchesHourly =
-      !hourlyOnly || homestay.hourly;
-
-    const matchesRoomType =
-      roomType === "All" || homestay.roomType === roomType;
+    const matchesHelmet =
+      !withHelmet || bike.withHelmet;
 
     const matchesSearch =
       searchQuery === "" ||
-      homestay.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      homestay.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      homestay.description.toLowerCase().includes(searchQuery.toLowerCase());
+      bike.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      bike.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      bike.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-    return matchesArea && matchesCoupleFriendly && matchesHourly && matchesRoomType && matchesSearch;
+    return matchesArea && matchesBikeType && matchesHelmet && matchesSearch;
   });
 
   return (
@@ -635,7 +961,7 @@ function HomestayListing({ homestays }) {
       <div style={styles.searchContainer}>
         <input
           type="text"
-          placeholder="Search homestays by name, location or description..."
+          placeholder="Search bikes by name, type, or description..."
           style={styles.searchInput}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -659,55 +985,45 @@ function HomestayListing({ homestays }) {
       </div>
 
       <div style={styles.filterContainer}>
-        <button
-          style={{
-            ...styles.filterButton,
-            ...(coupleFriendlyOnly ? styles.activeFilter : {})
-          }}
-          onClick={() => setCoupleFriendlyOnly(!coupleFriendlyOnly)}
-        >
-          Couple Friendly
-        </button>
-
-        <button
-          style={{
-            ...styles.filterButton,
-            ...(hourlyOnly ? styles.activeFilter : {})
-          }}
-          onClick={() => setHourlyOnly(!hourlyOnly)}
-        >
-          Hourly Stays
-        </button>
-
         <select
           style={styles.filterButton}
-          value={roomType}
-          onChange={(e) => setRoomType(e.target.value)}
+          value={bikeType}
+          onChange={(e) => setBikeType(e.target.value)}
         >
-          <option value="All">All Types</option>
-          {ROOM_TYPES.map(type => (
+          <option value="All">All Bike Types</option>
+          {BIKE_TYPES.map(type => (
             <option key={type} value={type}>{type}</option>
           ))}
         </select>
+
+        <button
+          style={{
+            ...styles.filterButton,
+            ...(withHelmet ? styles.activeFilter : {})
+          }}
+          onClick={() => setWithHelmet(!withHelmet)}
+        >
+          Helmet Included
+        </button>
       </div>
 
-      {filteredHomestays.length === 0 ? (
+      {filteredBikeRentals.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 40 }}>
-          <h3>No homestays found matching your criteria</h3>
+          <h3>No bikes found matching your criteria</h3>
           <p>Try adjusting your filters or search query</p>
         </div>
       ) : (
         <ul style={styles.homestayList}>
-          {filteredHomestays.map(homestay => (
-            <li key={homestay.id} style={styles.homestayItem}>
-              <Link to={`/homestays/${homestay.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+          {filteredBikeRentals.map(bike => (
+            <li key={bike.id} style={styles.homestayItem}>
+              <Link to={`/bike-rentals/${bike.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                 <div style={{ position: 'relative' }}>
                   <img
-                    src={homestay.imageUrl}
-                    alt={homestay.name}
+                    src={bike.imageUrl}
+                    alt={bike.name}
                     style={styles.homestayImage}
                   />
-                  {homestay.premium && (
+                  {bike.premium && (
                     <div style={{
                       position: 'absolute',
                       top: 15,
@@ -725,36 +1041,24 @@ function HomestayListing({ homestays }) {
                       <FiStar fill="#333" /> PREMIUM
                     </div>
                   )}
-                  <button style={{
-                    position: 'absolute',
-                    top: 15,
-                    right: 15,
-                    backgroundColor: 'white',
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: 30,
-                    height: 30,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                  }}>
-                    <FiHeart />
-                  </button>
                 </div>
                 <div style={styles.homestayInfo}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <h3 style={styles.title}>{homestay.name}</h3>
+                    <h3 style={styles.title}>{bike.name}</h3>
                     <div style={styles.rating}>
-                      <FiStar fill="#000" /> {homestay.rating || 'New'}
+                      <FiStar fill="#000" /> {bike.rating || 'New'}
                     </div>
                   </div>
-                  <p style={styles.location}><FiMapPin /> {homestay.city}</p>
-                  <p style={{ color: '#717171', fontSize: 14 }}>{homestay.roomType || 'Private Room'}</p>
-                  <p style={styles.price}>₹{homestay.price} <span style={{ fontWeight: 'normal' }}>night</span></p>
-                  {homestay.hourly && (
-                    <p style={{ color: '#717171', fontSize: 14 }}>Hourly rates available</p>
+                  <p style={styles.location}><FiMapPin /> {bike.city}</p>
+                  <p style={{ color: '#717171', fontSize: 14 }}>{bike.bikeType}</p>
+                  {bike.engineCapacity && (
+                    <p style={{ color: '#717171', fontSize: 14 }}>
+                      {bike.engineCapacity} CC
+                    </p>
+                  )}
+                  <p style={styles.price}>₹{bike.price} <span style={{ fontWeight: 'normal' }}>/ day</span></p>
+                  {bike.withHelmet && (
+                    <p style={{ color: '#717171', fontSize: 14 }}>Helmet included</p>
                   )}
                 </div>
               </Link>
@@ -766,330 +1070,119 @@ function HomestayListing({ homestays }) {
   );
 }
 
-function AddHomestayForm({ user, form, setForm, handleSubmit, loading, handleImageChange, imageError }) {
-  const handleAmenityChange = (amenityId) => {
-    const updatedAmenities = form.amenities.includes(amenityId)
-      ? form.amenities.filter(id => id !== amenityId)
-      : [...form.amenities, amenityId];
-
-    setForm({ ...form, amenities: updatedAmenities });
-  };
-
-  return (
-    <div style={styles.formContainer}>
-      <Helmet>
-        <title>Add Homestay - Homavia</title>
-        <meta name="description" content="List your homestay on Homavia and connect with travelers looking for unique accommodations in Guwahati." />
-      </Helmet>
-
-      <h1 style={styles.formTitle}>List your homestay</h1>
-
-      <div style={styles.premiumBanner}>
-        <FiStar size={24} color="#ffd700" />
-        <div>
-          <p style={{ fontWeight: 'bold', marginBottom: 5 }}>Premium Listing Available</p>
-          <p style={{ fontSize: 14 }}>Get 3x more views with our Premium feature. Highlight your listing and appear at the top of search results.</p>
-          <Link to="/premium" style={{ color: '#ff385c', fontWeight: 500, textDecoration: 'none', display: 'inline-block', marginTop: 10 }}>
-            Learn more →
-          </Link>
-        </div>
-      </div>
-
-      <div style={styles.formSection}>
-        <h2 style={styles.sectionTitle}>Basic Information</h2>
-
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Homestay Name *</label>
-          <input
-            style={styles.input}
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            required
-          />
-        </div>
-
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Description *</label>
-          <textarea
-            style={styles.textarea}
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            required
-            placeholder="Tell guests what makes your place special..."
-          />
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Price (₹ per night) *</label>
-            <input
-              style={styles.input}
-              type="number"
-              value={form.price}
-              onChange={(e) => setForm({ ...form, price: e.target.value })}
-              required
-            />
-          </div>
-
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Area in Guwahati *</label>
-            <select
-              style={styles.input}
-              value={form.city}
-              onChange={(e) => setForm({ ...form, city: e.target.value })}
-              required
-            >
-              <option value="">Select Area</option>
-              {GUWAHATI_AREAS.map(area => (
-                <option key={area} value={area}>{area}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Phone Number *</label>
-            <input
-              style={styles.input}
-              type="tel"
-              value={form.contact}
-              onChange={(e) => setForm({ ...form, contact: e.target.value })}
-              required
-              pattern="[0-9]{10}"
-              title="10 digit phone number"
-            />
-          </div>
-
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Room Type *</label>
-            <select
-              style={styles.input}
-              value={form.roomType}
-              onChange={(e) => setForm({ ...form, roomType: e.target.value })}
-              required
-            >
-              <option value="">Select Room Type</option>
-              {ROOM_TYPES.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Maximum Guests *</label>
-          <input
-            style={styles.input}
-            type="number"
-            min="1"
-            value={form.maxGuests}
-            onChange={(e) => setForm({ ...form, maxGuests: e.target.value })}
-            required
-          />
-        </div>
-      </div>
-
-      <div style={styles.formSection}>
-        <h2 style={styles.sectionTitle}>Photos</h2>
-        <p style={{ color: '#717171', marginBottom: 15 }}>
-          Upload at least one high-quality photo to showcase your space.
-        </p>
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Main Photo *</label>
-          <input
-            style={styles.input}
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-            required
-          />
-          {imageError && <p style={{ color: 'red', marginTop: 5 }}>{imageError}</p>}
-          {form.imagePreview && (
-            <img
-              src={form.imagePreview}
-              alt="Preview"
-              style={styles.imagePreview}
-            />
-          )}
-        </div>
-      </div>
-
-      <div style={styles.formSection}>
-        <h2 style={styles.sectionTitle}>Amenities</h2>
-        <p style={{ color: '#717171', marginBottom: 15 }}>
-          Select all amenities that your homestay offers
-        </p>
-        <div style={styles.checkboxGroup}>
-          {AMENITIES.map(amenity => (
-            <label key={amenity.id} style={styles.checkboxItem}>
-              <input
-                type="checkbox"
-                checked={form.amenities.includes(amenity.id)}
-                onChange={() => handleAmenityChange(amenity.id)}
-              />
-              {amenity.icon && <span>{amenity.icon}</span>}
-              {amenity.name}
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div style={styles.formSection}>
-        <h2 style={styles.sectionTitle}>Additional Information</h2>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-          <label style={styles.checkboxItem}>
-            <input
-              type="checkbox"
-              checked={form.coupleFriendly}
-              onChange={(e) => setForm({ ...form, coupleFriendly: e.target.checked })}
-            />
-            Couple Friendly
-          </label>
-
-          <label style={styles.checkboxItem}>
-            <input
-              type="checkbox"
-              checked={form.hourly}
-              onChange={(e) => setForm({ ...form, hourly: e.target.checked })}
-            />
-            Hourly Stays Available
-          </label>
-
-          <label style={styles.checkboxItem}>
-            <input
-              type="checkbox"
-              checked={form.petsAllowed}
-              onChange={(e) => setForm({ ...form, petsAllowed: e.target.checked })}
-            />
-            Pets Allowed
-          </label>
-
-          <label style={styles.checkboxItem}>
-            <input
-              type="checkbox"
-              checked={form.smokingAllowed}
-              onChange={(e) => setForm({ ...form, smokingAllowed: e.target.checked })}
-            />
-            Smoking Allowed
-          </label>
-
-          <label style={styles.checkboxItem}>
-            <input
-              type="checkbox"
-              checked={form.premium}
-              onChange={(e) => setForm({ ...form, premium: e.target.checked })}
-            />
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              Premium Listing <span style={styles.premiumBadge}><FiStar /> FEATURED</span>
-            </span>
-          </label>
-        </div>
-      </div>
-
-      <button
-        type="submit"
-        style={styles.submitButton}
-        onClick={handleSubmit}
-        disabled={loading || !user || imageError}
-      >
-        {loading ? "Submitting..." : "List Your Homestay"}
-      </button>
-    </div>
-  );
-}
-
-function HomestayDetail() {
+// Bike Rental Detail Component
+function BikeRentalDetail() {
   const { id } = useParams();
-  const [homestay, setHomestay] = useState(null);
+  const [bike, setBike] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchHomestay = async () => {
-      const docRef = doc(db, "homestays", id);
+    const fetchBike = async () => {
+      const docRef = doc(db, "bikeRentals", id);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        setHomestay({ id: docSnap.id, ...docSnap.data() });
+        setBike({ id: docSnap.id, ...docSnap.data() });
       } else {
-        navigate("/");
+        navigate("/bike-rentals");
       }
     };
-    fetchHomestay();
+    fetchBike();
   }, [id, navigate]);
 
-  if (!homestay) return <div style={{ textAlign: "center", padding: 40 }}>Loading...</div>;
+  if (!bike) return <div style={{ textAlign: "center", padding: 40 }}>Loading...</div>;
 
   return (
     <div style={styles.detailContainer}>
       <Helmet>
-        <title>{homestay.name} - Homavia</title>
-        <meta name="description" content={`${homestay.name} in ${homestay.city} - ${homestay.description?.substring(0, 160)}...`} />
+        <title>{bike.name} - Bike Rental - Homavia</title>
+        <meta name="description" content={`Rent ${bike.name} in ${bike.city} - ${bike.description?.substring(0, 160)}...`} />
       </Helmet>
 
       <div style={styles.detailHeader}>
         <h1 style={styles.detailTitle}>
-          {homestay.name}
-          {homestay.premium && (
+          {bike.name}
+          {bike.premium && (
             <span style={styles.premiumBadge}>
               <FiStar /> PREMIUM
             </span>
           )}
         </h1>
         <div style={styles.detailLocation}>
-          <FiMapPin /> {homestay.city} • {homestay.roomType || 'Private Room'}
+          <FiMapPin /> {bike.city} • {bike.bikeType}
         </div>
         <div style={styles.rating}>
-          <FiStar fill="#000" /> {homestay.rating || 'New'}
+          <FiStar fill="#000" /> {bike.rating || 'New'}
         </div>
       </div>
 
       <img
-        src={homestay.imageUrl}
-        alt={homestay.name}
+        src={bike.imageUrl}
+        alt={bike.name}
         style={styles.detailImage}
       />
 
       <div style={styles.detailInfo}>
         <div>
-          <h2 style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 20 }}>About this place</h2>
-          <p style={{ lineHeight: 1.6, marginBottom: 30 }}>{homestay.description || 'No description provided.'}</p>
+          <h2 style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 20 }}>About this bike</h2>
+          <p style={{ lineHeight: 1.6, marginBottom: 30 }}>{bike.description || 'No description provided.'}</p>
 
-          <h2 style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 20 }}>Amenities</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 20, marginBottom: 30 }}>
+            {bike.engineCapacity && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <FiBike size={20} />
+                <span><strong>Engine Capacity:</strong> {bike.engineCapacity} CC</span>
+              </div>
+            )}
+            {bike.year && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <FiCalendar size={20} />
+                <span><strong>Year:</strong> {bike.year}</span>
+              </div>
+            )}
+          </div>
+
+          <h2 style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 20 }}>Features</h2>
           <div style={styles.detailAmenities}>
-            {homestay.amenities && homestay.amenities.length > 0 ? (
-              homestay.amenities.map(amenityId => {
-                const amenity = AMENITIES.find(a => a.id === amenityId);
-                return amenity ? (
-                  <div key={amenityId} style={styles.amenityItem}>
-                    {amenity.icon || <FiHome />}
-                    <span>{amenity.name}</span>
-                  </div>
-                ) : null;
-              })
+            {bike.features && bike.features.length > 0 ? (
+              bike.features.map(feature => (
+                <div key={feature} style={styles.amenityItem}>
+                  <FiCheck />
+                  <span>{feature}</span>
+                </div>
+              ))
             ) : (
-              <p>No amenities listed</p>
+              <p>No features listed</p>
             )}
           </div>
         </div>
 
         <div style={styles.bookingCard}>
           <div style={styles.priceDetail}>
-            ₹{homestay.price} <span style={{ fontWeight: 'normal' }}>/ night</span>
+            ₹{bike.price} <span style={{ fontWeight: 'normal' }}>/ day</span>
           </div>
 
-          {homestay.premium && (
+          {bike.premium && (
             <div style={{ backgroundColor: '#fff8e1', padding: 15, borderRadius: 8, marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                 <FiCheck color="#4CAF50" size={20} />
                 <span style={{ fontWeight: 'bold' }}>Premium Verified</span>
               </div>
-              <p style={{ fontSize: 14 }}>This host has been verified and offers premium amenities.</p>
+              <p style={{ fontSize: 14 }}>This bike has been verified and is well-maintained.</p>
             </div>
           )}
 
-          <a href={`tel:${homestay.contact}`} style={styles.callButton}>
-            <FiUser /> Call Host
+          {bike.withHelmet && (
+            <div style={{ backgroundColor: '#e8f5e9', padding: 15, borderRadius: 8, marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <FiCheck color="#4CAF50" size={20} />
+                <span style={{ fontWeight: 'bold' }}>Helmet Included</span>
+              </div>
+              <p style={{ fontSize: 14 }}>This rental includes a safety helmet.</p>
+            </div>
+          )}
+
+          <a href={`tel:${bike.contact}`} style={styles.callButton}>
+            <FiUser /> Call Owner
           </a>
         </div>
       </div>
@@ -1097,481 +1190,15 @@ function HomestayDetail() {
   );
 }
 
-function AboutUs() {
-  return (
-    <div style={styles.pageContainer}>
-      <Helmet>
-        <title>About Us - Homavia</title>
-        <meta name="description" content="Learn about Homavia - your trusted platform for finding the perfect homestay in Guwahati." />
-      </Helmet>
-
-      <h1 style={styles.pageTitle}>About Homavia</h1>
-
-      <div style={styles.pageContent}>
-        <p>
-          Founded in 2023, Homavia is dedicated to transforming how travelers experience Guwahati.
-          We connect guests with unique, authentic homestays that offer more than just a place to sleep -
-          they offer a true Assamese hospitality experience.
-        </p>
-
-        <p>
-          Our mission is to empower local homeowners while providing travelers with memorable stays that
-          showcase the rich culture and warm hospitality of Assam. We carefully vet every property to ensure
-          quality and comfort for our guests.
-        </p>
-
-        <h2 style={{ fontSize: 24, fontWeight: 'bold', marginTop: 40, marginBottom: 20 }}>Our Team</h2>
-
-        <div style={styles.teamContainer}>
-          <div style={styles.teamMember}>
-            <div style={{
-              width: 150,
-              height: 150,
-              borderRadius: '50%',
-              backgroundColor: '#ff385c',
-              margin: '0 auto 15px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontSize: 50,
-              fontWeight: 'bold'
-            }}>NR</div>
-            <h3 style={{ fontWeight: 'bold', marginBottom: 5 }}>Nilam Roychoudhury</h3>
-            <p>Founder & CTO</p>
-          </div>
-
-          <div style={styles.teamMember}>
-            <div style={{
-              width: 150,
-              height: 150,
-              borderRadius: '50%',
-              backgroundColor: '#ff385c',
-              margin: '0 auto 15px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontSize: 50,
-              fontWeight: 'bold'
-            }}>ML</div>
-            <h3 style={{ fontWeight: 'bold', marginBottom: 5 }}>Mayur Laskar</h3>
-            <p>Co-Founder and  CMO</p>
-          </div>
-
-
-        </div>
-
-        <h2 style={{ fontSize: 24, fontWeight: 'bold', marginTop: 40, marginBottom: 20 }}>Our Values</h2>
-
-        <div style={styles.featureList}>
-          <div style={styles.featureCard}>
-            <div style={styles.featureIcon}><FiHome size={36} /></div>
-            <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Authentic Experiences</h3>
-            <p>We prioritize homestays that offer genuine local experiences and cultural immersion.</p>
-          </div>
-
-          <div style={styles.featureCard}>
-            <div style={styles.featureIcon}><FiCheck size={36} /></div>
-            <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Quality Assurance</h3>
-            <p>Every property is personally verified to meet our standards of comfort and cleanliness.</p>
-          </div>
-
-          <div style={styles.featureCard}>
-            <div style={styles.featureIcon}><FiStar size={36} /></div>
-            <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Premium Service</h3>
-            <p>Our dedicated support team is available 24/7 to assist with any needs during your stay.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ContactUs() {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    message: ''
-  });
-  const [submitted, setSubmitted] = useState(false);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // In a real app, you would send this data to your backend
-    console.log('Contact form submitted:', formData);
-    setSubmitted(true);
-  };
-
-  return (
-    <div style={styles.pageContainer}>
-      <Helmet>
-        <title>Contact Us - Homavia</title>
-        <meta name="description" content="Get in touch with Homavia for any questions or support regarding your homestay bookings." />
-      </Helmet>
-
-      <h1 style={styles.pageTitle}>Contact Us</h1>
-
-      <div style={{ ...styles.pageContent, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40 }}>
-        <div>
-          <p style={{ marginBottom: 30 }}>
-            Have questions about booking a homestay or listing your property? Our team is here to help!
-          </p>
-
-          <div style={{ backgroundColor: '#fff', borderRadius: 12, padding: 30, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontWeight: 'bold', marginBottom: 20, fontSize: 20 }}>Contact Information</h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-                <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <FiPhone />
-                </div>
-                <div>
-                  <p style={{ fontWeight: 500 }}>Phone</p>
-                  <p>+91 8638572663</p>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-                <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <FiMail />
-                </div>
-                <div>
-                  <p style={{ fontWeight: 500 }}>Email</p>
-                  <p>support@guwahatistays.com</p>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-                <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <FiMapPin />
-                </div>
-                <div>
-                  <p style={{ fontWeight: 500 }}>Office</p>
-                  <p>GS Road, Dispur, Guwahati, Assam 781006</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ marginTop: 40 }}>
-            <h3 style={{ fontWeight: 'bold', marginBottom: 20, fontSize: 20 }}>Business Hours</h3>
-            <p style={{ marginBottom: 10 }}>Monday - Friday: 9:00 AM - 6:00 PM</p>
-            <p>Saturday: 10:00 AM - 4:00 PM</p>
-            <p>Sunday: Closed</p>
-          </div>
-        </div>
-
-        <div>
-          <div style={{ backgroundColor: '#fff', borderRadius: 12, padding: 30, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontWeight: 'bold', marginBottom: 20, fontSize: 20 }}>Send us a message</h3>
-
-            {submitted ? (
-              <div style={{ textAlign: 'center', padding: 30 }}>
-                <FiCheck size={40} color="#4CAF50" style={{ marginBottom: 20 }} />
-                <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Message Sent!</h3>
-                <p>Thank you for contacting us. Our team will get back to you within 24 hours.</p>
-                <button
-                  style={{ ...styles.submitButton, marginTop: 20 }}
-                  onClick={() => setSubmitted(false)}
-                >
-                  Send Another Message
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit}>
-                <div style={styles.contactForm}>
-                  <div style={styles.inputGroup}>
-                    <label style={styles.label}>Your Name *</label>
-                    <input
-                      type="text"
-                      name="name"
-                      style={styles.contactInput}
-                      value={formData.name}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-
-                  <div style={styles.inputGroup}>
-                    <label style={styles.label}>Email *</label>
-                    <input
-                      type="email"
-                      name="email"
-                      style={styles.contactInput}
-                      value={formData.email}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-
-                  <div style={styles.inputGroup}>
-                    <label style={styles.label}>Phone Number</label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      style={styles.contactInput}
-                      value={formData.phone}
-                      onChange={handleChange}
-                    />
-                  </div>
-
-                  <div style={{ ...styles.inputGroup, ...styles.fullWidthInput }}>
-                    <label style={styles.label}>Message *</label>
-                    <textarea
-                      name="message"
-                      style={{ ...styles.contactInput, minHeight: 150 }}
-                      value={formData.message}
-                      onChange={handleChange}
-                      required
-                    ></textarea>
-                  </div>
-
-                  <div style={{ ...styles.inputGroup, ...styles.fullWidthInput }}>
-                    <button type="submit" style={styles.submitButton}>
-                      Send Message
-                    </button>
-                  </div>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PremiumPage() {
-  return (
-    <div style={styles.pageContainer}>
-      <Helmet>
-        <title>Premium Features - Homavia</title>
-        <meta name="description" content="Upgrade to Homavia Premium to get more visibility for your homestay and increase your bookings." />
-      </Helmet>
-
-      <h1 style={styles.pageTitle}>Premium Features</h1>
-
-      <div style={{ ...styles.pageContent, textAlign: 'center' }}>
-        <p style={{ fontSize: 20, maxWidth: 700, margin: '0 auto 40px' }}>
-          Elevate your homestay listing with our Premium features designed to increase your visibility and bookings.
-        </p>
-
-        <div style={styles.featureList}>
-          <div style={styles.featureCard}>
-            <div style={styles.featureIcon}><FiStar size={36} /></div>
-            <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Featured Listings</h3>
-            <p>Your property appears at the top of search results with a premium badge.</p>
-          </div>
-
-          <div style={styles.featureCard}>
-            <div style={styles.featureIcon}><FiSearch size={36} /></div>
-            <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>3x More Visibility</h3>
-            <p>Get up to 3 times more views compared to regular listings.</p>
-          </div>
-
-          <div style={styles.featureCard}>
-            <div style={styles.featureIcon}><FiCheck size={36} /></div>
-            <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Verified Badge</h3>
-            <p>Gain trust with our verified badge that shows you're a premium host.</p>
-          </div>
-        </div>
-
-        <div style={{ backgroundColor: '#fff', borderRadius: 12, padding: 40, marginTop: 40, maxWidth: 800, margin: '40px auto 0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-          <h2 style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 30 }}>Premium Hosting Plans</h2>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20 }}>
-            <div style={{ border: '1px solid #ddd', borderRadius: 12, padding: 30, textAlign: 'center' }}>
-              <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Basic</h3>
-              <p style={{ fontSize: 36, fontWeight: 'bold', marginBottom: 20 }}>₹499<span style={{ fontSize: 16, fontWeight: 'normal' }}>/month</span></p>
-              <ul style={{ textAlign: 'left', marginBottom: 20, listStyle: 'none', padding: 0 }}>
-                <li style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}><FiCheck /> Featured for 7 days</li>
-                <li style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}><FiCheck /> Premium badge</li>
-                <li style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}><FiCheck /> Basic analytics</li>
-              </ul>
-              <button style={styles.submitButton}>Select Plan</button>
-            </div>
-
-            <div style={{ border: '1px solid #ff385c', borderRadius: 12, padding: 30, textAlign: 'center', position: 'relative' }}>
-              <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', backgroundColor: '#ff385c', color: 'white', padding: '5px 15px', borderRadius: 20, fontSize: 14 }}>
-                MOST POPULAR
-              </div>
-              <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Professional</h3>
-              <p style={{ fontSize: 36, fontWeight: 'bold', marginBottom: 20 }}>₹899<span style={{ fontSize: 16, fontWeight: 'normal' }}>/month</span></p>
-              <ul style={{ textAlign: 'left', marginBottom: 20, listStyle: 'none', padding: 0 }}>
-                <li style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}><FiCheck /> Featured for 30 days</li>
-                <li style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}><FiCheck /> Premium badge</li>
-                <li style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}><FiCheck /> Advanced analytics</li>
-                <li style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}><FiCheck /> Priority support</li>
-                <li style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}><FiCheck /> Social media promotion</li>
-              </ul>
-              <button style={{ ...styles.submitButton, backgroundColor: '#333' }}>Select Plan</button>
-            </div>
-
-            <div style={{ border: '1px solid #ddd', borderRadius: 12, padding: 30, textAlign: 'center' }}>
-              <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Business</h3>
-              <p style={{ fontSize: 36, fontWeight: 'bold', marginBottom: 20 }}>₹1499<span style={{ fontSize: 16, fontWeight: 'normal' }}>/month</span></p>
-              <ul style={{ textAlign: 'left', marginBottom: 20, listStyle: 'none', padding: 0 }}>
-                <li style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}><FiCheck /> Featured for 90 days</li>
-                <li style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}><FiCheck /> Premium badge</li>
-                <li style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}><FiCheck /> Full analytics dashboard</li>
-                <li style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}><FiCheck /> Dedicated account manager</li>
-                <li style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}><FiCheck /> Professional photography</li>
-                <li style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}><FiCheck /> Marketing campaign</li>
-              </ul>
-              <button style={styles.submitButton}>Select Plan</button>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ marginTop: 60 }}>
-          <h2 style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 20 }}>What Our Premium Hosts Say</h2>
-
-          <div style={styles.testimonialContainer}>
-            <div style={styles.testimonialCard}>
-              <p style={styles.testimonialText}>
-                "Since upgrading to Premium, my bookings have increased by 70%! The featured placement makes all the difference."
-              </p>
-              <div style={styles.testimonialAuthor}>
-                <div style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: '50%',
-                  backgroundColor: '#ff385c',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  fontWeight: 'bold'
-                }}>RS</div>
-                <div>
-                  <div>Rajesh Sharma</div>
-                  <div style={{ fontSize: 14, color: '#666' }}>Premium Host, Khanapara</div>
-                </div>
-              </div>
-            </div>
-
-            <div style={styles.testimonialCard}>
-              <p style={styles.testimonialText}>
-                "The professional photography included in the Business plan transformed my listing. Worth every rupee!"
-              </p>
-              <div style={styles.testimonialAuthor}>
-                <div style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: '50%',
-                  backgroundColor: '#ff385c',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  fontWeight: 'bold'
-                }}>PD</div>
-                <div>
-                  <div>Priyanka Das</div>
-                  <div style={{ fontSize: 14, color: '#666' }}>Business Host, Zoo Road</div>
-                </div>
-              </div>
-            </div>
-
-            <div style={styles.testimonialCard}>
-              <p style={styles.testimonialText}>
-                "As a new host, Premium gave me the visibility I needed to establish my homestay quickly."
-              </p>
-              <div style={styles.testimonialAuthor}>
-                <div style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: '50%',
-                  backgroundColor: '#ff385c',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  fontWeight: 'bold'
-                }}>AM</div>
-                <div>
-                  <div>Amit Mehta</div>
-                  <div style={{ fontSize: 14, color: '#666' }}>Premium Host, Ganeshguri</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Footer() {
-  return (
-    <footer style={styles.footer}>
-      <div style={styles.footerContainer}>
-        <div style={styles.footerColumn}>
-          <div style={styles.logoContainer}>
-            <img
-              src={logo}
-              alt="Guwahati Homestay Finder Logo"
-              style={styles.logo}
-            />
-          </div>
-          <p style={{ color: '#666', lineHeight: 1.6 }}>
-            Your trusted platform for authentic homestay experiences in Guwahati. Connect with local hosts and discover the real Assam.
-          </p>
-        </div>
-
-        <div style={styles.footerColumn}>
-          <h4 style={styles.footerTitle}>Quick Links</h4>
-          <Link to="/" style={styles.footerLink}><FiHome /> Home</Link>
-          <Link to="/about" style={styles.footerLink}><FiInfo /> About Us</Link>
-          <Link to="/contact" style={styles.footerLink}><FiPhone /> Contact</Link>
-          <Link to="/premium" style={styles.footerLink}><FiStar /> Premium</Link>
-          <Link to="/add-homestay" style={styles.footerLink}><FiHome /> List Your Homestay</Link>
-        </div>
-
-        <div style={styles.footerColumn}>
-          <h4 style={styles.footerTitle}>Contact Us</h4>
-          <a href="mailto:support@homavia.com" style={styles.footerLink}><FiMail /> support@guwahatistays.com</a>
-          <a href="tel:+919876543210" style={styles.footerLink}><FiPhone /> +91 8638572663</a>
-          <div style={styles.footerLink}><FiMapPin /> GS Road, Dispur, Guwahati, Assam 781006</div>
-        </div>
-
-        <div style={styles.footerColumn}>
-          <h4 style={styles.footerTitle}>Legal</h4>
-          <Link to="/terms" style={styles.footerLink}>Terms of Service</Link>
-          <Link to="/privacy" style={styles.footerLink}>Privacy Policy</Link>
-          <Link to="/cancellation" style={styles.footerLink}>Cancellation Policy</Link>
-        </div>
-      </div>
-
-      <div style={styles.copyright}>
-        © {new Date().getFullYear()} Homavia. All rights reserved.
-      </div>
-    </footer>
-  );
-}
-
-function HomePage({ homestays }) {
-  return (
-    <>
-      <Helmet>
-        <title>Homavia - Find the Perfect Homestay in Guwahati</title>
-        <meta name="description" content="Discover unique homestays across Guwahati. Book comfortable and affordable accommodations for your stay in Guwahati." />
-      </Helmet>
-      <HomestayListing homestays={homestays} />
-    </>
-  );
-}
-
+// Update the main App component
 export default function App() {
   const [user, setUser] = useState(null);
   const [homestays, setHomestays] = useState([]);
+  const [carRentals, setCarRentals] = useState([]);
+  const [bikeRentals, setBikeRentals] = useState([]);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Form states
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -1588,9 +1215,48 @@ export default function App() {
     premium: false,
     imagePreview: null
   });
+  
+  const [carForm, setCarForm] = useState({
+    name: "",
+    description: "",
+    price: "",
+    city: "",
+    contact: "",
+    carType: "",
+    fuelType: "",
+    year: new Date().getFullYear(),
+    seatingCapacity: 5,
+    mileage: "",
+    features: [],
+    withDriver: false,
+    premium: false,
+    imagePreview: null
+  });
+  
+  const [bikeForm, setBikeForm] = useState({
+    name: "",
+    description: "",
+    price: "",
+    city: "",
+    contact: "",
+    bikeType: "",
+    engineCapacity: "",
+    year: "",
+    features: [],
+    withHelmet: false,
+    premium: false,
+    imagePreview: null
+  });
+  
   const [imageFile, setImageFile] = useState(null);
+  const [carImageFile, setCarImageFile] = useState(null);
+  const [bikeImageFile, setBikeImageFile] = useState(null);
   const [imageError, setImageError] = useState(null);
+  const [carImageError, setCarImageError] = useState(null);
+  const [bikeImageError, setBikeImageError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [carLoading, setCarLoading] = useState(false);
+  const [bikeLoading, setBikeLoading] = useState(false);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(user => setUser(user));
@@ -1604,9 +1270,24 @@ export default function App() {
     return unsubscribe;
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "carRentals"), (snapshot) => {
+      setCarRentals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "bikeRentals"), (snapshot) => {
+      setBikeRentals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return unsubscribe;
+  }, []);
+
   const handleLogin = async () => {
     try {
       await signInWithPopup(auth, provider);
+      setMobileMenuOpen(false);
     } catch (error) {
       console.error("Login error:", error);
     }
@@ -1615,22 +1296,22 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      setMobileMenuOpen(false);
     } catch (error) {
       console.error("Logout error:", error);
     }
   };
 
+  // Image handling functions for homestays, cars, and bikes
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Check file size (2MB max)
     if (file.size > 2 * 1024 * 1024) {
       setImageError("Image size must be less than 2MB");
       return;
     }
 
-    // Check file type
     if (!file.type.match("image.*")) {
       setImageError("Only image files are allowed");
       return;
@@ -1639,7 +1320,6 @@ export default function App() {
     setImageError(null);
     setImageFile(file);
 
-    // Create preview
     const reader = new FileReader();
     reader.onloadend = () => {
       setForm(prev => ({ ...prev, imagePreview: reader.result }));
@@ -1647,11 +1327,59 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
-  const uploadImage = async () => {
-    if (!imageFile) return null;
+  const handleCarImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setCarImageError("Image size must be less than 2MB");
+      return;
+    }
+
+    if (!file.type.match("image.*")) {
+      setCarImageError("Only image files are allowed");
+      return;
+    }
+
+    setCarImageError(null);
+    setCarImageFile(file);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setCarForm(prev => ({ ...prev, imagePreview: reader.result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleBikeImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setBikeImageError("Image size must be less than 2MB");
+      return;
+    }
+
+    if (!file.type.match("image.*")) {
+      setBikeImageError("Only image files are allowed");
+      return;
+    }
+
+    setBikeImageError(null);
+    setBikeImageFile(file);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setBikeForm(prev => ({ ...prev, imagePreview: reader.result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const uploadImage = async (file) => {
+    if (!file) return null;
 
     const formData = new FormData();
-    formData.append("file", imageFile);
+    formData.append("file", file);
     formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
 
     try {
@@ -1674,7 +1402,7 @@ export default function App() {
 
     setLoading(true);
     try {
-      const imageUrl = await uploadImage();
+      const imageUrl = await uploadImage(imageFile);
       if (!imageUrl) throw new Error("Image upload failed");
 
       await addDoc(collection(db, "homestays"), {
@@ -1697,7 +1425,6 @@ export default function App() {
         createdAt: new Date().toISOString()
       });
 
-      // Reset form
       setForm({
         name: "",
         description: "",
@@ -1723,24 +1450,122 @@ export default function App() {
     setLoading(false);
   };
 
+  const handleCarSubmit = async (e) => {
+    e.preventDefault();
+    if (!user) return;
+    if (carImageError) return;
+
+    setCarLoading(true);
+    try {
+      const imageUrl = await uploadImage(carImageFile);
+      if (!imageUrl) throw new Error("Image upload failed");
+
+      await addDoc(collection(db, "carRentals"), {
+        name: carForm.name,
+        description: carForm.description,
+        price: Number(carForm.price),
+        city: carForm.city,
+        contact: carForm.contact,
+        carType: carForm.carType,
+        fuelType: carForm.fuelType,
+        year: Number(carForm.year),
+        seatingCapacity: Number(carForm.seatingCapacity),
+        mileage: Number(carForm.mileage),
+        features: carForm.features,
+        withDriver: carForm.withDriver,
+        premium: carForm.premium,
+        imageUrl,
+        createdBy: user.uid,
+        createdByName: user.displayName,
+        createdAt: new Date().toISOString()
+      });
+
+      setCarForm({
+        name: "",
+        description: "",
+        price: "",
+        city: "",
+        contact: "",
+        carType: "",
+        fuelType: "",
+        year: new Date().getFullYear(),
+        seatingCapacity: 5,
+        mileage: "",
+        features: [],
+        withDriver: false,
+        premium: false,
+        imagePreview: null
+      });
+      setCarImageFile(null);
+      alert("Car listed successfully!");
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Failed to list car");
+    }
+    setCarLoading(false);
+  };
+
+  const handleBikeSubmit = async (e) => {
+    e.preventDefault();
+    if (!user) return;
+    if (bikeImageError) return;
+
+    setBikeLoading(true);
+    try {
+      const imageUrl = await uploadImage(bikeImageFile);
+      if (!imageUrl) throw new Error("Image upload failed");
+
+      await addDoc(collection(db, "bikeRentals"), {
+        name: bikeForm.name,
+        description: bikeForm.description,
+        price: Number(bikeForm.price),
+        city: bikeForm.city,
+        contact: bikeForm.contact,
+        bikeType: bikeForm.bikeType,
+        engineCapacity: bikeForm.engineCapacity ? Number(bikeForm.engineCapacity) : null,
+        year: bikeForm.year ? Number(bikeForm.year) : null,
+        features: bikeForm.features,
+        withHelmet: bikeForm.withHelmet,
+        premium: bikeForm.premium,
+        imageUrl,
+        createdBy: user.uid,
+        createdByName: user.displayName,
+        createdAt: new Date().toISOString()
+      });
+
+      setBikeForm({
+        name: "",
+        description: "",
+        price: "",
+        city: "",
+        contact: "",
+        bikeType: "",
+        engineCapacity: "",
+        year: "",
+        features: [],
+        withHelmet: false,
+        premium: false,
+        imagePreview: null
+      });
+      setBikeImageFile(null);
+      alert("Bike listed successfully!");
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Failed to list bike");
+    }
+    setBikeLoading(false);
+  };
+
   return (
     <Router>
       <div style={styles.container}>
-        <header style={styles.header}>
-          <Link to="/" style={styles.logoContainer}>
-            <img
-              src={logo}
-              alt="Guwahati Homestay Finder Logo"
-              style={styles.logo}
-            />
-            <span>Homavia</span>
-          </Link>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 40 }}>
-            <NavigationBar />
-            <AuthBar user={user} handleLogin={handleLogin} handleLogout={handleLogout} />
-          </div>
-        </header>
+        <Header 
+          user={user} 
+          handleLogin={handleLogin} 
+          handleLogout={handleLogout} 
+          mobileMenuOpen={mobileMenuOpen}
+          setMobileMenuOpen={setMobileMenuOpen}
+        />
 
         <Routes>
           <Route path="/" element={<HomePage homestays={homestays} />} />
@@ -1756,6 +1581,35 @@ export default function App() {
             />
           } />
           <Route path="/homestays/:id" element={<HomestayDetail />} />
+          
+          <Route path="/car-rentals" element={<CarRentalListing carRentals={carRentals} />} />
+          <Route path="/add-car-rental" element={
+            <AddCarRentalForm
+              user={user}
+              carForm={carForm}
+              setCarForm={setCarForm}
+              handleCarSubmit={handleCarSubmit}
+              carLoading={carLoading}
+              handleCarImageChange={handleCarImageChange}
+              carImageError={carImageError}
+            />
+          } />
+          <Route path="/car-rentals/:id" element={<CarRentalDetail />} />
+          
+          <Route path="/bike-rentals" element={<BikeRentalListing bikeRentals={bikeRentals} />} />
+          <Route path="/add-bike-rental" element={
+            <AddBikeRentalForm
+              user={user}
+              bikeForm={bikeForm}
+              setBikeForm={setBikeForm}
+              handleBikeSubmit={handleBikeSubmit}
+              bikeLoading={bikeLoading}
+              handleBikeImageChange={handleBikeImageChange}
+              bikeImageError={bikeImageError}
+            />
+          } />
+          <Route path="/bike-rentals/:id" element={<BikeRentalDetail />} />
+          
           <Route path="/about" element={<AboutUs />} />
           <Route path="/contact" element={<ContactUs />} />
           <Route path="/premium" element={<PremiumPage />} />
