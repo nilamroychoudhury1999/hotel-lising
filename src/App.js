@@ -1,9 +1,9 @@
-    import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from "react-router-dom";
-import { FiHeart, FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch, FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiBike } from "react-icons/fi";
+import { FiHeart, FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch, FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX } from "react-icons/fi";
 import { Helmet } from "react-helmet";
 import logo from "./IMG-20250818-WA0009.jpg";
 
@@ -1129,7 +1129,7 @@ function BikeRentalDetail() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 20, marginBottom: 30 }}>
             {bike.engineCapacity && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <FiBike size={20} />
+                <FiHeart size={20} /> {/* Using FiHeart as a placeholder for bike icon */}
                 <span><strong>Engine Capacity:</strong> {bike.engineCapacity} CC</span>
               </div>
             )}
