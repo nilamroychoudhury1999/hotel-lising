@@ -606,9 +606,6 @@ const styles = {
     fontSize: 24,
     cursor: 'pointer',
     padding: 10,
-    '@media (max-width: 768px)': {
-      display: 'block'
-    }
   },
   mobileMenu: {
     position: 'fixed',
@@ -1935,19 +1932,19 @@ export default function App() {
           </Link>
 
           {/* Desktop Navigation */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 40, '@media (max-width: 768px)': { display: 'none' } }}>
+{ !(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent))&& <div style={{ display: 'flex', alignItems: 'center', gap: 40, '@media (max-width: 768px)': { display: 'none' } }}>
             <NavigationBar />
             <AuthBar user={user} handleLogin={handleLogin} handleLogout={handleLogout} />
-          </div>
+          </div>}
 
           {/* Mobile Hamburger Button */}
-          <button 
+{ /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)&& <button 
             style={styles.hamburgerButton} 
             onClick={toggleMobileMenu}
             aria-label="Open menu"
           >
             <FiMenu />
-          </button>
+          </button>}
 
           {/* Mobile Menu Overlay */}
           <div 
