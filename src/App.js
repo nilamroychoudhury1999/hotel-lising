@@ -38,7 +38,7 @@ const AREAS_BY_CITY = {
     "GS Road", "RG Baruah Road", "AT Road", "Bharalumukh", "Lakhra",
     "Bamunimaidam", "Christian Basti", "Survey", "Binova Nagar",
     "Rajgarh", "Khanapara", "Jayanagar", "Tarun Nagar", "Anil Nagar",
-    "Sarusajai", "Bora Service", "Gotanagar", "Nabin Nagar"
+    "Sarusajai", "Bora Service", "Gotanagar", "Nabin Nagar","Kharguli","Maligaon"
   ],
   Shillong: [
     "Police Bazaar", "Laitumkhrah", "Nongthymmai", "Dhankheti",
