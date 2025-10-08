@@ -1477,7 +1477,7 @@ function ContactPage() {
               </div>
               <div>
                 <p style={{ fontWeight: 500, fontSize: 14 }}>Email</p>
-                <p style={{ fontSize: 14 }}>support@homavia.com</p>
+                <p style={{ fontSize: 14 }}>takeoffheaven@gmail.com</p>
               </div>
             </div>
           </div>
