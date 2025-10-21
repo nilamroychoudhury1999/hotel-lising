@@ -1357,7 +1357,7 @@ function HomestayDetail() {
             Book Now
           </button>
           
-          <a href={`tel:${homestay.contact}`} style={styles.callButton}>
+          <a href={`tel:${7002863681}`} style={styles.callButton}>
             <FiPhone /> Call Host
           </a>
 
