@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from "react-router-dom";
-import {  FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch, FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiSmartphone } from "react-icons/fi";
+import {  FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch, FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiSmartphone, FiUpload } from "react-icons/fi";
 import { Helmet } from "react-helmet";
 import logo from "./IMG-20250818-WA0009.jpg";
 
@@ -726,7 +726,7 @@ function HomestayListing({ homestays }) {
       homestay.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       homestay.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
       homestay.area.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      homestay.description.toLowerCase().includes(searchQuery.toLowerCase());
+      (homestay.description || '').toLowerCase().includes(searchQuery.toLowerCase());
 
     return matchesCity && matchesArea && matchesCoupleFriendly && matchesHourly && matchesRoomType && matchesSearch;
   });
@@ -1705,6 +1705,48 @@ function MobileApp() {
     setMobileMenuOpen(false);
   };
 
+  // ---- Admin-only Import Button (email-gated) ----
+  const isAdmin = user?.email === "nilamroychoudhury216@gmail.com";
+  const handleImportJson = async () => {
+    try {
+      const picker = document.createElement("input");
+      picker.type = "file";
+      picker.accept = ".json,application/json";
+      picker.onchange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const text = await file.text();
+        const data = JSON.parse(text);
+
+        if (!Array.isArray(data)) {
+          alert("Invalid JSON: expected an array of homestays.");
+          return;
+        }
+
+        if (!window.confirm(`Import ${data.length} homestays into Firestore?`)) return;
+
+        // Add in parallel; 100 is fine. For >500, prefer batched writes.
+        await Promise.all(
+          data.map((item) =>
+            addDoc(collection(db, "homestays"), {
+              ...item,
+              // Ensure required fields and fallbacks
+              city: item.city || "Guwahati",
+              createdAt: item.createdAt || new Date().toISOString(),
+            })
+          )
+        );
+
+        alert("✅ Import complete!");
+        closeMobileMenu();
+      };
+      picker.click();
+    } catch (err) {
+      console.error(err);
+      alert("Import failed. See console for details.");
+    }
+  };
+
   return (
     <Router>
       <Helmet>
@@ -1760,6 +1802,17 @@ function MobileApp() {
                 >
                   Add Homestay
                 </Link>
+
+                {isAdmin && (
+                  <button 
+                    style={{ ...styles.authButton, width: '100%', marginBottom: 12, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }} 
+                    onClick={handleImportJson}
+                    title="Import homestays from a JSON file"
+                  >
+                    <FiUpload /> 📦 Import Homestays (Admin)
+                  </button>
+                )}
+
                 <button 
                   style={{ ...styles.authButton, width: '100%' }} 
                   onClick={() => { handleLogout(); closeMobileMenu(); }}
