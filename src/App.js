@@ -402,7 +402,7 @@ function HomestayListing({ homestays }) {
               <li key={h.id} style={styles.homestayItem}>
                 <Link to={to} style={{ textDecoration: "none", color: "inherit" }}>
                   <div style={{ position: "relative" }}>
-                    <img src={img} alt={h.name} style={styles.homestayImage} loading="lazy" />
+                    <img src="https://images.unsplash.com/photo-1518780664697-55e3ad937233?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=765" alt={h.name} style={styles.homestayImage} loading="lazy" />
                     {h.premium && (
                       <div style={{
                         position: "absolute", top: 10, left: 10, backgroundColor: "#ffd700",
@@ -857,7 +857,7 @@ function HomestayDetail() {
         </div>
       </div>
 
-      <img src={img} alt={homestay.name} style={styles.detailImage} />
+      <img src="https://images.unsplash.com/photo-1518780664697-55e3ad937233?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=765" alt={homestay.name} style={styles.detailImage} />
 
       <div style={styles.detailInfo}>
         <div>
