@@ -40,7 +40,7 @@ const SITE_URL = "https://homavia.in";
 const DEFAULT_DESCRIPTION =
   "Discover authentic homestay experiences across Guwahati, Shillong, and Goa. Book verified, comfortable homestays with Homavia.";
 // ✅ Your common/local splash image for all defaults (place this file in /public)
-const COMMON_IMAGE_URL = "/prairie-haven-51f728.jpg";
+const COMMON_IMAGE_URL = "./prairie-haven-51f728.jpg";
 const DEFAULT_CONTACT = "+91 7002863681";
 
 // Complete list of areas for all cities
