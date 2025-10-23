@@ -397,7 +397,7 @@ function HomestayListing({ homestays }) {
         <ul style={styles.homestayList}>
           {filteredHomestays.map((h) => {
             const to = buildHomestayPath(h);
-            const img = h.imageUrl || COMMON_IMAGE_URL;
+            const img =  COMMON_IMAGE_URL;
             return (
               <li key={h.id} style={styles.homestayItem}>
                 <Link to={to} style={{ textDecoration: "none", color: "inherit" }}>
@@ -787,7 +787,7 @@ function HomestayDetail() {
   if (!homestay) return <div style={{ textAlign: "center", padding: 40 }}>Loading...</div>;
 
   const selectedAmenities = AMENITIES.filter((a) => homestay.amenities?.includes(a.id));
-  const img = homestay.imageUrl || COMMON_IMAGE_URL;
+  const img = COMMON_IMAGE_URL;
 
   // SEO meta for detail
   const title = `${homestay.name} — ${homestay.area}, ${homestay.city} | ${SITE_NAME}`;
