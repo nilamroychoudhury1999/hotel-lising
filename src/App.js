@@ -5,7 +5,7 @@ import {
   getDocs, query, where, writeBatch
 } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
-import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from "react-router-dom";
+import { HashRouter as Router, Routes, Route, Link, useParams, useNavigate } from "react-router-dom";
 import {
   FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet,
   FiSearch, FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiSmartphone, FiUpload
@@ -36,10 +36,11 @@ const CLOUDINARY_CLOUD_NAME = "dyrmi2zkl";
 
 // SEO constants
 const SITE_NAME = "Homavia";
-const SITE_URL = "https://homavia.in"; // ✅ your domain
+const SITE_URL = "https://homavia.in";
 const DEFAULT_DESCRIPTION =
   "Discover authentic homestay experiences across Guwahati, Shillong, and Goa. Book verified, comfortable homestays with Homavia.";
-const COMMON_IMAGE_URL = "/prairie-haven-51f728.jpg"; // ✅ local default image
+// ✅ Your common/local splash image for all defaults (place this file in /public)
+const COMMON_IMAGE_URL = "/prairie-haven-51f728.jpg";
 const DEFAULT_CONTACT = "+91 7002863681";
 
 // Complete list of areas for all cities
@@ -396,17 +397,12 @@ function HomestayListing({ homestays }) {
         <ul style={styles.homestayList}>
           {filteredHomestays.map((h) => {
             const to = buildHomestayPath(h);
-            const img = h.imageUrl || COMMON_IMAGE_URL; // ✅ uses local default
+            const img = h.imageUrl || COMMON_IMAGE_URL;
             return (
               <li key={h.id} style={styles.homestayItem}>
                 <Link to={to} style={{ textDecoration: "none", color: "inherit" }}>
                   <div style={{ position: "relative" }}>
-                    <img
-                      src={img} // ✅ replaced hardcoded Unsplash
-                      alt={h.name}
-                      style={styles.homestayImage}
-                      loading="lazy"
-                    />
+                    <img src={img} alt={h.name} style={styles.homestayImage} loading="lazy" />
                     {h.premium && (
                       <div style={{
                         position: "absolute", top: 10, left: 10, backgroundColor: "#ffd700",
@@ -791,7 +787,7 @@ function HomestayDetail() {
   if (!homestay) return <div style={{ textAlign: "center", padding: 40 }}>Loading...</div>;
 
   const selectedAmenities = AMENITIES.filter((a) => homestay.amenities?.includes(a.id));
-  const img = homestay.imageUrl || COMMON_IMAGE_URL; // ✅ local default if missing
+  const img = homestay.imageUrl || COMMON_IMAGE_URL;
 
   // SEO meta for detail
   const title = `${homestay.name} — ${homestay.area}, ${homestay.city} | ${SITE_NAME}`;
@@ -861,11 +857,7 @@ function HomestayDetail() {
         </div>
       </div>
 
-      <img
-        src={img} // ✅ replaced hardcoded Unsplash
-        alt={homestay.name}
-        style={styles.detailImage}
-      />
+      <img src={img} alt={homestay.name} style={styles.detailImage} />
 
       <div style={styles.detailInfo}>
         <div>
@@ -1221,7 +1213,7 @@ function MobileApp() {
             Homavia
           </Link>
 
-          <button style={styles.hamburgerButton} onClick={toggleMobileMenu}>
+        <button style={styles.hamburgerButton} onClick={toggleMobileMenu}>
             <FiMenu />
           </button>
         </header>
