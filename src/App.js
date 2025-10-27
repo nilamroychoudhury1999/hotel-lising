@@ -1,18 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { HashRouter as Router, Routes, Route, Link, useNavigate } from "react-router-dom";
+import { HashRouter as Router, Routes, Route, Link } from "react-router-dom";
 import { initializeApp } from "firebase/app";
 import {
-  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
   collection,
   addDoc,
   onSnapshot,
   doc,
-  setDoc,
   deleteDoc,
   getDocs,
   query,
   where,
   orderBy,
+  limit,
 } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 
@@ -20,15 +21,21 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/
    BASIC CONFIG (Firebase)
    ======================= */
 const firebaseConfig = {
-  apiKey: "AIzaSyCQJ3dX_ZcxVKzlCD8H19JM3KYh7qf8wYk",
-  authDomain: "form-ca7cc.firebaseapp.com",
-  projectId: "form-ca7cc",
-  storageBucket: "form-ca7cc.appspot.com",
-  messagingSenderId: "1054208318782",
-  appId: "1:1054208318782:web:f64f43412902afcd7aa06f",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
+
+for (const [k, v] of Object.entries(firebaseConfig)) {
+  if (!v) throw new Error(`Missing env: ${k}. Did you set VITE_* variables on Netlify?`);
+}
+
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+// Faster reloads + offline via local cache
+const db = initializeFirestore(app, { localCache: persistentLocalCache() });
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
@@ -36,11 +43,12 @@ const provider = new GoogleAuthProvider();
    UTILITIES
    ======================= */
 const fmt = (n) => new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(Number(n || 0));
-const asDate = (v) => (typeof v === "string" ? new Date(v) : v instanceof Date ? v : new Date(v?.seconds ? v.seconds * 1000 : Date.now()));
+const asDate = (v) => (v?.toDate ? v.toDate() : typeof v === "string" ? new Date(v) : v instanceof Date ? v : new Date(v?.seconds ? v.seconds * 1000 : Date.now()));
 const dateKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
-// very small ICS parser (VEVENT DTSTART/DTEND, SUMMARY). Assumes UTC or Z. Good enough for block imports.
+// very small ICS parser (VEVENT DTSTART/DTEND, SUMMARY). Handles UTC 'Z'.
 function parseICS(text) {
   const events = [];
   const lines = text.replace(/\r/g, "").split("\n");
@@ -68,10 +76,12 @@ function parseICS(text) {
 }
 function icsToDate(s) {
   // Supports forms like 20250107, 20250107T120000Z, 20250107T120000
-  const m = String(s).match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})Z?)?$/);
+  const m = String(s).match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z)?)?$/);
   if (!m) return new Date();
-  const [_, Y, Mo, D, h = "00", mi = "00", se = "00"] = m;
-  return new Date(Number(Y), Number(Mo) - 1, Number(D), Number(h), Number(mi), Number(se));
+  const [, Y, Mo, D, h = "00", mi = "00", se = "00", z] = m;
+  return z === "Z"
+    ? new Date(Date.UTC(+Y, +Mo - 1, +D, +h, +mi, +se))
+    : new Date(+Y, +Mo - 1, +D, +h, +mi, +se);
 }
 
 function useAuth() {
@@ -85,12 +95,14 @@ function useAuth() {
 /* =======================
    DATA HOOKS (Firestore)
    ======================= */
-function useCollection(coll, constraints = []) {
+// Stable deps: pass a factory and a key string so effects don't thrash
+function useCollection(coll, makeConstraints, key = "") {
   const [rows, setRows] = useState([]);
   useEffect(() => {
-    const q = constraints?.length ? query(collection(db, coll), ...constraints) : collection(db, coll);
+    const constraints = makeConstraints ? makeConstraints() : [];
+    const q = constraints.length ? query(collection(db, coll), ...constraints) : collection(db, coll);
     return onSnapshot(q, (snap) => setRows(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
-  }, [coll, JSON.stringify(constraints)]);
+  }, [coll, key]);
   return rows;
 }
 
@@ -117,7 +129,7 @@ function Header() {
   return (
     <header style={styles.header}>
       <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <span style={styles.logo}>StayFlexi • Mini</span>
+        <span style={styles.logo}>PMS • Mini</span>
         {nav.map(([to, label]) => (
           <Link key={to} to={to} style={styles.link}>{label}</Link>
         ))}
@@ -162,7 +174,6 @@ function Dashboard() {
     const mMM = today.getMonth();
 
     let revenueY = 0, revenueM = 0, bkgsOpen = 0, occToday = 0;
-    const todayKey = dateKey(today);
 
     for (const b of bookings) {
       const amt = Number(b.amount || 0);
@@ -172,8 +183,7 @@ function Dashboard() {
       if (inYear) revenueY += amt;
       if (inMonth) revenueM += amt;
       if ((b.status || "").toLowerCase() === "confirmed") bkgsOpen += 1;
-      // occupancy today if today within [ci, co)
-      if (today >= new Date(ci.setHours(0,0,0,0)) && today < new Date(co.setHours(0,0,0,0))) occToday += 1;
+      if (startOfDay(today) >= startOfDay(ci) && startOfDay(today) < startOfDay(co)) occToday += 1;
     }
     const occRate = units.length ? Math.round((occToday / units.length) * 100) : 0;
     return { revenueM, revenueY, bkgsOpen, occRate, units: units.length, guests: customers.length };
@@ -206,7 +216,7 @@ function KPI({ title, value }) {
    UNITS (Rooms/Inventory)
    ======================= */
 function Units() {
-  const rows = useCollection("units", [orderBy("name")]);
+  const rows = useCollection("units", () => [orderBy("name")], "units-name");
   const [form, setForm] = useState({ name: "", code: "", type: "Room", capacity: 2, baseRate: 2000 });
   const add = async (e) => {
     e.preventDefault();
@@ -244,7 +254,7 @@ function Units() {
    CUSTOMERS
    ======================= */
 function Customers() {
-  const rows = useCollection("customers", [orderBy("name")]);
+  const rows = useCollection("customers", () => [orderBy("name")], "customers-name");
   const [form, setForm] = useState({ name: "", phone: "", email: "", notes: "" });
   const add = async (e) => {
     e.preventDefault();
@@ -283,12 +293,37 @@ function Customers() {
 function Bookings() {
   const units = useCollection("units");
   const customers = useCollection("customers");
-  const bookings = useCollection("bookings", [orderBy("checkIn", "desc")]);
+  // Limit initial list for snappy loads; add more/pagination later if you like
+  const bookings = useCollection("bookings", () => [orderBy("checkIn", "desc"), limit(100)], "bookings-recent");
   const [form, setForm] = useState({ unitId: "", customerId: "", checkIn: "", checkOut: "", amount: 0, status: "confirmed" });
+
+  const overlaps = (aStart, aEnd, bStart, bEnd) => aStart < bEnd && bStart < aEnd;
+  async function isUnitAvailable(unitId, checkIn, checkOut) {
+    const [bkgsSnap, blocksSnap] = await Promise.all([
+      getDocs(query(collection(db, "bookings"), where("unitId", "==", unitId))),
+      getDocs(query(collection(db, "blocks"), where("unitId", "==", unitId))),
+    ]);
+    const ci = new Date(checkIn), co = new Date(checkOut);
+    for (const d of bkgsSnap.docs) {
+      const b = d.data();
+      if ((b.status || "").toLowerCase() !== "confirmed") continue;
+      if (overlaps(ci, co, new Date(b.checkIn), new Date(b.checkOut))) return false;
+    }
+    for (const d of blocksSnap.docs) {
+      const bl = d.data();
+      if (overlaps(ci, co, new Date(bl.start), new Date(bl.end))) return false;
+    }
+    return true;
+  }
 
   const add = async (e) => {
     e.preventDefault();
-    if (!form.unitId || !form.customerId || !form.checkIn || !form.checkOut) return;
+    if (!form.unitId || !form.customerId || !form.checkIn || !form.checkOut) { alert("Fill all fields."); return; }
+    if (new Date(form.checkOut) <= new Date(form.checkIn)) { alert("Check-out must be after check-in."); return; }
+    if (Number(form.amount) < 0) { alert("Amount cannot be negative."); return; }
+    const available = await isUnitAvailable(form.unitId, form.checkIn, form.checkOut);
+    if (!available) { alert("This unit is not available for those dates."); return; }
+
     await addDoc(collection(db, "bookings"), {
       ...form,
       amount: Number(form.amount || 0),
@@ -357,7 +392,6 @@ function CalendarPage() {
   const monthDays = useMemo(() => {
     const y = month.getFullYear();
     const m = month.getMonth();
-    const start = new Date(y, m, 1);
     const end = new Date(y, m + 1, 0);
     const days = [];
     for (let d = 1; d <= end.getDate(); d++) days.push(new Date(y, m, d));
@@ -368,16 +402,17 @@ function CalendarPage() {
   const unitBlocks = blocks.filter((b) => !unitId || b.unitId === unitId);
 
   const isBlocked = (d) => {
+    const dd = startOfDay(d);
     for (const b of unitBookings) {
       if ((b.status || "").toLowerCase() !== "confirmed") continue;
-      const ci = new Date(asDate(b.checkIn).setHours(0,0,0,0));
-      const co = new Date(asDate(b.checkOut).setHours(0,0,0,0));
-      if (d >= ci && d < co) return { type: "booking", ref: b };
+      const ci = startOfDay(asDate(b.checkIn));
+      const co = startOfDay(asDate(b.checkOut));
+      if (dd >= ci && dd < co) return { type: "booking", ref: b };
     }
     for (const bl of unitBlocks) {
-      const s = new Date(asDate(bl.start).setHours(0,0,0,0));
-      const e = new Date(asDate(bl.end).setHours(0,0,0,0));
-      if (d >= s && d < e) return { type: "block", ref: bl };
+      const s = startOfDay(asDate(bl.start));
+      const e = startOfDay(asDate(bl.end));
+      if (dd >= s && dd < e) return { type: "block", ref: bl };
     }
     return null;
   };
