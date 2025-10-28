@@ -1,568 +1,747 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { HashRouter as Router, Routes, Route, Link } from "react-router-dom";
+import { HashRouter as Router, Routes, Route, Link, Navigate, useLocation, Outlet, useNavigate } from "react-router-dom";
 import { initializeApp } from "firebase/app";
 import {
-  initializeFirestore,
-  persistentLocalCache,
-  collection,
-  addDoc,
-  onSnapshot,
-  doc,
-  deleteDoc,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  limit,
+  getFirestore, collection, addDoc, onSnapshot, doc, getDoc, getDocs, query, where,
+  writeBatch, updateDoc, serverTimestamp, orderBy, runTransaction
 } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 
-/* =======================
-   BASIC CONFIG (Firebase)
-   ======================= */
+/** ======================
+ *  FIREBASE (same config)
+ *  ====================== */
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: "AIzaSyCQJ3dX_ZcxVKzlCD8H19JM3KYh7qf8wYk",
+  authDomain: "form-ca7cc.firebaseapp.com",
+  projectId: "form-ca7cc",
+  storageBucket: "form-ca7cc.appspot.com",
+  messagingSenderId: "1054208318782",
+  appId: "1:1054208318782:web:f64f43412902afcd7aa06f",
 };
 
-for (const [k, v] of Object.entries(firebaseConfig)) {
-  if (!v) throw new Error(`Missing env: ${k}. Did you set VITE_* variables on Netlify?`);
-}
-
 const app = initializeApp(firebaseConfig);
-// Faster reloads + offline via local cache
-const db = initializeFirestore(app, { localCache: persistentLocalCache() });
+const db = getFirestore(app);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
-/* =======================
-   UTILITIES
-   ======================= */
-const fmt = (n) => new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(Number(n || 0));
-const asDate = (v) => (v?.toDate ? v.toDate() : typeof v === "string" ? new Date(v) : v instanceof Date ? v : new Date(v?.seconds ? v.seconds * 1000 : Date.now()));
-const dateKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+/** ======================
+ *  SIMPLE RBAC (Option A)
+ *  ====================== */
+const ADMIN_EMAILS = new Set(["nilamroychoudhury216@gmail.com"]);
 
-// very small ICS parser (VEVENT DTSTART/DTEND, SUMMARY). Handles UTC 'Z'.
-function parseICS(text) {
-  const events = [];
-  const lines = text.replace(/\r/g, "").split("\n");
-  let cur = null;
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (line === "BEGIN:VEVENT") cur = {};
-    else if (line === "END:VEVENT" && cur) {
-      if (cur.DTSTART && cur.DTEND) events.push(cur);
-      cur = null;
-    } else if (cur) {
-      const idx = line.indexOf(":");
-      if (idx > -1) {
-        const k = line.slice(0, idx).split(";")[0];
-        const v = line.slice(idx + 1);
-        cur[k] = v;
-      }
-    }
-  }
-  return events.map((e) => ({
-    start: icsToDate(e.DTSTART),
-    end: icsToDate(e.DTEND),
-    summary: e.SUMMARY || "Imported Block",
-  }));
-}
-function icsToDate(s) {
-  // Supports forms like 20250107, 20250107T120000Z, 20250107T120000
-  const m = String(s).match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z)?)?$/);
-  if (!m) return new Date();
-  const [, Y, Mo, D, h = "00", mi = "00", se = "00", z] = m;
-  return z === "Z"
-    ? new Date(Date.UTC(+Y, +Mo - 1, +D, +h, +mi, +se))
-    : new Date(+Y, +Mo - 1, +D, +h, +mi, +se);
-}
-
-function useAuth() {
+function useAuthState() {
   const [user, setUser] = useState(null);
-  useEffect(() => auth.onAuthStateChanged(setUser), []);
-  const login = async () => { try { await signInWithPopup(auth, provider); } catch (e) { console.error(e); } };
-  const logout = async () => { try { await signOut(auth); } catch (e) { console.error(e); } };
-  return { user, login, logout };
-}
-
-/* =======================
-   DATA HOOKS (Firestore)
-   ======================= */
-// Stable deps: pass a factory and a key string so effects don't thrash
-function useCollection(coll, makeConstraints, key = "") {
-  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
-    const constraints = makeConstraints ? makeConstraints() : [];
-    const q = constraints.length ? query(collection(db, coll), ...constraints) : collection(db, coll);
-    return onSnapshot(q, (snap) => setRows(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
-  }, [coll, key]);
-  return rows;
+    const unsub = auth.onAuthStateChanged(u => { setUser(u); setLoading(false); });
+    return unsub;
+  }, []);
+  const isAdmin = !!user && ADMIN_EMAILS.has(user.email || "");
+  return { user, isAdmin, loading };
 }
 
-/* Collections used
-  - units: { name, code, type, capacity, baseRate }
-  - customers: { name, phone, email, notes }
-  - bookings: { unitId, customerId, checkIn, checkOut, amount, status }
-  - blocks: { unitId, start, end, note, source }
-*/
+/** ======================
+ *  UTILS & STYLES
+ *  ====================== */
+const styles = {
+  layout: { display: "grid", gridTemplateColumns: "260px 1fr", minHeight: "100vh", background: "#fafafa" },
+  sidebar: { borderRight: "1px solid #eee", padding: 16, background: "#fff" },
+  main: { padding: 20 },
+  navItem: (active) => ({
+    display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
+    borderRadius: 10, textDecoration: "none", color: active ? "#fff" : "#333",
+    background: active ? "#ff385c" : "transparent", fontWeight: 600
+  }),
+  btn: { padding: "10px 14px", borderRadius: 10, border: "1px solid #ddd", background: "#fff", cursor: "pointer" },
+  btnPrimary: { padding: "10px 14px", borderRadius: 10, border: "none", background: "#111", color: "#fff", cursor: "pointer" },
+  table: { width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 12, overflow: "hidden" },
+  th: { textAlign: "left", padding: 12, background: "#f5f5f5", borderBottom: "1px solid #eee" },
+  td: { padding: 12, borderBottom: "1px solid #f0f0f0", fontSize: 14 },
+  card: { background: "#fff", border: "1px solid #eee", borderRadius: 12, padding: 16 },
+  grid: { display: "grid", gap: 12 },
+  field: { display: "grid", gap: 6, marginBottom: 12 },
+  input: { padding: "10px 12px", borderRadius: 8, border: "1px solid #ddd" },
+  select: { padding: "10px 12px", borderRadius: 8, border: "1px solid #ddd" },
+  hrow: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }
+};
 
-/* =======================
-   HEADER & LAYOUT
-   ======================= */
-function Header() {
-  const { user, login, logout } = useAuth();
-  const nav = [
-    ["/", "Dashboard"],
-    ["/units", "Units"],
-    ["/bookings", "Bookings"],
-    ["/customers", "Customers"],
-    ["/calendar", "Calendar"],
-    ["/reports", "Reports"],
-  ];
+function fmtDate(d) {
+  if (!d) return "";
+  const dt = typeof d === "string" ? new Date(d) : d;
+  return dt.toISOString().slice(0,10);
+}
+function addDays(dateISO, days) {
+  const d = new Date(dateISO);
+  d.setDate(d.getDate() + days);
+  return fmtDate(d);
+}
+function dateRange(startISO, endISO) {
+  const out = [];
+  for (let d = new Date(startISO); d < new Date(endISO); d.setDate(d.getDate()+1)) {
+    out.push(fmtDate(d));
+  }
+  return out;
+}
+function overlap(aStart, aEnd, bStart, bEnd) {
+  // half-open [start, end)
+  return new Date(aStart) < new Date(bEnd) && new Date(bStart) < new Date(aEnd);
+}
+
+/** ======================
+ *  DATA MODEL
+ *  - Multi-tenant via ownerId
+ *  - Each owner has one default property (auto-created)
+ *  ====================== */
+async function ensureDefaultProperty(user) {
+  if (!user) return null;
+  const q1 = query(collection(db, "properties"), where("ownerId", "==", user.uid));
+  const snap = await getDocs(q1);
+  if (!snap.empty) return { id: snap.docs[0].id, ...snap.docs[0].data() };
+  const ref = await addDoc(collection(db, "properties"), {
+    ownerId: user.uid,
+    name: "Default Property",
+    code: `PROP-${user.uid.slice(0,6).toUpperCase()}`,
+    currency: "INR",
+    timeZone: "Asia/Kolkata",
+    createdAt: serverTimestamp()
+  });
+  return { id: ref.id, ownerId: user.uid, name: "Default Property", code: `PROP-${user.uid.slice(0,6).toUpperCase()}`, currency: "INR", timeZone: "Asia/Kolkata" };
+}
+
+/** ======================
+ *  AUTH BAR
+ *  ====================== */
+function AuthBar() {
+  const { user, isAdmin } = useAuthState();
+  const nav = useNavigate();
+  const doLogin = async () => { try { await signInWithPopup(auth, provider); nav("/hms"); } catch(e){ console.error(e); } };
+  const doLogout = async () => { try { await signOut(auth); nav("/"); } catch(e){ console.error(e); } };
   return (
-    <header style={styles.header}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <span style={styles.logo}>PMS • Mini</span>
-        {nav.map(([to, label]) => (
-          <Link key={to} to={to} style={styles.link}>{label}</Link>
-        ))}
-      </div>
+    <div style={{ ...styles.card, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <div>
+        <strong>HMS</strong> • {user ? (<span>Signed in as <b>{user.displayName || user.email}</b> {isAdmin ? "(Admin)" : ""}</span>) : "You are not signed in"}
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
         {user ? (
-          <>
-            <span style={{ marginRight: 12 }}>{user.displayName || user.email}</span>
-            <button style={styles.btn} onClick={logout}>Logout</button>
-          </>
+          <button style={styles.btn} onClick={doLogout}>Logout</button>
         ) : (
-          <button style={styles.btnPrimary} onClick={login}>Login with Google</button>
+          <button style={styles.btnPrimary} onClick={doLogin}>Login with Google</button>
         )}
       </div>
-    </header>
-  );
-}
-
-function Page({ title, actions, children }) {
-  return (
-    <div style={styles.page}>
-      <div style={styles.pageHead}>
-        <h2 style={{ margin: 0 }}>{title}</h2>
-        <div>{actions}</div>
-      </div>
-      <div>{children}</div>
     </div>
   );
 }
 
-/* =======================
-   DASHBOARD (KPIs)
-   ======================= */
-function Dashboard() {
-  const bookings = useCollection("bookings");
-  const units = useCollection("units");
-  const customers = useCollection("customers");
+/** ======================
+ *  PRIVATE ROUTE
+ *  ====================== */
+function PrivateRoute({ children }) {
+  const { user, loading } = useAuthState();
+  const location = useLocation();
+  if (loading) return <div style={{ padding: 40, textAlign: "center" }}>Loading...</div>;
+  if (!user) return <Navigate to="/" state={{ from: location }} replace />;
+  return children;
+}
+
+/** ======================
+ *  LAYOUT
+ *  ====================== */
+function SidebarLink({ to, label }) {
+  const loc = useLocation();
+  const active = loc.pathname.includes(to);
+  return <Link to={to} style={styles.navItem(active)}>{label}</Link>;
+}
+function HMSLayout() {
+  const { user, isAdmin } = useAuthState();
+  return (
+    <div style={styles.layout}>
+      <aside style={styles.sidebar}>
+        <div style={{ marginBottom: 12 }}><Link to="/hms" style={{ textDecoration: "none", fontWeight: 800, color: "#111" }}>🏨 Hotel HMS</Link></div>
+        <div style={{ display: "grid", gap: 8 }}>
+          <SidebarLink to="/hms/frontdesk" label="Front Desk" />
+          <SidebarLink to="/hms/reservations" label="Reservations" />
+          <SidebarLink to="/hms/housekeeping" label="Housekeeping" />
+          <SidebarLink to="/hms/inventory" label="Inventory" />
+          <SidebarLink to="/hms/rates" label="Rates" />
+          <SidebarLink to="/hms/reports" label="Reports" />
+          <SidebarLink to="/hms/settings" label="Settings" />
+          {isAdmin && <SidebarLink to="/hms/admin" label="Admin (All Data)" />}
+        </div>
+      </aside>
+      <main style={styles.main}>
+        <AuthBar />
+        <Outlet />
+      </main>
+    </div>
+  );
+}
+
+/** ======================
+ *  FRONT DESK (availability strip)
+ *  ====================== */
+function FrontDesk() {
+  const { user, isAdmin } = useAuthState();
+  const [prop, setProp] = useState(null);
+  const [rooms, setRooms] = useState([]);
+  const [reservations, setReservations] = useState([]);
+  const [start, setStart] = useState(fmtDate(new Date()));
+  const end = useMemo(() => addDays(start, 14), [start]); // 2 weeks
+  const days = useMemo(() => dateRange(start, end), [start, end]);
+
+  useEffect(() => { (async () => { const p = await ensureDefaultProperty(user); setProp(p); })(); }, [user]);
+  useEffect(() => {
+    if (!prop) return;
+    const rq = query(collection(db, `properties/${prop.id}/rooms`));
+    const unsubRooms = onSnapshot(rq, snap => setRooms(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    const rsq = query(collection(db, `properties/${prop.id}/reservations`));
+    const unsubRes = onSnapshot(rsq, snap => setReservations(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    return () => { unsubRooms(); unsubRes(); };
+  }, [prop]);
+
+  const byRoom = useMemo(() => {
+    const map = {};
+    for (const r of rooms) map[r.id] = [];
+    for (const res of reservations) {
+      if (!res.roomId) continue;
+      if (!map[res.roomId]) map[res.roomId] = [];
+      map[res.roomId].push(res);
+    }
+    return map;
+  }, [rooms, reservations]);
+
+  return (
+    <div className="frontdesk">
+      <div style={{ ...styles.hrow, marginBottom: 12 }}>
+        <h2>Front Desk — {prop?.name || "Loading property..."}</h2>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input type="date" value={start} onChange={e => setStart(e.target.value)} style={styles.input} />
+          <Link to="/hms/reservations" style={styles.navItem(false)}>New Reservation</Link>
+        </div>
+      </div>
+
+      <div style={{ overflowX: "auto" }}>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={styles.th}>Room</th>
+              {days.map(d => <th key={d} style={styles.th}>{d.slice(5)}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rooms.map(room => (
+              <tr key={room.id}>
+                <td style={styles.td}><b>{room.number || room.id}</b><div style={{ fontSize: 12, color: "#666" }}>{room.roomTypeName || room.roomTypeId}</div></td>
+                {days.map(d => {
+                  const cellRes = (byRoom[room.id] || []).find(r => overlap(r.checkInDate, r.checkOutDate, d, addDays(d,1)));
+                  const bg = cellRes ? (cellRes.status === "checked_in" ? "#e8f5e8" : "#e3f2fd") : "transparent";
+                  const label = cellRes ? (cellRes.guestName || cellRes.code || "Res") : "";
+                  return <td key={d} title={label} style={{ ...styles.td, background: bg }}>{label}</td>;
+                })}
+              </tr>
+            ))}
+            {rooms.length === 0 && <tr><td style={styles.td} colSpan={days.length+1}>No rooms yet. Add rooms in Inventory.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** ======================
+ *  RESERVATIONS (CRUD)
+ *  ====================== */
+function Reservations() {
+  const { user } = useAuthState();
+  const [prop, setProp] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [form, setForm] = useState({
+    guestName: "", guestPhone: "", guestEmail: "",
+    roomTypeId: "", roomId: "", adults: 2, children: 0,
+    checkInDate: fmtDate(new Date()), checkOutDate: addDays(fmtDate(new Date()), 1)
+  });
+  useEffect(() => { (async () => setProp(await ensureDefaultProperty(user)))(); }, [user]);
+  useEffect(() => {
+    if (!prop) return;
+    const q1 = query(collection(db, `properties/${prop.id}/reservations`), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(q1, snap => setRows(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    return unsub;
+  }, [prop]);
+
+  // get available rooms for simple select
+  const [rooms, setRooms] = useState([]);
+  useEffect(() => {
+    if (!prop) return;
+    const rq = query(collection(db, `properties/${prop.id}/rooms`));
+    const unsub = onSnapshot(rq, snap => setRooms(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    return unsub;
+  }, [prop]);
+
+  const createRes = async () => {
+    if (!prop) return;
+    if (new Date(form.checkInDate) >= new Date(form.checkOutDate)) { alert("Check-out must be after check-in"); return; }
+
+    // Availability check for selected room
+    const rsSnap = await getDocs(collection(db, `properties/${prop.id}/reservations`));
+    const conflict = rsSnap.docs.some(d => {
+      const r = d.data();
+      if (r.roomId !== form.roomId) return false;
+      return overlap(r.checkInDate, r.checkOutDate, form.checkInDate, form.checkOutDate) && ["booked", "checked_in"].includes(r.status);
+    });
+    if (conflict) { alert("Room not available for selected dates."); return; }
+
+    await addDoc(collection(db, `properties/${prop.id}/reservations`), {
+      code: `RES-${Math.random().toString(36).slice(2,7).toUpperCase()}`,
+      guestName: form.guestName, guestPhone: form.guestPhone, guestEmail: form.guestEmail,
+      roomTypeId: form.roomTypeId || null, roomId: form.roomId || null,
+      adults: Number(form.adults || 0), children: Number(form.children || 0),
+      checkInDate: form.checkInDate, checkOutDate: form.checkOutDate,
+      nights: Math.max(1, Math.ceil((new Date(form.checkOutDate) - new Date(form.checkInDate))/86400000)),
+      status: "booked",
+      total: 0, balance: 0,
+      createdBy: user.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+    });
+    setForm({ ...form, guestName: "", guestPhone: "", guestEmail: "" });
+  };
+
+  const setStatus = async (id, status) => {
+    if (!prop) return;
+    await updateDoc(doc(db, `properties/${prop.id}/reservations/${id}`), { status, updatedAt: serverTimestamp() });
+  };
+  const delRes = async (id) => {
+    if (!prop) return;
+    if (!window.confirm("Delete reservation?")) return;
+    await updateDoc(doc(db, `properties/${prop.id}/reservations/${id}`), { status: "cancelled", updatedAt: serverTimestamp() });
+  };
+
+  return (
+    <div>
+      <div style={styles.hrow}>
+        <h2>Reservations</h2>
+      </div>
+
+      <div style={{ ...styles.card, marginBottom: 12 }}>
+        <h3 style={{ marginBottom: 8 }}>Create Reservation</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+          <div style={styles.field}><label>Guest Name</label><input style={styles.input} value={form.guestName} onChange={e=>setForm(f=>({...f, guestName:e.target.value}))} /></div>
+          <div style={styles.field}><label>Phone</label><input style={styles.input} value={form.guestPhone} onChange={e=>setForm(f=>({...f, guestPhone:e.target.value}))} /></div>
+          <div style={styles.field}><label>Email</label><input style={styles.input} value={form.guestEmail} onChange={e=>setForm(f=>({...f, guestEmail:e.target.value}))} /></div>
+          <div style={styles.field}><label>Room</label>
+            <select style={styles.select} value={form.roomId} onChange={e=>setForm(f=>({...f, roomId:e.target.value}))}>
+              <option value="">Select room</option>
+              {rooms.map(r => <option key={r.id} value={r.id}>{r.number || r.id} • {r.roomTypeName || r.roomTypeId || "Type"}</option>)}
+            </select>
+          </div>
+          <div style={styles.field}><label>Adults</label><input type="number" min="1" style={styles.input} value={form.adults} onChange={e=>setForm(f=>({...f, adults:e.target.value}))} /></div>
+          <div style={styles.field}><label>Children</label><input type="number" min="0" style={styles.input} value={form.children} onChange={e=>setForm(f=>({...f, children:e.target.value}))} /></div>
+          <div style={styles.field}><label>Check-In</label><input type="date" style={styles.input} value={form.checkInDate} onChange={e=>setForm(f=>({...f, checkInDate:e.target.value}))} /></div>
+          <div style={styles.field}><label>Check-Out</label><input type="date" style={styles.input} value={form.checkOutDate} onChange={e=>setForm(f=>({...f, checkOutDate:e.target.value}))} /></div>
+        </div>
+        <div style={{ marginTop: 8 }}><button style={styles.btnPrimary} onClick={createRes}>Create</button></div>
+      </div>
+
+      <div style={{ overflowX: "auto" }}>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={styles.th}>Code</th>
+              <th style={styles.th}>Guest</th>
+              <th style={styles.th}>Room</th>
+              <th style={styles.th}>Dates</th>
+              <th style={styles.th}>Status</th>
+              <th style={styles.th}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.id}>
+                <td style={styles.td}>{r.code}</td>
+                <td style={styles.td}>{r.guestName}<div style={{ color:"#666", fontSize:12 }}>{r.guestPhone}</div></td>
+                <td style={styles.td}>{r.roomId || "-"}</td>
+                <td style={styles.td}>{r.checkInDate} → {r.checkOutDate} ({r.nights}n)</td>
+                <td style={styles.td}>{r.status}</td>
+                <td style={styles.td}>
+                  <div style={{ display:"flex", gap:8 }}>
+                    {r.status === "booked" && <button style={styles.btn} onClick={()=>setStatus(r.id, "checked_in")}>Check-In</button>}
+                    {r.status === "checked_in" && <button style={styles.btn} onClick={()=>setStatus(r.id, "checked_out")}>Check-Out</button>}
+                    <button style={styles.btn} onClick={()=>delRes(r.id)}>Cancel</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {rows.length === 0 && <tr><td style={styles.td} colSpan={6}>No reservations yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** ======================
+ *  HOUSEKEEPING
+ *  ====================== */
+function Housekeeping() {
+  const { user } = useAuthState();
+  const [prop, setProp] = useState(null);
+  const [rooms, setRooms] = useState([]);
+  useEffect(() => { (async () => setProp(await ensureDefaultProperty(user)))(); }, [user]);
+  useEffect(() => {
+    if (!prop) return;
+    const rq = query(collection(db, `properties/${prop.id}/rooms`));
+    const unsub = onSnapshot(rq, snap => setRooms(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    return unsub;
+  }, [prop]);
+
+  const setHK = async (roomId, hkStatus) => {
+    await updateDoc(doc(db, `properties/${prop.id}/rooms/${roomId}`), { hkStatus });
+  };
+
+  return (
+    <div>
+      <div style={styles.hrow}><h2>Housekeeping</h2></div>
+      <div style={styles.grid}>
+        {rooms.map(r => (
+          <div key={r.id} style={styles.card}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <strong>Room {r.number || r.id}</strong>
+              <span style={{ fontSize: 12, padding:"2px 8px", borderRadius: 8, background: "#f0f0f0" }}>{r.hkStatus || "clean"}</span>
+            </div>
+            <div style={{ color:"#666", marginTop: 6 }}>{r.roomTypeName || r.roomTypeId || "Type"} • {r.status || "vacant"}</div>
+            <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button style={styles.btn} onClick={()=>setHK(r.id,"dirty")}>Mark Dirty</button>
+              <button style={styles.btn} onClick={()=>setHK(r.id,"in_progress")}>In Progress</button>
+              <button style={styles.btn} onClick={()=>setHK(r.id,"clean")}>Mark Clean</button>
+              <button style={styles.btn} onClick={()=>setHK(r.id,"inspected")}>Inspected</button>
+            </div>
+          </div>
+        ))}
+        {rooms.length === 0 && <div style={styles.card}>No rooms yet.</div>}
+      </div>
+    </div>
+  );
+}
+
+/** ======================
+ *  INVENTORY (Room Types + Rooms)
+ *  ====================== */
+function Inventory() {
+  const { user } = useAuthState();
+  const [prop, setProp] = useState(null);
+  const [roomTypes, setRoomTypes] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [rtForm, setRtForm] = useState({ name: "", capacity: 2, baseRate: 1500 });
+  const [rForm, setRForm] = useState({ number: "", roomTypeId: "", floor: 1 });
+
+  useEffect(() => { (async () => setProp(await ensureDefaultProperty(user)))(); }, [user]);
+  useEffect(() => {
+    if (!prop) return;
+    const rtq = query(collection(db, `properties/${prop.id}/roomTypes`));
+    const rq = query(collection(db, `properties/${prop.id}/rooms`));
+    const unsub1 = onSnapshot(rtq, snap => setRoomTypes(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    const unsub2 = onSnapshot(rq, snap => setRooms(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    return () => { unsub1(); unsub2(); };
+  }, [prop]);
+
+  const addRoomType = async () => {
+    await addDoc(collection(db, `properties/${prop.id}/roomTypes`), {
+      name: rtForm.name, capacity: Number(rtForm.capacity||1), baseRate: Number(rtForm.baseRate||0),
+      createdAt: serverTimestamp()
+    });
+    setRtForm({ name: "", capacity: 2, baseRate: 1500 });
+  };
+  const addRoom = async () => {
+    const rt = roomTypes.find(t => t.id === rForm.roomTypeId);
+    await addDoc(collection(db, `properties/${prop.id}/rooms`), {
+      number: rForm.number, floor: Number(rForm.floor||1),
+      roomTypeId: rForm.roomTypeId, roomTypeName: rt ? rt.name : "",
+      status: "vacant", hkStatus: "clean", createdAt: serverTimestamp()
+    });
+    setRForm({ number: "", roomTypeId: "", floor: 1 });
+  };
+
+  return (
+    <div className="inventory">
+      <h2>Inventory</h2>
+
+      <div style={{ ...styles.card, marginBottom: 16 }}>
+        <h3>Room Types</h3>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:12 }}>
+          <div style={styles.field}><label>Name</label><input style={styles.input} value={rtForm.name} onChange={e=>setRtForm(f=>({...f, name:e.target.value}))} /></div>
+          <div style={styles.field}><label>Capacity</label><input type="number" style={styles.input} value={rtForm.capacity} onChange={e=>setRtForm(f=>({...f, capacity:e.target.value}))} /></div>
+          <div style={styles.field}><label>Base Rate (₹)</label><input type="number" style={styles.input} value={rtForm.baseRate} onChange={e=>setRtForm(f=>({...f, baseRate:e.target.value}))} /></div>
+          <div style={{ alignSelf:"end" }}><button style={styles.btnPrimary} onClick={addRoomType}>Add Type</button></div>
+        </div>
+
+        <div style={{ overflowX: "auto", marginTop: 12 }}>
+          <table style={styles.table}>
+            <thead>
+              <tr><th style={styles.th}>Name</th><th style={styles.th}>Capacity</th><th style={styles.th}>Base Rate</th></tr>
+            </thead>
+            <tbody>
+              {roomTypes.map(t => <tr key={t.id}><td style={styles.td}>{t.name}</td><td style={styles.td}>{t.capacity}</td><td style={styles.td}>₹{t.baseRate}</td></tr>)}
+              {roomTypes.length === 0 && <tr><td style={styles.td} colSpan={3}>No room types yet.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style={styles.card}>
+        <h3>Rooms</h3>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:12 }}>
+          <div style={styles.field}><label>Number</label><input style={styles.input} value={rForm.number} onChange={e=>setRForm(f=>({...f, number:e.target.value}))} /></div>
+          <div style={styles.field}><label>Room Type</label>
+            <select style={styles.select} value={rForm.roomTypeId} onChange={e=>setRForm(f=>({...f, roomTypeId:e.target.value}))}>
+              <option value="">Select type</option>
+              {roomTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </div>
+          <div style={styles.field}><label>Floor</label><input type="number" style={styles.input} value={rForm.floor} onChange={e=>setRForm(f=>({...f, floor:e.target.value}))} /></div>
+          <div style={{ alignSelf:"end" }}><button style={styles.btnPrimary} onClick={addRoom}>Add Room</button></div>
+        </div>
+
+        <div style={{ overflowX: "auto", marginTop: 12 }}>
+          <table style={styles.table}>
+            <thead>
+              <tr><th style={styles.th}>Number</th><th style={styles.th}>Type</th><th style={styles.th}>Status</th><th style={styles.th}>HK</th></tr>
+            </thead>
+            <tbody>
+              {rooms.map(r => <tr key={r.id}><td style={styles.td}>{r.number}</td><td style={styles.td}>{r.roomTypeName || r.roomTypeId}</td><td style={styles.td}>{r.status}</td><td style={styles.td}>{r.hkStatus}</td></tr>)}
+              {rooms.length === 0 && <tr><td style={styles.td} colSpan={4}>No rooms yet.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** ======================
+ *  RATES (simple per-day override)
+ *  ====================== */
+function Rates() {
+  const { user } = useAuthState();
+  const [prop, setProp] = useState(null);
+  const [roomTypes, setRoomTypes] = useState([]);
+  const [overrides, setOverrides] = useState([]); // list of {date, roomTypeId, price, stopSell, minLOS}
+
+  useEffect(() => { (async () => setProp(await ensureDefaultProperty(user)))(); }, [user]);
+  useEffect(() => {
+    if (!prop) return;
+    const rtq = query(collection(db, `properties/${prop.id}/roomTypes`));
+    const unsubRt = onSnapshot(rtq, snap => setRoomTypes(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    const oq = query(collection(db, `properties/${prop.id}/rateCalendars`));
+    const unsubOv = onSnapshot(oq, snap => setOverrides(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    return () => { unsubRt(); unsubOv(); };
+  }, [prop]);
+
+  const [form, setForm] = useState({ date: fmtDate(new Date()), roomTypeId: "", price: 2000, stopSell: false, minLOS: 1 });
+  const saveOverride = async () => {
+    await addDoc(collection(db, `properties/${prop.id}/rateCalendars`), {
+      date: form.date, roomTypeId: form.roomTypeId || null, price: Number(form.price||0),
+      stopSell: !!form.stopSell, minLOS: Number(form.minLOS||1), createdAt: serverTimestamp()
+    });
+  };
+
+  return (
+    <div>
+      <h2>Rates</h2>
+      <div style={{ ...styles.card, marginBottom: 12 }}>
+        <h3>Set Daily Override</h3>
+        <div style={{ display:"grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
+          <div style={styles.field}><label>Date</label><input type="date" style={styles.input} value={form.date} onChange={e=>setForm(f=>({...f, date:e.target.value}))} /></div>
+          <div style={styles.field}><label>Room Type</label>
+            <select style={styles.select} value={form.roomTypeId} onChange={e=>setForm(f=>({...f, roomTypeId:e.target.value}))}>
+              <option value="">All</option>
+              {roomTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </div>
+          <div style={styles.field}><label>Price (₹)</label><input type="number" style={styles.input} value={form.price} onChange={e=>setForm(f=>({...f, price:e.target.value}))} /></div>
+          <div style={styles.field}><label>Min LOS</label><input type="number" style={styles.input} value={form.minLOS} onChange={e=>setForm(f=>({...f, minLOS:e.target.value}))} /></div>
+          <div style={styles.field}><label>Stop Sell</label>
+            <select style={styles.select} value={form.stopSell ? "yes" : "no"} onChange={e=>setForm(f=>({...f, stopSell:e.target.value==="yes"}))}>
+              <option value="no">No</option>
+              <option value="yes">Yes</option>
+            </select>
+          </div>
+        </div>
+        <div style={{ marginTop: 8 }}><button style={styles.btnPrimary} onClick={saveOverride}>Save</button></div>
+      </div>
+
+      <div style={{ overflowX: "auto" }}>
+        <table style={styles.table}>
+          <thead><tr><th style={styles.th}>Date</th><th style={styles.th}>Room Type</th><th style={styles.th}>Price</th><th style={styles.th}>Min LOS</th><th style={styles.th}>Stop Sell</th></tr></thead>
+          <tbody>
+            {overrides.map(o => (
+              <tr key={o.id}><td style={styles.td}>{o.date}</td><td style={styles.td}>{roomTypes.find(t=>t.id===o.roomTypeId)?.name || "All"}</td><td style={styles.td}>₹{o.price}</td><td style={styles.td}>{o.minLOS}</td><td style={styles.td}>{o.stopSell ? "Yes" : "No"}</td></tr>
+            ))}
+            {overrides.length === 0 && <tr><td style={styles.td} colSpan={5}>No overrides yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** ======================
+ *  REPORTS (basic KPIs)
+ *  ====================== */
+function Reports() {
+  const { user } = useAuthState();
+  const [prop, setProp] = useState(null);
+  const [rooms, setRooms] = useState([]);
+  const [reservations, setReservations] = useState([]);
+  const [start, setStart] = useState(fmtDate(new Date()));
+  const [end, setEnd] = useState(addDays(fmtDate(new Date()), 7));
+
+  useEffect(() => { (async () => setProp(await ensureDefaultProperty(user)))(); }, [user]);
+  useEffect(() => {
+    if (!prop) return;
+    const rq = query(collection(db, `properties/${prop.id}/rooms`));
+    const unsubR = onSnapshot(rq, snap => setRooms(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    const rsq = query(collection(db, `properties/${prop.id}/reservations`));
+    const unsubRes = onSnapshot(rsq, snap => setReservations(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    return () => { unsubR(); unsubRes(); };
+  }, [prop]);
 
   const kpis = useMemo(() => {
-    const today = new Date();
-    const yYY = today.getFullYear();
-    const mMM = today.getMonth();
-
-    let revenueY = 0, revenueM = 0, bkgsOpen = 0, occToday = 0;
-
-    for (const b of bookings) {
-      const amt = Number(b.amount || 0);
-      const ci = asDate(b.checkIn), co = asDate(b.checkOut);
-      const inMonth = ci.getFullYear() === yYY && ci.getMonth() === mMM;
-      const inYear = ci.getFullYear() === yYY;
-      if (inYear) revenueY += amt;
-      if (inMonth) revenueM += amt;
-      if ((b.status || "").toLowerCase() === "confirmed") bkgsOpen += 1;
-      if (startOfDay(today) >= startOfDay(ci) && startOfDay(today) < startOfDay(co)) occToday += 1;
+    if (!rooms.length) return { occupancy: 0, roomNights: 0, soldNights: 0, adr: 0, revpar: 0 };
+    const dates = dateRange(start, end);
+    let sold = 0;
+    for (const r of reservations) {
+      if (!["booked","checked_in","checked_out"].includes(r.status)) continue;
+      for (const d of dates) if (overlap(r.checkInDate, r.checkOutDate, d, addDays(d,1))) sold++;
     }
-    const occRate = units.length ? Math.round((occToday / units.length) * 100) : 0;
-    return { revenueM, revenueY, bkgsOpen, occRate, units: units.length, guests: customers.length };
-  }, [bookings, units, customers]);
+    const available = rooms.length * dates.length;
+    const occupancy = available ? (sold / available) * 100 : 0;
+    const roomRevenue = 0; // Placeholder without rate engine
+    const adr = sold ? roomRevenue / sold : 0;
+    const revpar = rooms.length ? roomRevenue / rooms.length / dates.length : 0;
+    return { occupancy, roomNights: available, soldNights: sold, adr, revpar };
+  }, [rooms, reservations, start, end]);
 
   return (
-    <Page title="Dashboard" actions={null}>
-      <div style={styles.kpiGrid}>
-        <KPI title="Revenue (This Month)" value={`₹ ${fmt(kpis.revenueM)}`} />
-        <KPI title="Revenue (This Year)" value={`₹ ${fmt(kpis.revenueY)}`} />
-        <KPI title="Open Bookings" value={fmt(kpis.bkgsOpen)} />
-        <KPI title="Occupancy Today" value={`${fmt(kpis.occRate)}%`} />
-        <KPI title="Total Units" value={fmt(kpis.units)} />
-        <KPI title="Customers" value={fmt(kpis.guests)} />
+    <div>
+      <div style={styles.hrow}>
+        <h2>Reports</h2>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input type="date" value={start} onChange={e=>setStart(e.target.value)} style={styles.input} />
+          <input type="date" value={end} onChange={e=>setEnd(e.target.value)} style={styles.input} />
+        </div>
       </div>
-    </Page>
-  );
-}
-
-function KPI({ title, value }) {
-  return (
-    <div style={styles.card}>
-      <div style={{ color: "#666", fontSize: 12 }}>{title}</div>
-      <div style={{ fontSize: 24, fontWeight: 700 }}>{value}</div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:12, marginTop: 12 }}>
+        <div style={styles.card}><div style={{ color:"#666" }}>Occupancy</div><div style={{ fontSize: 28, fontWeight: 800 }}>{kpis.occupancy.toFixed(1)}%</div></div>
+        <div style={styles.card}><div style={{ color:"#666" }}>Sold Room-Nights</div><div style={{ fontSize: 28, fontWeight: 800 }}>{kpis.soldNights}</div></div>
+        <div style={styles.card}><div style={{ color:"#666" }}>ADR</div><div style={{ fontSize: 28, fontWeight: 800 }}>₹{kpis.adr.toFixed(0)}</div></div>
+        <div style={styles.card}><div style={{ color:"#666" }}>RevPAR</div><div style={{ fontSize: 28, fontWeight: 800 }}>₹{kpis.revpar.toFixed(0)}</div></div>
+      </div>
     </div>
   );
 }
 
-/* =======================
-   UNITS (Rooms/Inventory)
-   ======================= */
-function Units() {
-  const rows = useCollection("units", () => [orderBy("name")], "units-name");
-  const [form, setForm] = useState({ name: "", code: "", type: "Room", capacity: 2, baseRate: 2000 });
-  const add = async (e) => {
-    e.preventDefault();
-    if (!form.name) return;
-    await addDoc(collection(db, "units"), { ...form, capacity: Number(form.capacity), baseRate: Number(form.baseRate) });
-    setForm({ name: "", code: "", type: "Room", capacity: 2, baseRate: 2000 });
+/** ======================
+ *  SETTINGS & ADMIN
+ *  ====================== */
+function Settings() {
+  const { user } = useAuthState();
+  const [prop, setProp] = useState(null);
+  const [form, setForm] = useState({ name: "", currency: "INR", timeZone: "Asia/Kolkata" });
+  useEffect(() => { (async () => {
+    const p = await ensureDefaultProperty(user);
+    setProp(p); setForm({ name: p?.name || "", currency: p?.currency || "INR", timeZone: p?.timeZone || "Asia/Kolkata" });
+  })(); }, [user]);
+  const save = async () => {
+    await updateDoc(doc(db, `properties/${prop.id}`), { name: form.name, currency: form.currency, timeZone: form.timeZone });
+    alert("Saved");
   };
-  const remove = async (id) => { if (window.confirm("Delete unit?")) await deleteDoc(doc(db, "units", id)); };
   return (
-    <Page title="Units" actions={null}>
-      <form onSubmit={add} style={styles.formRow}>
-        <input style={styles.input} placeholder="Name" value={form.name} onChange={(e)=>setForm({ ...form, name:e.target.value })} />
-        <input style={styles.input} placeholder="Code" value={form.code} onChange={(e)=>setForm({ ...form, code:e.target.value })} />
-        <input style={styles.input} placeholder="Type" value={form.type} onChange={(e)=>setForm({ ...form, type:e.target.value })} />
-        <input style={styles.input} type="number" placeholder="Capacity" value={form.capacity} onChange={(e)=>setForm({ ...form, capacity:e.target.value })} />
-        <input style={styles.input} type="number" placeholder="Base Rate" value={form.baseRate} onChange={(e)=>setForm({ ...form, baseRate:e.target.value })} />
-        <button style={styles.btnPrimary}>Add</button>
-      </form>
-      <table style={styles.table}>
-        <thead><tr><th>Name</th><th>Code</th><th>Type</th><th>Capacity</th><th>Base Rate</th><th></th></tr></thead>
-        <tbody>
-          {rows.map((u)=> (
-            <tr key={u.id}>
-              <td>{u.name}</td><td>{u.code}</td><td>{u.type}</td><td>{u.capacity}</td><td>₹ {fmt(u.baseRate)}</td>
-              <td><button style={styles.btn} onClick={()=>remove(u.id)}>Delete</button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Page>
-  );
-}
-
-/* =======================
-   CUSTOMERS
-   ======================= */
-function Customers() {
-  const rows = useCollection("customers", () => [orderBy("name")], "customers-name");
-  const [form, setForm] = useState({ name: "", phone: "", email: "", notes: "" });
-  const add = async (e) => {
-    e.preventDefault();
-    if (!form.name) return;
-    await addDoc(collection(db, "customers"), form);
-    setForm({ name: "", phone: "", email: "", notes: "" });
-  };
-  const remove = async (id) => { if (window.confirm("Delete customer?")) await deleteDoc(doc(db, "customers", id)); };
-  return (
-    <Page title="Customers" actions={null}>
-      <form onSubmit={add} style={styles.formRow}>
-        <input style={styles.input} placeholder="Name" value={form.name} onChange={(e)=>setForm({ ...form, name:e.target.value })} />
-        <input style={styles.input} placeholder="Phone" value={form.phone} onChange={(e)=>setForm({ ...form, phone:e.target.value })} />
-        <input style={styles.input} placeholder="Email" value={form.email} onChange={(e)=>setForm({ ...form, email:e.target.value })} />
-        <input style={styles.input} placeholder="Notes" value={form.notes} onChange={(e)=>setForm({ ...form, notes:e.target.value })} />
-        <button style={styles.btnPrimary}>Add</button>
-      </form>
-      <table style={styles.table}>
-        <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Notes</th><th></th></tr></thead>
-        <tbody>
-          {rows.map((c)=> (
-            <tr key={c.id}>
-              <td>{c.name}</td><td>{c.phone}</td><td>{c.email}</td><td>{c.notes}</td>
-              <td><button style={styles.btn} onClick={()=>remove(c.id)}>Delete</button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Page>
-  );
-}
-
-/* =======================
-   BOOKINGS
-   ======================= */
-function Bookings() {
-  const units = useCollection("units");
-  const customers = useCollection("customers");
-  // Limit initial list for snappy loads; add more/pagination later if you like
-  const bookings = useCollection("bookings", () => [orderBy("checkIn", "desc"), limit(100)], "bookings-recent");
-  const [form, setForm] = useState({ unitId: "", customerId: "", checkIn: "", checkOut: "", amount: 0, status: "confirmed" });
-
-  const overlaps = (aStart, aEnd, bStart, bEnd) => aStart < bEnd && bStart < aEnd;
-  async function isUnitAvailable(unitId, checkIn, checkOut) {
-    const [bkgsSnap, blocksSnap] = await Promise.all([
-      getDocs(query(collection(db, "bookings"), where("unitId", "==", unitId))),
-      getDocs(query(collection(db, "blocks"), where("unitId", "==", unitId))),
-    ]);
-    const ci = new Date(checkIn), co = new Date(checkOut);
-    for (const d of bkgsSnap.docs) {
-      const b = d.data();
-      if ((b.status || "").toLowerCase() !== "confirmed") continue;
-      if (overlaps(ci, co, new Date(b.checkIn), new Date(b.checkOut))) return false;
-    }
-    for (const d of blocksSnap.docs) {
-      const bl = d.data();
-      if (overlaps(ci, co, new Date(bl.start), new Date(bl.end))) return false;
-    }
-    return true;
-  }
-
-  const add = async (e) => {
-    e.preventDefault();
-    if (!form.unitId || !form.customerId || !form.checkIn || !form.checkOut) { alert("Fill all fields."); return; }
-    if (new Date(form.checkOut) <= new Date(form.checkIn)) { alert("Check-out must be after check-in."); return; }
-    if (Number(form.amount) < 0) { alert("Amount cannot be negative."); return; }
-    const available = await isUnitAvailable(form.unitId, form.checkIn, form.checkOut);
-    if (!available) { alert("This unit is not available for those dates."); return; }
-
-    await addDoc(collection(db, "bookings"), {
-      ...form,
-      amount: Number(form.amount || 0),
-      createdAt: new Date().toISOString(),
-    });
-    setForm({ unitId: "", customerId: "", checkIn: "", checkOut: "", amount: 0, status: "confirmed" });
-  };
-  const remove = async (id) => { if (window.confirm("Delete booking?")) await deleteDoc(doc(db, "bookings", id)); };
-
-  const unitById = Object.fromEntries(units.map(u => [u.id, u]));
-  const customerById = Object.fromEntries(customers.map(c => [c.id, c]));
-
-  return (
-    <Page title="Bookings" actions={null}>
-      <form onSubmit={add} style={styles.formRow}>
-        <select style={styles.input} value={form.unitId} onChange={(e)=>setForm({ ...form, unitId:e.target.value })}>
-          <option value="">Unit</option>
-          {units.map((u)=> <option key={u.id} value={u.id}>{u.name}</option>)}
-        </select>
-        <select style={styles.input} value={form.customerId} onChange={(e)=>setForm({ ...form, customerId:e.target.value })}>
-          <option value="">Customer</option>
-          {customers.map((c)=> <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <input style={styles.input} type="date" value={form.checkIn} onChange={(e)=>setForm({ ...form, checkIn:e.target.value })} />
-        <input style={styles.input} type="date" value={form.checkOut} onChange={(e)=>setForm({ ...form, checkOut:e.target.value })} />
-        <input style={styles.input} type="number" placeholder="Amount" value={form.amount} onChange={(e)=>setForm({ ...form, amount:e.target.value })} />
-        <select style={styles.input} value={form.status} onChange={(e)=>setForm({ ...form, status:e.target.value })}>
-          <option value="confirmed">confirmed</option>
-          <option value="cancelled">cancelled</option>
-          <option value="pending">pending</option>
-        </select>
-        <button style={styles.btnPrimary}>Add</button>
-      </form>
-
-      <table style={styles.table}>
-        <thead><tr><th>#</th><th>Unit</th><th>Customer</th><th>Check-In</th><th>Check-Out</th><th>Status</th><th>Amount</th><th></th></tr></thead>
-        <tbody>
-          {bookings.map((b, i)=> (
-            <tr key={b.id}>
-              <td>{i+1}</td>
-              <td>{unitById[b.unitId]?.name || "-"}</td>
-              <td>{customerById[b.customerId]?.name || "-"}</td>
-              <td>{dateKey(asDate(b.checkIn))}</td>
-              <td>{dateKey(asDate(b.checkOut))}</td>
-              <td>{b.status}</td>
-              <td>₹ {fmt(b.amount)}</td>
-              <td><button style={styles.btn} onClick={()=>remove(b.id)}>Delete</button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Page>
-  );
-}
-
-/* =======================
-   CALENDAR (Block Dates + ICS Import)
-   ======================= */
-function CalendarPage() {
-  const units = useCollection("units");
-  const bookings = useCollection("bookings");
-  const blocks = useCollection("blocks");
-  const [unitId, setUnitId] = useState("");
-  const [month, setMonth] = useState(() => new Date());
-
-  const monthDays = useMemo(() => {
-    const y = month.getFullYear();
-    const m = month.getMonth();
-    const end = new Date(y, m + 1, 0);
-    const days = [];
-    for (let d = 1; d <= end.getDate(); d++) days.push(new Date(y, m, d));
-    return days;
-  }, [month]);
-
-  const unitBookings = bookings.filter((b) => !unitId || b.unitId === unitId);
-  const unitBlocks = blocks.filter((b) => !unitId || b.unitId === unitId);
-
-  const isBlocked = (d) => {
-    const dd = startOfDay(d);
-    for (const b of unitBookings) {
-      if ((b.status || "").toLowerCase() !== "confirmed") continue;
-      const ci = startOfDay(asDate(b.checkIn));
-      const co = startOfDay(asDate(b.checkOut));
-      if (dd >= ci && dd < co) return { type: "booking", ref: b };
-    }
-    for (const bl of unitBlocks) {
-      const s = startOfDay(asDate(bl.start));
-      const e = startOfDay(asDate(bl.end));
-      if (dd >= s && dd < e) return { type: "block", ref: bl };
-    }
-    return null;
-  };
-
-  const addManualBlock = async () => {
-    const start = prompt("Block from (YYYY-MM-DD)");
-    const end = prompt("Block until (YYYY-MM-DD, exclusive)");
-    if (!start || !end || !unitId) return;
-    await addDoc(collection(db, "blocks"), { unitId, start, end, note: "Manual", source: "manual" });
-  };
-
-  const importICS = async () => {
-    if (!unitId) { alert("Select a unit first"); return; }
-    const input = document.createElement("input");
-    input.type = "file"; input.accept = ".ics,text/calendar";
-    input.onchange = async (e) => {
-      const f = e.target.files?.[0];
-      if (!f) return;
-      const text = await f.text();
-      const events = parseICS(text);
-      for (const ev of events) {
-        await addDoc(collection(db, "blocks"), { unitId, start: ev.start.toISOString().slice(0,10), end: ev.end.toISOString().slice(0,10), note: ev.summary, source: "ics" });
-      }
-      alert(`Imported ${events.length} blocks`);
-    };
-    input.click();
-  };
-
-  return (
-    <Page title="Calendar" actions={
-      <div style={{ display: "flex", gap: 8 }}>
-        <button style={styles.btn} onClick={()=>setMonth(new Date(month.getFullYear(), month.getMonth()-1, 1))}>◀ Prev</button>
-        <button style={styles.btn} onClick={()=>setMonth(new Date())}>Today</button>
-        <button style={styles.btn} onClick={()=>setMonth(new Date(month.getFullYear(), month.getMonth()+1, 1))}>Next ▶</button>
-        <button style={styles.btn} onClick={addManualBlock}>+ Block</button>
-        <button style={styles.btn} onClick={importICS}>Import .ics</button>
+    <div>
+      <h2>Settings</h2>
+      <div style={styles.card}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:12 }}>
+          <div style={styles.field}><label>Property Name</label><input style={styles.input} value={form.name} onChange={e=>setForm(f=>({...f, name:e.target.value}))}/></div>
+          <div style={styles.field}><label>Currency</label><input style={styles.input} value={form.currency} onChange={e=>setForm(f=>({...f, currency:e.target.value}))}/></div>
+          <div style={styles.field}><label>Time Zone</label><input style={styles.input} value={form.timeZone} onChange={e=>setForm(f=>({...f, timeZone:e.target.value}))}/></div>
+        </div>
+        <div style={{ marginTop: 8 }}><button style={styles.btnPrimary} onClick={save}>Save</button></div>
       </div>
-    }>
-      <div style={styles.formRow}>
-        <select style={styles.input} value={unitId} onChange={(e)=>setUnitId(e.target.value)}>
-          <option value="">All Units</option>
-          {units.map((u)=> <option key={u.id} value={u.id}>{u.name}</option>)}
-        </select>
-        <div><strong>{month.toLocaleString(undefined, { month: "long", year: "numeric" })}</strong></div>
-      </div>
-
-      <div style={styles.calendarGrid}>
-        {monthDays.map((d)=>{
-          const b = isBlocked(d);
-          return (
-            <div key={dateKey(d)} style={{ ...styles.dayCell, background: b ? (b.type === 'booking' ? '#ffe8e8' : '#fff5d6') : '#fff', borderColor: b ? '#ffb3b3' : '#eee' }}>
-              <div style={{ fontSize: 12, color: "#555" }}>{d.getDate()}</div>
-              {b && (
-                <div style={{ fontSize: 10, marginTop: 4 }}>
-                  {b.type === 'booking' ? `Booked` : `Blocked`} {b.ref?.note ? `• ${b.ref.note}` : ''}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </Page>
+    </div>
   );
 }
 
-/* =======================
-   REPORTS (Monthly / Yearly Sales)
-   ======================= */
-function Reports() {
-  const bookings = useCollection("bookings");
-  const [mode, setMode] = useState("monthly"); // or 'yearly'
-
-  const rows = useMemo(() => {
-    const map = new Map();
-    for (const b of bookings) {
-      if ((b.status || "").toLowerCase() === "cancelled") continue;
-      const d = asDate(b.checkIn);
-      const key = mode === "monthly" ? monthKey(d) : String(d.getFullYear());
-      const cur = map.get(key) || { key, count: 0, revenue: 0 };
-      cur.count += 1;
-      cur.revenue += Number(b.amount || 0);
-      map.set(key, cur);
-    }
-    return Array.from(map.values()).sort((a, z) => a.key.localeCompare(z.key));
-  }, [bookings, mode]);
-
-  const total = rows.reduce((s, r) => s + r.revenue, 0);
-
+function AdminAll() {
+  const { isAdmin } = useAuthState();
+  const [props, setProps] = useState([]);
+  useEffect(() => {
+    const q1 = query(collection(db, "properties"), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(q1, snap => setProps(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    return unsub;
+  }, []);
+  if (!isAdmin) return <div>Unauthorized</div>;
   return (
-    <Page title="Reports" actions={
-      <select style={styles.input} value={mode} onChange={(e)=>setMode(e.target.value)}>
-        <option value="monthly">Monthly</option>
-        <option value="yearly">Yearly</option>
-      </select>
-    }>
-      <table style={styles.table}>
-        <thead><tr><th>{mode === 'monthly' ? 'Month' : 'Year'}</th><th>Bookings</th><th>Revenue</th></tr></thead>
-        <tbody>
-          {rows.map((r)=> (
-            <tr key={r.key}><td>{r.key}</td><td>{r.count}</td><td>₹ {fmt(r.revenue)}</td></tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr><td style={{ fontWeight: 700 }}>Total</td><td></td><td style={{ fontWeight: 700 }}>₹ {fmt(total)}</td></tr>
-        </tfoot>
-      </table>
-    </Page>
+    <div>
+      <h2>Admin — All Properties</h2>
+      <div style={{ overflowX: "auto" }}>
+        <table style={styles.table}><thead>
+          <tr><th style={styles.th}>ID</th><th style={styles.th}>Owner</th><th style={styles.th}>Name</th><th style={styles.th}>Code</th></tr>
+        </thead><tbody>
+          {props.map(p => <tr key={p.id}><td style={styles.td}>{p.id}</td><td style={styles.td}>{p.ownerId}</td><td style={styles.td}>{p.name}</td><td style={styles.td}>{p.code}</td></tr>)}
+          {props.length === 0 && <tr><td style={styles.td} colSpan={4}>No properties.</td></tr>}
+        </tbody></table>
+      </div>
+    </div>
   );
 }
 
-/* =======================
-   APP SHELL
-   ======================= */
+/** ======================
+ *  HOME (Public landing)
+ *  ====================== */
+function Home() {
+  const { user } = useAuthState();
+  return (
+    <div style={{ maxWidth: 800, margin: "40px auto", padding: 16 }}>
+      <h1>Homavia HMS</h1>
+      <p style={{ color:"#555" }}>
+        Welcome to your Hotel Management System. Use Google login to access your dashboard.
+      </p>
+      <div style={{ display:"flex", gap:8 }}>
+        {user ? <Link to="/hms" style={styles.navItem(false)}>Go to HMS</Link> : <span>Login to continue</span>}
+      </div>
+      <div style={{ marginTop: 24, ...styles.card }}>
+        <h3>What’s included</h3>
+        <ul>
+          <li>Front Desk availability strip</li>
+          <li>Reservations CRUD with check-in/out</li>
+          <li>Inventory: Room types & rooms</li>
+          <li>Housekeeping workflow</li>
+          <li>Rates daily overrides</li>
+          <li>Reports: Occupancy basics</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/** ======================
+ *  ROOT ROUTER
+ *  ====================== */
 export default function App() {
+  // Desktop first; HMS is desktop-friendly
   return (
     <Router>
-      <div style={styles.shell}>
-        <Header />
-        <main style={{ padding: 16 }}>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/units" element={<Units />} />
-            <Route path="/customers" element={<Customers />} />
-            <Route path="/bookings" element={<Bookings />} />
-            <Route path="/calendar" element={<CalendarPage />} />
-            <Route path="/reports" element={<Reports />} />
-          </Routes>
-        </main>
-      </div>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/hms" element={<PrivateRoute><HMSLayout /></PrivateRoute>}>
+          <Route index element={<FrontDesk />} />
+          <Route path="frontdesk" element={<FrontDesk />} />
+          <Route path="reservations" element={<Reservations />} />
+          <Route path="housekeeping" element={<Housekeeping />} />
+          <Route path="inventory" element={<Inventory />} />
+          <Route path="rates" element={<Rates />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="admin" element={<AdminAll />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </Router>
   );
 }
-
-/* =======================
-   STYLES (inline minimal)
-   ======================= */
-const styles = {
-  shell: { fontFamily: "Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif", color: "#222" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: "1px solid #eee", position: "sticky", top: 0, background: "#fff", zIndex: 10 },
-  logo: { fontWeight: 800, letterSpacing: 0.2 },
-  link: { textDecoration: "none", color: "#333", padding: "6px 8px", borderRadius: 6, border: "1px solid #eee" },
-  btn: { padding: "8px 10px", border: "1px solid #ddd", background: "#fff", borderRadius: 6, cursor: "pointer" },
-  btnPrimary: { padding: "8px 12px", border: "1px solid #ff385c", background: "#ff385c", color: "#fff", borderRadius: 6, cursor: "pointer" },
-  page: { maxWidth: 1100, margin: "0 auto", padding: 8 },
-  pageHead: { display: "flex", justifyContent: "space-between", alignItems: "center", margin: "14px 0 18px" },
-  card: { border: "1px solid #eee", borderRadius: 10, padding: 16, background: "#fff" },
-  kpiGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 },
-  formRow: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, margin: "12px 0" },
-  input: { padding: 10, border: "1px solid #ddd", borderRadius: 6 },
-  table: { width: "100%", borderCollapse: "collapse", background: "#fff", border: "1px solid #eee" },
-  calendarGrid: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginTop: 12 },
-  dayCell: { border: "1px solid #eee", borderRadius: 8, padding: 8, minHeight: 70 },
-};
