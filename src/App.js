@@ -152,7 +152,7 @@ function SidebarLink({ to, label }) {
   return <Link to={to} style={styles.navItem(active)}>{label}</Link>;
 }
 function HMSLayout() {
-  const { user, isAdmin } = useAuthState();
+  const { isAdmin } = useAuthState();
   return (
     <div style={styles.layout}>
       <aside style={styles.sidebar}>
@@ -180,7 +180,7 @@ function HMSLayout() {
  *  FRONT DESK (availability strip)
  *  ====================== */
 function FrontDesk() {
-  const { user, isAdmin } = useAuthState();
+  const { user } = useAuthState();
   const [prop, setProp] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [reservations, setReservations] = useState([]);
