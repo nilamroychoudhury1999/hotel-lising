@@ -1,3 +1,4 @@
+
 import React, { useEffect, useMemo, useState } from "react";
 import { HashRouter as Router, Routes, Route, Link, Navigate, useLocation, Outlet, useNavigate } from "react-router-dom";
 import { initializeApp } from "firebase/app";
@@ -25,7 +26,7 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
 /** ======================
- *  SIMPLE RBAC (Option A)
+ *  SIMPLE RBAC
  *  ====================== */
 const ADMIN_EMAILS = new Set(["nilamroychoudhury216@gmail.com"]);
 
@@ -48,7 +49,7 @@ const styles = {
   sidebar: { borderRight: "1px solid #eee", padding: 16, background: "#fff" },
   main: { padding: 20 },
   navItem: (active) => ({
-    display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
+    display: "inline-flex", alignItems: "center", gap: 10, padding: "10px 12px",
     borderRadius: 10, textDecoration: "none", color: active ? "#fff" : "#333",
     background: active ? "#ff385c" : "transparent", fontWeight: 600
   }),
@@ -83,14 +84,11 @@ function dateRange(startISO, endISO) {
   return out;
 }
 function overlap(aStart, aEnd, bStart, bEnd) {
-  // half-open [start, end)
   return new Date(aStart) < new Date(bEnd) && new Date(bStart) < new Date(aEnd);
 }
 
 /** ======================
- *  DATA MODEL
- *  - Multi-tenant via ownerId
- *  - Each owner has one default property (auto-created)
+ *  DATA MODEL (multi-tenant)
  *  ====================== */
 async function ensureDefaultProperty(user) {
   if (!user) return null;
@@ -114,7 +112,7 @@ async function ensureDefaultProperty(user) {
 function AuthBar() {
   const { user, isAdmin } = useAuthState();
   const nav = useNavigate();
-  const doLogin = async () => { try { await signInWithPopup(auth, provider); nav("/hms"); } catch(e){ console.error(e); } };
+  const doLogin = async () => { try { await signInWithPopup(auth, provider); nav("/hms"); } catch(e){ console.error(e); alert("Login failed. Check console."); } };
   const doLogout = async () => { try { await signOut(auth); nav("/"); } catch(e){ console.error(e); } };
   return (
     <div style={{ ...styles.card, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -177,7 +175,7 @@ function HMSLayout() {
 }
 
 /** ======================
- *  FRONT DESK (availability strip)
+ *  FRONT DESK
  *  ====================== */
 function FrontDesk() {
   const { user } = useAuthState();
@@ -185,7 +183,7 @@ function FrontDesk() {
   const [rooms, setRooms] = useState([]);
   const [reservations, setReservations] = useState([]);
   const [start, setStart] = useState(fmtDate(new Date()));
-  const end = useMemo(() => addDays(start, 14), [start]); // 2 weeks
+  const end = useMemo(() => addDays(start, 14), [start]);
   const days = useMemo(() => dateRange(start, end), [start, end]);
 
   useEffect(() => { (async () => { const p = await ensureDefaultProperty(user); setProp(p); })(); }, [user]);
@@ -267,7 +265,6 @@ function Reservations() {
     return unsub;
   }, [prop]);
 
-  // get available rooms for simple select
   const [rooms, setRooms] = useState([]);
   useEffect(() => {
     if (!prop) return;
@@ -280,7 +277,6 @@ function Reservations() {
     if (!prop) return;
     if (new Date(form.checkInDate) >= new Date(form.checkOutDate)) { alert("Check-out must be after check-in"); return; }
 
-    // Availability check for selected room
     const rsSnap = await getDocs(collection(db, `properties/${prop.id}/reservations`));
     const conflict = rsSnap.docs.some(d => {
       const r = d.data();
@@ -421,7 +417,7 @@ function Housekeeping() {
 }
 
 /** ======================
- *  INVENTORY (Room Types + Rooms)
+ *  INVENTORY
  *  ====================== */
 function Inventory() {
   const { user } = useAuthState();
@@ -515,13 +511,13 @@ function Inventory() {
 }
 
 /** ======================
- *  RATES (simple per-day override)
+ *  RATES
  *  ====================== */
 function Rates() {
   const { user } = useAuthState();
   const [prop, setProp] = useState(null);
   const [roomTypes, setRoomTypes] = useState([]);
-  const [overrides, setOverrides] = useState([]); // list of {date, roomTypeId, price, stopSell, minLOS}
+  const [overrides, setOverrides] = useState([]);
 
   useEffect(() => { (async () => setProp(await ensureDefaultProperty(user)))(); }, [user]);
   useEffect(() => {
@@ -582,7 +578,7 @@ function Rates() {
 }
 
 /** ======================
- *  REPORTS (basic KPIs)
+ *  REPORTS
  *  ====================== */
 function Reports() {
   const { user } = useAuthState();
@@ -612,7 +608,7 @@ function Reports() {
     }
     const available = rooms.length * dates.length;
     const occupancy = available ? (sold / available) * 100 : 0;
-    const roomRevenue = 0; // Placeholder without rate engine
+    const roomRevenue = 0;
     const adr = sold ? roomRevenue / sold : 0;
     const revpar = rooms.length ? roomRevenue / rooms.length / dates.length : 0;
     return { occupancy, roomNights: available, soldNights: sold, adr, revpar };
@@ -692,18 +688,34 @@ function AdminAll() {
 }
 
 /** ======================
- *  HOME (Public landing)
+ *  HOME (Public landing) — now shows a visible Login button
  *  ====================== */
 function Home() {
   const { user } = useAuthState();
+  const navigate = useNavigate();
+
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, provider);
+      navigate("/hms");
+    } catch (e) {
+      console.error(e);
+      alert("Login failed. Make sure Google sign-in is enabled in Firebase Auth.");
+    }
+  };
+
   return (
     <div style={{ maxWidth: 800, margin: "40px auto", padding: 16 }}>
       <h1>Homavia HMS</h1>
       <p style={{ color:"#555" }}>
-        Welcome to your Hotel Management System. Use Google login to access your dashboard.
+        Welcome to your Hotel Management System.
       </p>
-      <div style={{ display:"flex", gap:8 }}>
-        {user ? <Link to="/hms" style={styles.navItem(false)}>Go to HMS</Link> : <span>Login to continue</span>}
+      <div style={{ display:"flex", gap:8, alignItems: "center" }}>
+        {user ? (
+          <Link to="/hms" style={styles.navItem(false)}>Go to HMS</Link>
+        ) : (
+          <button style={styles.btnPrimary} onClick={handleLogin}>Login with Google</button>
+        )}
       </div>
       <div style={{ marginTop: 24, ...styles.card }}>
         <h3>What’s included</h3>
@@ -724,7 +736,6 @@ function Home() {
  *  ROOT ROUTER
  *  ====================== */
 export default function App() {
-  // Desktop first; HMS is desktop-friendly
   return (
     <Router>
       <Routes>
