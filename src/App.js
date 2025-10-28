@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { HashRouter as Router, Routes, Route, Link, Navigate, useLocation, Outlet, useNavigate } from "react-router-dom";
 import { initializeApp } from "firebase/app";
 import {
-  getFirestore, collection, addDoc, onSnapshot, doc, getDoc, getDocs, query, where,
-  writeBatch, updateDoc, serverTimestamp, orderBy, runTransaction
+  getFirestore, collection, addDoc, onSnapshot, doc, getDocs, query, where,
+  updateDoc, serverTimestamp, orderBy
 } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 
