@@ -1,9 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc } from "firebase/firestore";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  onSnapshot,
+  doc,
+  getDoc,
+  query,
+  where,
+  orderBy,
+  serverTimestamp
+} from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from "react-router-dom";
-import {  FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch, FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiSmartphone } from "react-icons/fi";
+import {
+  FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch,
+  FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiSmartphone
+} from "react-icons/fi";
 import { Helmet } from "react-helmet";
 import logo from "./IMG-20250818-WA0009.jpg";
 
@@ -242,7 +256,7 @@ const styles = {
   locationDropdown: {
     padding: '12px 15px',
     borderRadius: 8,
-    border: '1px solid #ddd',
+    border: '1px solid '#ddd",
     fontSize: 16,
     width: '100%',
     marginBottom: 16,
@@ -922,7 +936,8 @@ function AddHomestayForm() {
     smokingAllowed: false,
     amenities: [],
     premium: false,
-    imagePreview: null
+    imagePreview: null,
+    icalUrl: ""
   });
   const [imageFile, setImageFile] = useState(null);
   const [imageError, setImageError] = useState(null);
@@ -975,6 +990,32 @@ function AddHomestayForm() {
     reader.readAsDataURL(file);
   };
 
+  const isValidIcalUrl = (url) => {
+    if (!url) return true; // optional
+    try {
+      const u = new URL(url);
+      const isWebCal = u.protocol === "webcal:";
+      const isHttp = u.protocol === "http:" || u.protocol === "https:";
+      return isWebCal || isHttp;
+    } catch {
+      return false;
+    }
+  };
+
+  const normalizeIcalUrl = (url) => {
+    if (!url) return "";
+    try {
+      const u = new URL(url);
+      if (u.protocol === "webcal:") {
+        u.protocol = "https:";
+        return u.toString();
+      }
+      return url;
+    } catch {
+      return url;
+    }
+  };
+
   const uploadImage = async () => {
     if (!imageFile) return null;
 
@@ -999,6 +1040,10 @@ function AddHomestayForm() {
     e.preventDefault();
     if (!user) return;
     if (imageError) return;
+    if (!isValidIcalUrl(form.icalUrl)) {
+      alert("Please enter a valid iCal URL (https://, http://, or webcal://).");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -1023,8 +1068,9 @@ function AddHomestayForm() {
         imageUrl,
         createdBy: user.uid,
         createdByName: user.displayName,
-        createdAt: new Date().toISOString(),
-        rating: Math.floor(Math.random() * 2) + 4
+        createdAt: serverTimestamp(),
+        rating: Math.floor(Math.random() * 2) + 4,
+        icalUrl: normalizeIcalUrl(form.icalUrl)
       });
 
       setForm({
@@ -1042,7 +1088,8 @@ function AddHomestayForm() {
         smokingAllowed: false,
         amenities: [],
         premium: false,
-        imagePreview: null
+        imagePreview: null,
+        icalUrl: ""
       });
       setImageFile(null);
       alert("Homestay added successfully!");
@@ -1175,6 +1222,20 @@ function AddHomestayForm() {
               onChange={(e) => setForm({ ...form, maxGuests: e.target.value })}
               required
             />
+          </div>
+
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Host Calendar (iCal URL)</label>
+            <input
+              style={styles.input}
+              type="url"
+              placeholder="https://example.com/calendar.ics or webcal://..."
+              value={form.icalUrl}
+              onChange={(e) => setForm({ ...form, icalUrl: e.target.value })}
+            />
+            <small style={{ color: '#666' }}>
+              Optional. Paste an iCal (ICS) link to your availability calendar to use later.
+            </small>
           </div>
         </div>
       </div>
@@ -1360,6 +1421,25 @@ function HomestayDetail() {
           <a href={`tel:${homestay.contact}`} style={styles.callButton}>
             <FiPhone /> Call Host
           </a>
+
+          {homestay.icalUrl && (
+            <div style={{ marginTop: 12 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 6 }}>Host Calendar</h4>
+              <a
+                href={homestay.icalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: '#1565c0',
+                  textDecoration: 'underline',
+                  wordBreak: 'break-all',
+                  fontSize: 14
+                }}
+              >
+                Open iCal Link
+              </a>
+            </div>
+          )}
 
           <div style={{ marginTop: 15, paddingTop: 15, borderTop: '1px solid #ebebeb' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
@@ -1665,7 +1745,16 @@ function MobileApp() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "homestays"), (snapshot) => {
+    // Show only homestays created on/after Nov 1, 2025 (UTC midnight)
+    const cutoffDate = new Date("2025-11-01T00:00:00Z");
+
+    const qRef = query(
+      collection(db, "homestays"),
+      where("createdAt", ">=", cutoffDate),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(qRef, (snapshot) => {
       const homestaysData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
