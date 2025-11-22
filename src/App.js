@@ -1988,7 +1988,6 @@ function Footer() {
               alt="Homavia Logo"
               style={styles.logo}
             />
-            <span>Homavia</span>
           </div>
           <p style={{ color: '#666', lineHeight: 1.6, fontSize: 14 }}>
             Your trusted platform for authentic homestay experiences in Guwahati, Shillong, and Goa.
