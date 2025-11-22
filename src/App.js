@@ -7,13 +7,30 @@ import {
   onSnapshot,
   doc,
   getDoc,
+  serverTimestamp,
   query,
   where,
   orderBy,
-  serverTimestamp
+  deleteDoc,
+  writeBatch,
+  getDocs,
+  Timestamp,
+  limit
 } from "firebase/firestore";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
-import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from "react-router-dom";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut
+} from "firebase/auth";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Link,
+  useParams,
+  useNavigate
+} from "react-router-dom";
 import {
   FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch,
   FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiSmartphone
@@ -21,7 +38,9 @@ import {
 import { Helmet } from "react-helmet";
 import logo from "./IMG-20250818-WA0009.jpg";
 
-// Firebase configuration
+/* ------------------------------
+   Firebase configuration
+------------------------------ */
 const firebaseConfig = {
   apiKey: "AIzaSyCQJ3dX_ZcxVKzlCD8H19JM3KYh7qf8wYk",
   authDomain: "form-ca7cc.firebaseapp.com",
@@ -36,11 +55,21 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
-// Cloudinary configuration
+/* ------------------------------
+   Cloudinary configuration
+------------------------------ */
 const CLOUDINARY_UPLOAD_PRESET = "unsigned_preset_1";
 const CLOUDINARY_CLOUD_NAME = "dyrmi2zkl";
 
-// Complete list of areas for all cities
+/* ------------------------------
+   Access control
+------------------------------ */
+const ADMIN_EMAIL = "nilamroychoudhury216@gmail.com";
+const isAdminUser = (user) => !!user && user.email === ADMIN_EMAIL;
+
+/* ------------------------------
+   Constants
+------------------------------ */
 const AREAS_BY_CITY = {
   Guwahati: [
     "Paltan Bazaar", "Fancy Bazaar", "Uzan Bazaar", "Pan Bazaar",
@@ -52,7 +81,7 @@ const AREAS_BY_CITY = {
     "GS Road", "RG Baruah Road", "AT Road", "Bharalumukh", "Lakhra",
     "Bamunimaidam", "Christian Basti", "Survey", "Binova Nagar",
     "Rajgarh", "Khanapara", "Jayanagar", "Tarun Nagar", "Anil Nagar",
-    "Sarusajai", "Bora Service", "Gotanagar", "Nabin Nagar","Kharguli","Maligaon"
+    "Sarusajai", "Bora Service", "Gotanagar", "Nabin Nagar", "Kharguli", "Maligaon"
   ],
   Shillong: [
     "Police Bazaar", "Laitumkhrah", "Nongthymmai", "Dhankheti",
@@ -72,7 +101,6 @@ const AREAS_BY_CITY = {
     "Miramar", "Old Goa", "Ponda", "Quepem", "Sanguem"
   ]
 };
-
 const ALL_CITIES = Object.keys(AREAS_BY_CITY);
 
 const AMENITIES = [
@@ -92,7 +120,9 @@ const ROOM_TYPES = [
   "Entire Home", "Private Room", "Shared Room", "Studio", "Villa"
 ];
 
-// Mobile-only styles
+/* ------------------------------
+   Styles
+------------------------------ */
 const styles = {
   container: {
     maxWidth: '100%',
@@ -256,7 +286,7 @@ const styles = {
   locationDropdown: {
     padding: '12px 15px',
     borderRadius: 8,
-    border: '1px solid '#ddd",
+    border: '1px solid #ddd',
     fontSize: 16,
     width: '100%',
     marginBottom: 16,
@@ -687,12 +717,17 @@ const styles = {
   }
 };
 
-// Check if device is mobile
-const isMobileDevice = () => {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-};
+/* ------------------------------
+   Helpers
+------------------------------ */
+const isMobileDevice = () =>
+  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  );
 
-// Desktop Warning Component
+/* ------------------------------
+   Desktop Warning
+------------------------------ */
 function DesktopWarning() {
   return (
     <div style={styles.desktopWarning}>
@@ -721,7 +756,9 @@ function DesktopWarning() {
   );
 }
 
-// Homestay Listing Component
+/* ------------------------------
+   Homestay Listing
+------------------------------ */
 function HomestayListing({ homestays }) {
   const [selectedCity, setSelectedCity] = useState("All");
   const [selectedArea, setSelectedArea] = useState("All");
@@ -736,13 +773,20 @@ function HomestayListing({ homestays }) {
     const matchesCoupleFriendly = !coupleFriendlyOnly || homestay.coupleFriendly;
     const matchesHourly = !hourlyOnly || homestay.hourly;
     const matchesRoomType = roomType === "All" || homestay.roomType === roomType;
-    const matchesSearch = searchQuery === "" ||
-      homestay.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      homestay.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      homestay.area.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      homestay.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch =
+      (homestay.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (homestay.city || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (homestay.area || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (homestay.description || "").toLowerCase().includes(searchQuery.toLowerCase());
 
-    return matchesCity && matchesArea && matchesCoupleFriendly && matchesHourly && matchesRoomType && matchesSearch;
+    return (
+      matchesCity &&
+      matchesArea &&
+      matchesCoupleFriendly &&
+      matchesHourly &&
+      matchesRoomType &&
+      (searchQuery === "" || matchesSearch)
+    );
   });
 
   const availableAreas = selectedCity === "All" ? [] : AREAS_BY_CITY[selectedCity] || [];
@@ -919,7 +963,9 @@ function HomestayListing({ homestays }) {
   );
 }
 
-// Add Homestay Form Component
+/* ------------------------------
+   Add Homestay Form
+------------------------------ */
 function AddHomestayForm() {
   const [form, setForm] = useState({
     name: "",
@@ -1324,7 +1370,9 @@ function AddHomestayForm() {
   );
 }
 
-// Homestay Detail Component
+/* ------------------------------
+   Homestay Detail
+------------------------------ */
 function HomestayDetail() {
   const { id } = useParams();
   const [homestay, setHomestay] = useState(null);
@@ -1441,6 +1489,19 @@ function HomestayDetail() {
             </div>
           )}
 
+          {(auth.currentUser?.uid === homestay.createdBy || isAdminUser(auth.currentUser)) && (
+            <button
+              style={{ ...styles.bookButton, backgroundColor: '#c62828', marginTop: 10 }}
+              onClick={async () => {
+                if (!window.confirm("Delete this listing?")) return;
+                await deleteDoc(doc(db, "homestays", homestay.id));
+                navigate("/");
+              }}
+            >
+              Delete Listing
+            </button>
+          )}
+
           <div style={{ marginTop: 15, paddingTop: 15, borderTop: '1px solid #ebebeb' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
               <FiUser size={16} />
@@ -1453,7 +1514,226 @@ function HomestayDetail() {
   );
 }
 
-// About Page Component
+/* ------------------------------
+   Admin Tools (visible only to ADMIN_EMAIL)
+------------------------------ */
+function AdminTools() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [cutoff, setCutoff] = useState("2025-11-01"); // default Nov 1, 2025
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState([]);
+  const [mode, setMode] = useState("preview"); // 'preview' | 'delete'
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged(setCurrentUser);
+    return unsub;
+  }, []);
+
+  if (!isAdminUser(currentUser)) {
+    return <div style={{ padding: 24, textAlign: 'center' }}>Forbidden</div>;
+  }
+
+  const cutoffToTimestamp = () => {
+    // Localize to IST midnight
+    // Using fixed offset +05:30
+    const iso = `${cutoff}T00:00:00+05:30`;
+    return Timestamp.fromDate(new Date(iso));
+  };
+
+  const fetchCandidates = async () => {
+    setLoading(true);
+    setMsg("");
+    setResults([]);
+    try {
+      const ts = cutoffToTimestamp();
+      const pageLimit = 200;
+
+      // Query by Timestamp field
+      const qRef = query(
+        collection(db, "homestays"),
+        orderBy("createdAt"),
+        where("createdAt", "<", ts),
+        limit(pageLimit)
+      );
+      let all = [];
+      let snap = await getDocs(qRef);
+      all.push(...snap.docs);
+
+      // Fallback: include docs where createdAt is a string older than cutoff
+      const allSnap = await getDocs(collection(db, "homestays"));
+      const cutoffMs = ts.toDate().getTime();
+      allSnap.forEach(d => {
+        const data = d.data();
+        const ca = data.createdAt;
+        if (!ca || ca instanceof Timestamp) return; // handled above
+        if (typeof ca === "string") {
+          const parsed = Date.parse(ca);
+          if (!Number.isNaN(parsed) && parsed < cutoffMs) {
+            if (!all.find(x => x.id === d.id)) all.push(d);
+          }
+        }
+      });
+
+      const mapped = all.map(d => ({ id: d.id, ...d.data() }));
+      setResults(mapped);
+      setMsg(`Found ${mapped.length} listing(s) before ${cutoff}.`);
+    } catch (e) {
+      console.error(e);
+      setMsg("Failed to fetch candidates.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteOne = async (id) => {
+    if (!isAdminUser(currentUser)) {
+      alert("Not allowed.");
+      return;
+    }
+    if (!window.confirm("Delete this listing? This cannot be undone.")) return;
+    try {
+      await deleteDoc(doc(db, "homestays", id));
+      setResults(prev => prev.filter(x => x.id !== id));
+    } catch (e) {
+      console.error(e);
+      alert("Delete failed.");
+    }
+  };
+
+  const bulkDelete = async () => {
+    if (!isAdminUser(currentUser)) {
+      alert("Not allowed.");
+      return;
+    }
+    if (results.length === 0) {
+      alert("No items to delete.");
+      return;
+    }
+    if (!window.confirm(`Delete ALL ${results.length} listing(s)? This cannot be undone.`)) return;
+
+    setLoading(true);
+    try {
+      const chunks = [];
+      for (let i = 0; i < results.length; i += 450) {
+        chunks.push(results.slice(i, i + 450));
+      }
+      for (const chunk of chunks) {
+        const batch = writeBatch(db);
+        chunk.forEach(item => batch.delete(doc(db, "homestays", item.id)));
+        await batch.commit();
+      }
+      setResults([]);
+      setMsg("Bulk delete complete.");
+    } catch (e) {
+      console.error(e);
+      setMsg("Bulk delete failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={styles.pageContainer}>
+      <Helmet>
+        <title>Admin Tools - Homavia</title>
+      </Helmet>
+
+      <h1 style={styles.pageTitle}>Admin Tools</h1>
+
+      <div style={{ ...styles.pageContent, display: 'grid', gap: 16 }}>
+        <label style={styles.label}>Delete everything created before (IST):</label>
+        <input
+          type="date"
+          value={cutoff}
+          onChange={(e) => setCutoff(e.target.value)}
+          style={styles.input}
+        />
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            style={styles.submitButton}
+            disabled={loading}
+            onClick={fetchCandidates}
+          >
+            {loading ? "Loading..." : "Find Listings"}
+          </button>
+
+          <select
+            value={mode}
+            onChange={(e) => setMode(e.target.value)}
+            style={styles.input}
+          >
+            <option value="preview">Preview</option>
+            <option value="delete">Delete Mode</option>
+          </select>
+        </div>
+
+        {msg && <div style={{ fontSize: 14, color: '#555' }}>{msg}</div>}
+
+        {results.length > 0 && (
+          <>
+            <button
+              style={{ ...styles.submitButton, backgroundColor: '#c62828' }}
+              onClick={bulkDelete}
+              disabled={loading || mode !== "delete"}
+              title={mode !== "delete" ? "Switch to Delete Mode to enable" : undefined}
+            >
+              Bulk Delete ({results.length})
+            </button>
+
+            <ul style={{ ...styles.homestayList, marginTop: 10 }}>
+              {results.map((h) => {
+                const created =
+                  h.createdAt instanceof Timestamp
+                    ? h.createdAt.toDate().toLocaleString()
+                    : (h.createdAt || "—");
+                return (
+                  <li key={h.id} style={styles.homestayItem}>
+                    <div style={{ padding: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{h.name || "(No name)"}</div>
+                          <div style={{ fontSize: 12, color: '#666' }}>
+                            {h.city || "City"} • {h.area || "Area"} • createdAt: {String(created)}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <Link to={`/homestays/${h.id}`} style={{ ...styles.filterButton, textDecoration: 'none' }}>
+                            View
+                          </Link>
+                          <button
+                            style={{ ...styles.filterButton, ...(mode === "delete" ? { borderColor: '#c62828', color: '#c62828' } : {}) }}
+                            onClick={() => mode === "delete" ? deleteOne(h.id) : alert("Switch to Delete Mode first")}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------
+   RequireAdmin wrapper
+------------------------------ */
+function RequireAdmin({ user, children }) {
+  if (!user) return <div style={{ padding: 24, textAlign: 'center' }}>Please sign in.</div>;
+  if (!isAdminUser(user)) return <div style={{ padding: 24, textAlign: 'center' }}>Forbidden</div>;
+  return children;
+}
+
+/* ------------------------------
+   Static pages
+------------------------------ */
 function AboutPage() {
   return (
     <div style={styles.pageContainer}>
@@ -1502,7 +1782,6 @@ function AboutPage() {
   );
 }
 
-// Contact Page Component
 function ContactPage() {
   const [formData, setFormData] = useState({
     name: '',
@@ -1639,7 +1918,6 @@ function ContactPage() {
   );
 }
 
-// Premium Page Component
 function PremiumPage() {
   return (
     <div style={styles.pageContainer}>
@@ -1696,7 +1974,9 @@ function PremiumPage() {
   );
 }
 
-// Footer Component
+/* ------------------------------
+   Footer
+------------------------------ */
 function Footer() {
   return (
     <footer style={styles.footer}>
@@ -1738,28 +2018,42 @@ function Footer() {
   );
 }
 
-// Mobile App Component
+/* ------------------------------
+   Mobile App
+------------------------------ */
 function MobileApp() {
   const [homestays, setHomestays] = useState([]);
   const [user, setUser] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    // Show only homestays created on/after Nov 1, 2025 (UTC midnight)
-    const cutoffDate = new Date("2025-11-01T00:00:00Z");
-
-    const qRef = query(
-      collection(db, "homestays"),
-      where("createdAt", ">=", cutoffDate),
-      orderBy("createdAt", "desc")
-    );
-
-    const unsubscribe = onSnapshot(qRef, (snapshot) => {
-      const homestaysData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
+    const unsubscribe = onSnapshot(collection(db, "homestays"), (snapshot) => {
+      const all = snapshot.docs.map(docu => ({
+        id: docu.id,
+        ...docu.data()
       }));
-      setHomestays(homestaysData);
+
+      // Hide everything created before Nov 1, 2025 (IST)
+      const cutoffIST = new Date("2025-11-01T00:00:00+05:30").getTime();
+
+      const normalizeCreatedAtMs = (ca) => {
+        if (!ca) return 0;
+        if (ca instanceof Timestamp) return ca.toDate().getTime();
+        if (typeof ca === "string") {
+          const parsed = Date.parse(ca);
+          return Number.isNaN(parsed) ? 0 : parsed;
+        }
+        if (ca?.toDate) {
+          try { return ca.toDate().getTime(); } catch { return 0; }
+        }
+        return 0;
+      };
+
+      const filtered = all
+        .filter(x => normalizeCreatedAtMs(x.createdAt) >= cutoffIST)
+        .sort((a, b) => normalizeCreatedAtMs(b.createdAt) - normalizeCreatedAtMs(a.createdAt));
+
+      setHomestays(filtered);
     });
 
     const authUnsubscribe = auth.onAuthStateChanged(setUser);
@@ -1786,13 +2080,8 @@ function MobileApp() {
     }
   };
 
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
-  };
-
-  const closeMobileMenu = () => {
-    setMobileMenuOpen(false);
-  };
+  const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
+  const closeMobileMenu = () => setMobileMenuOpen(false);
 
   return (
     <Router>
@@ -1837,6 +2126,9 @@ function MobileApp() {
             <Link to="/about" style={styles.navLink} onClick={closeMobileMenu}>About Us</Link>
             <Link to="/contact" style={styles.navLink} onClick={closeMobileMenu}>Contact</Link>
             <Link to="/premium" style={styles.navLink} onClick={closeMobileMenu}>Premium</Link>
+            {user && isAdminUser(user) && (
+              <Link to="/admin" style={styles.navLink} onClick={closeMobileMenu}>Admin</Link>
+            )}
           </div>
 
           <div style={{ marginTop: 30 }}>
@@ -1875,6 +2167,14 @@ function MobileApp() {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/premium" element={<PremiumPage />} />
+            <Route
+              path="/admin"
+              element={
+                <RequireAdmin user={user}>
+                  <AdminTools />
+                </RequireAdmin>
+              }
+            />
           </Routes>
         </main>
 
@@ -1884,7 +2184,9 @@ function MobileApp() {
   );
 }
 
-// Main App Component
+/* ------------------------------
+   Main App
+------------------------------ */
 function App() {
   const [isMobile, setIsMobile] = useState(false);
 
