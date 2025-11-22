@@ -2094,7 +2094,6 @@ function MobileApp() {
         <header style={styles.header}>
           <Link to="/" style={styles.logoContainer} onClick={closeMobileMenu}>
             <img src={logo} alt="Homavia Logo" style={styles.logo} />
-            Homavia
           </Link>
 
           <button style={styles.hamburgerButton} onClick={toggleMobileMenu}>
