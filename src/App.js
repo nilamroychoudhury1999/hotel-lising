@@ -123,6 +123,14 @@ const ROOM_TYPES = [
   "Entire Home", "Private Room", "Shared Room", "Studio", "Villa"
 ];
 
+const PRICE_TYPES = [
+  { id: "perNight", label: "Per Night", suffix: "night" },
+  { id: "perHour", label: "Per Hour", suffix: "hour" },
+  { id: "perDay", label: "Per Day", suffix: "day" },
+  { id: "perWeek", label: "Per Week", suffix: "week" },
+  { id: "perMonth", label: "Per Month", suffix: "month" }
+];
+
 /* ------------------------------
    Styles
 ------------------------------ */
@@ -431,6 +439,26 @@ const styles = {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 16
+  },
+  priceTypeLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: 'normal',
+    marginLeft: 4
+  },
+  additionalPricing: {
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    fontSize: 13
+  },
+  priceRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+    paddingBottom: 6,
+    borderBottom: '1px solid #e0e0e0'
   },
   bookButton: {
     width: '100%',
@@ -1296,7 +1324,14 @@ function HomestayListing({ homestays }) {
                     <p style={styles.location}>
                       <FiMapPin /> {homestay.area}, {homestay.city}
                     </p>
-                    <p style={styles.price}>₹{homestay.price} / night</p>
+                    <p style={styles.price}>
+                      ₹{homestay.price} / {PRICE_TYPES.find(pt => pt.id === homestay.priceType)?.suffix || 'night'}
+                    </p>
+                    {homestay.additionalPrices && Object.keys(homestay.additionalPrices).length > 0 && (
+                      <p style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                        + {Object.keys(homestay.additionalPrices).length} more pricing option{Object.keys(homestay.additionalPrices).length > 1 ? 's' : ''}
+                      </p>
+                    )}
                     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
                       {homestay.coupleFriendly && (
                         <span style={{
@@ -1342,6 +1377,8 @@ function AddHomestayForm() {
     name: "",
     description: "",
     price: "",
+    priceType: "perNight",
+    additionalPrices: {},
     city: "",
     area: "",
     contact: "",
@@ -1372,6 +1409,16 @@ function AddHomestayForm() {
       : [...form.amenities, amenityId];
 
     setForm({ ...form, amenities: updatedAmenities });
+  };
+
+  const handleAdditionalPriceChange = (priceTypeId, value) => {
+    const updatedPrices = { ...form.additionalPrices };
+    if (value && !isNaN(value) && Number(value) > 0) {
+      updatedPrices[priceTypeId] = Number(value);
+    } else {
+      delete updatedPrices[priceTypeId];
+    }
+    setForm({ ...form, additionalPrices: updatedPrices });
   };
 
   const handleCityChange = (e) => {
@@ -1471,6 +1518,8 @@ function AddHomestayForm() {
         name: form.name,
         description: form.description,
         price: Number(form.price),
+        priceType: form.priceType,
+        additionalPrices: form.additionalPrices,
         city: form.city,
         area: form.area,
         contact: form.contact,
@@ -1494,6 +1543,8 @@ function AddHomestayForm() {
         name: "",
         description: "",
         price: "",
+        priceType: "perNight",
+        additionalPrices: {},
         city: "",
         area: "",
         contact: "",
@@ -1562,16 +1613,54 @@ function AddHomestayForm() {
 
         <div style={styles.formGrid}>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Price (₹ per night) *</label>
+            <label style={styles.label}>Primary Price (₹) *</label>
             <input
               style={styles.input}
               type="number"
               value={form.price}
               onChange={(e) => setForm({ ...form, price: e.target.value })}
               required
+              placeholder="Enter primary price"
             />
           </div>
 
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Primary Price Type *</label>
+            <select
+              style={styles.input}
+              value={form.priceType}
+              onChange={(e) => setForm({ ...form, priceType: e.target.value })}
+              required
+            >
+              {PRICE_TYPES.map(type => (
+                <option key={type.id} value={type.id}>{type.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Additional Pricing Options (Optional)</label>
+          <p style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>
+            Add alternative pricing for different booking periods
+          </p>
+          {PRICE_TYPES.filter(pt => pt.id !== form.priceType).map(priceType => (
+            <div key={priceType.id} style={{ marginBottom: 12 }}>
+              <label style={{ ...styles.label, fontSize: 13, color: '#666' }}>
+                {priceType.label} (₹)
+              </label>
+              <input
+                style={styles.input}
+                type="number"
+                value={form.additionalPrices[priceType.id] || ''}
+                onChange={(e) => handleAdditionalPriceChange(priceType.id, e.target.value)}
+                placeholder={`Optional price per ${priceType.suffix}`}
+              />
+            </div>
+          ))}
+        </div>
+
+        <div style={styles.formGrid}>
           <div style={styles.inputGroup}>
             <label style={styles.label}>City *</label>
             <select
@@ -1820,8 +1909,26 @@ function HomestayDetail() {
 
         <div style={styles.bookingCard}>
           <div style={styles.priceDetail}>
-            ₹{homestay.price} <span style={{ fontWeight: 'normal' }}>/ night</span>
+            ₹{homestay.price} 
+            <span style={{ fontWeight: 'normal', fontSize: 16 }}>
+              / {PRICE_TYPES.find(pt => pt.id === homestay.priceType)?.suffix || 'night'}
+            </span>
           </div>
+
+          {homestay.additionalPrices && Object.keys(homestay.additionalPrices).length > 0 && (
+            <div style={styles.additionalPricing}>
+              <h4 style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 8 }}>Other Pricing Options</h4>
+              {Object.entries(homestay.additionalPrices).map(([priceTypeId, price]) => {
+                const priceTypeInfo = PRICE_TYPES.find(pt => pt.id === priceTypeId);
+                return (
+                  <div key={priceTypeId} style={styles.priceRow}>
+                    <span style={{ color: '#666' }}>{priceTypeInfo?.label}</span>
+                    <span style={{ fontWeight: 'bold' }}>₹{price}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {homestay.premium && (
             <div style={{ backgroundColor: '#fff8e1', padding: 12, borderRadius: 8, marginBottom: 15 }}>
