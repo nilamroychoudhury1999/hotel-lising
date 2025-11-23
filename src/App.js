@@ -37,6 +37,8 @@ import {
 } from "react-icons/fi";
 import { Helmet } from "react-helmet";
 import ICAL from "ical.js";
+import Calendar from 'react-calendar';
+import 'react-calendar/dist/Calendar.css';
 import logo from "./IMG-20250818-WA0009.jpg";
 
 /* ------------------------------
@@ -735,6 +737,18 @@ const styles = {
     boxSizing: 'border-box',
     backgroundColor: 'white'
   },
+  calendarContainer: {
+    marginTop: 10,
+    marginBottom: 10
+  },
+  reactCalendar: {
+    width: '100%',
+    border: '1px solid #ddd',
+    borderRadius: 12,
+    padding: 10,
+    backgroundColor: 'white',
+    fontFamily: "'Inter', sans-serif"
+  },
   availabilityBadge: {
     position: 'absolute',
     top: 10,
@@ -772,6 +786,36 @@ const styles = {
     fontSize: 14,
     fontWeight: 500,
     color: '#666'
+  },
+  toggleCalendarButton: {
+    padding: '10px 15px',
+    borderRadius: 8,
+    border: '1px solid #ff385c',
+    backgroundColor: 'white',
+    color: '#ff385c',
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 500,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 10
+  },
+  showAvailableOnlyButton: {
+    padding: '10px 15px',
+    borderRadius: 8,
+    border: '1px solid #4CAF50',
+    backgroundColor: '#4CAF50',
+    color: 'white',
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 500,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 10
   }
 };
 
@@ -864,10 +908,26 @@ function HomestayListing({ homestays }) {
   const [hourlyOnly, setHourlyOnly] = useState(false);
   const [roomType, setRoomType] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
-  const [checkInDate, setCheckInDate] = useState("");
-  const [checkOutDate, setCheckOutDate] = useState("");
+  
+  // Initialize with today's date
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+  
+  const getTomorrowDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  };
+
+  const [checkInDate, setCheckInDate] = useState(getTodayDate());
+  const [checkOutDate, setCheckOutDate] = useState(getTomorrowDate());
   const [availabilityStatus, setAvailabilityStatus] = useState({});
   const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [showAvailableOnly, setShowAvailableOnly] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   // Check availability for all homestays with iCal URLs when dates are selected
   useEffect(() => {
@@ -878,7 +938,6 @@ function HomestayListing({ homestays }) {
       }
 
       if (new Date(checkInDate) >= new Date(checkOutDate)) {
-        alert("Check-out date must be after check-in date");
         return;
       }
 
@@ -917,12 +976,17 @@ function HomestayListing({ homestays }) {
       (homestay.area || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (homestay.description || "").toLowerCase().includes(searchQuery.toLowerCase());
 
+    // Filter by availability if enabled
+    const availability = availabilityStatus[homestay.id];
+    const matchesAvailability = !showAvailableOnly || availability === 'available' || availability === 'unknown';
+
     return (
       matchesCity &&
       matchesArea &&
       matchesCoupleFriendly &&
       matchesHourly &&
       matchesRoomType &&
+      matchesAvailability &&
       (searchQuery === "" || matchesSearch)
     );
   });
@@ -944,12 +1008,26 @@ function HomestayListing({ homestays }) {
     setCheckInDate("");
     setCheckOutDate("");
     setAvailabilityStatus({});
+    setShowAvailableOnly(false);
   };
 
-  const getTodayDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
+  const handleCalendarChange = (date) => {
+    setSelectedDate(date);
+    const selectedDateStr = date.toISOString().split('T')[0];
+    const nextDay = new Date(date);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const nextDayStr = nextDay.toISOString().split('T')[0];
+    
+    setCheckInDate(selectedDateStr);
+    setCheckOutDate(nextDayStr);
   };
+
+  const toggleShowAvailableOnly = () => {
+    setShowAvailableOnly(!showAvailableOnly);
+  };
+
+  const availableCount = Object.values(availabilityStatus).filter(status => status === 'available').length;
+  const bookedCount = Object.values(availabilityStatus).filter(status => status === 'unavailable').length;
 
   return (
     <div>
@@ -963,6 +1041,27 @@ function HomestayListing({ homestays }) {
           <FiCalendar size={18} color="#ff385c" />
           <h3 style={{ fontSize: 16, fontWeight: 'bold', margin: 0 }}>Check Availability</h3>
         </div>
+        
+        {checkingAvailability && (
+          <div style={{ fontSize: 13, color: '#666', fontStyle: 'italic', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ 
+              width: 16, 
+              height: 16, 
+              border: '2px solid #ddd', 
+              borderTop: '2px solid #ff385c',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }}></div>
+            Checking availability...
+          </div>
+        )}
+
+        {!checkingAvailability && (checkInDate || checkOutDate) && (
+          <div style={{ fontSize: 13, color: '#4CAF50', fontWeight: 500, marginBottom: 10 }}>
+            ✓ {availableCount} available • {bookedCount} booked
+          </div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div>
             <label style={{ ...styles.label, fontSize: 13 }}>Check-in Date</label>
@@ -984,17 +1083,69 @@ function HomestayListing({ homestays }) {
               min={checkInDate || getTodayDate()}
             />
           </div>
-          {(checkInDate || checkOutDate) && (
-            <button style={styles.clearDatesButton} onClick={clearDates}>
-              Clear Dates
-            </button>
+          
+          <button 
+            style={styles.toggleCalendarButton} 
+            onClick={() => setShowCalendar(!showCalendar)}
+          >
+            <FiCalendar size={16} />
+            {showCalendar ? 'Hide Calendar' : 'Show Calendar'}
+          </button>
+
+          {showCalendar && (
+            <div style={styles.calendarContainer}>
+              <Calendar
+                onChange={handleCalendarChange}
+                value={selectedDate}
+                minDate={new Date()}
+                className="custom-calendar"
+              />
+              <style>{`
+                .custom-calendar {
+                  width: 100%;
+                  border: 1px solid #ddd;
+                  border-radius: 12px;
+                  padding: 10px;
+                  background-color: white;
+                  font-family: 'Inter', sans-serif;
+                }
+                .custom-calendar .react-calendar__tile--active {
+                  background: #ff385c;
+                  color: white;
+                }
+                .custom-calendar .react-calendar__tile--now {
+                  background: #ffebee;
+                }
+                .custom-calendar .react-calendar__tile:hover {
+                  background: #ffe0e5;
+                }
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              `}</style>
+            </div>
           )}
-        </div>
-        {checkingAvailability && (
-          <div style={{ fontSize: 13, color: '#666', fontStyle: 'italic', marginTop: 5 }}>
-            Checking availability...
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button 
+              style={{
+                ...styles.showAvailableOnlyButton,
+                ...(showAvailableOnly ? {} : { backgroundColor: 'white', color: '#4CAF50', border: '1px solid #4CAF50' })
+              }}
+              onClick={toggleShowAvailableOnly}
+            >
+              <FiCheck size={16} />
+              {showAvailableOnly ? 'Showing Available Only' : 'Show All'}
+            </button>
+            
+            {(checkInDate || checkOutDate) && (
+              <button style={styles.clearDatesButton} onClick={clearDates}>
+                Clear
+              </button>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       <div style={styles.searchContainer}>
@@ -1083,6 +1234,14 @@ function HomestayListing({ homestays }) {
         <div style={{ textAlign: 'center', padding: 40 }}>
           <h3>No homestays found matching your criteria</h3>
           <p>Try adjusting your filters or search query</p>
+          {showAvailableOnly && (
+            <button 
+              style={{ ...styles.submitButton, marginTop: 15 }}
+              onClick={toggleShowAvailableOnly}
+            >
+              Show All Homestays
+            </button>
+          )}
         </div>
       ) : (
         <ul style={styles.homestayList}>
