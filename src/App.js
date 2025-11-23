@@ -33,9 +33,10 @@ import {
 } from "react-router-dom";
 import {
   FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch,
-  FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiSmartphone
+  FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiSmartphone, FiCalendar
 } from "react-icons/fi";
 import { Helmet } from "react-helmet";
+import ICAL from "ical.js";
 import logo from "./IMG-20250818-WA0009.jpg";
 
 /* ------------------------------
@@ -714,6 +715,63 @@ const styles = {
     flexDirection: 'column',
     gap: 12,
     marginBottom: 20
+  },
+  datePickerContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+    marginBottom: 20,
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    borderRadius: 12,
+    border: '1px solid #ddd'
+  },
+  dateInput: {
+    padding: '12px 15px',
+    borderRadius: 8,
+    border: '1px solid #ddd',
+    fontSize: 14,
+    width: '100%',
+    boxSizing: 'border-box',
+    backgroundColor: 'white'
+  },
+  availabilityBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: '#4CAF50',
+    color: 'white',
+    padding: '4px 10px',
+    borderRadius: 12,
+    fontSize: 11,
+    fontWeight: 'bold',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4
+  },
+  unavailableBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: '#ff5252',
+    color: 'white',
+    padding: '4px 10px',
+    borderRadius: 12,
+    fontSize: 11,
+    fontWeight: 'bold',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4
+  },
+  clearDatesButton: {
+    padding: '8px 12px',
+    borderRadius: 8,
+    border: '1px solid #ddd',
+    backgroundColor: 'white',
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 500,
+    color: '#666'
   }
 };
 
@@ -724,6 +782,46 @@ const isMobileDevice = () =>
   /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
     navigator.userAgent
   );
+
+/* ------------------------------
+   iCal Availability Helper
+------------------------------ */
+const fetchAndCheckAvailability = async (icalUrl, checkInDate, checkOutDate) => {
+  if (!icalUrl || !checkInDate || !checkOutDate) return 'unknown';
+  
+  try {
+    const response = await fetch(icalUrl);
+    if (!response.ok) return 'unknown';
+    
+    const icalData = await response.text();
+    const jcalData = ICAL.parse(icalData);
+    const comp = new ICAL.Component(jcalData);
+    const vevents = comp.getAllSubcomponents('vevent');
+    
+    const checkIn = new Date(checkInDate);
+    const checkOut = new Date(checkOutDate);
+    
+    for (const vevent of vevents) {
+      const event = new ICAL.Event(vevent);
+      const eventStart = event.startDate.toJSDate();
+      const eventEnd = event.endDate.toJSDate();
+      
+      // Check if there's any overlap between the requested dates and booked dates
+      if (
+        (checkIn >= eventStart && checkIn < eventEnd) ||
+        (checkOut > eventStart && checkOut <= eventEnd) ||
+        (checkIn <= eventStart && checkOut >= eventEnd)
+      ) {
+        return 'unavailable';
+      }
+    }
+    
+    return 'available';
+  } catch (error) {
+    console.error('Error checking availability:', error);
+    return 'unknown';
+  }
+};
 
 /* ------------------------------
    Desktop Warning
@@ -766,6 +864,46 @@ function HomestayListing({ homestays }) {
   const [hourlyOnly, setHourlyOnly] = useState(false);
   const [roomType, setRoomType] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [checkInDate, setCheckInDate] = useState("");
+  const [checkOutDate, setCheckOutDate] = useState("");
+  const [availabilityStatus, setAvailabilityStatus] = useState({});
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+
+  // Check availability for all homestays with iCal URLs when dates are selected
+  useEffect(() => {
+    const checkAvailability = async () => {
+      if (!checkInDate || !checkOutDate) {
+        setAvailabilityStatus({});
+        return;
+      }
+
+      if (new Date(checkInDate) >= new Date(checkOutDate)) {
+        alert("Check-out date must be after check-in date");
+        return;
+      }
+
+      setCheckingAvailability(true);
+      const statuses = {};
+
+      for (const homestay of homestays) {
+        if (homestay.icalUrl) {
+          const status = await fetchAndCheckAvailability(
+            homestay.icalUrl,
+            checkInDate,
+            checkOutDate
+          );
+          statuses[homestay.id] = status;
+        } else {
+          statuses[homestay.id] = 'unknown';
+        }
+      }
+
+      setAvailabilityStatus(statuses);
+      setCheckingAvailability(false);
+    };
+
+    checkAvailability();
+  }, [checkInDate, checkOutDate, homestays]);
 
   const filteredHomestays = homestays.filter(homestay => {
     const matchesCity = selectedCity === "All" || homestay.city === selectedCity;
@@ -789,7 +927,29 @@ function HomestayListing({ homestays }) {
     );
   });
 
+  // Sort homestays: available first, then unknown, then unavailable
+  const sortedHomestays = [...filteredHomestays].sort((a, b) => {
+    if (!checkInDate || !checkOutDate) return 0;
+
+    const statusA = availabilityStatus[a.id] || 'unknown';
+    const statusB = availabilityStatus[b.id] || 'unknown';
+
+    const priority = { 'available': 0, 'unknown': 1, 'unavailable': 2 };
+    return priority[statusA] - priority[statusB];
+  });
+
   const availableAreas = selectedCity === "All" ? [] : AREAS_BY_CITY[selectedCity] || [];
+
+  const clearDates = () => {
+    setCheckInDate("");
+    setCheckOutDate("");
+    setAvailabilityStatus({});
+  };
+
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
 
   return (
     <div>
@@ -797,6 +957,45 @@ function HomestayListing({ homestays }) {
         <title>Find Homestays - Homavia</title>
         <meta name="description" content="Discover the perfect homestay for your stay in Guwahati, Shillong, and Goa." />
       </Helmet>
+
+      <div style={styles.datePickerContainer}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <FiCalendar size={18} color="#ff385c" />
+          <h3 style={{ fontSize: 16, fontWeight: 'bold', margin: 0 }}>Check Availability</h3>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div>
+            <label style={{ ...styles.label, fontSize: 13 }}>Check-in Date</label>
+            <input
+              type="date"
+              style={styles.dateInput}
+              value={checkInDate}
+              onChange={(e) => setCheckInDate(e.target.value)}
+              min={getTodayDate()}
+            />
+          </div>
+          <div>
+            <label style={{ ...styles.label, fontSize: 13 }}>Check-out Date</label>
+            <input
+              type="date"
+              style={styles.dateInput}
+              value={checkOutDate}
+              onChange={(e) => setCheckOutDate(e.target.value)}
+              min={checkInDate || getTodayDate()}
+            />
+          </div>
+          {(checkInDate || checkOutDate) && (
+            <button style={styles.clearDatesButton} onClick={clearDates}>
+              Clear Dates
+            </button>
+          )}
+        </div>
+        {checkingAvailability && (
+          <div style={{ fontSize: 13, color: '#666', fontStyle: 'italic', marginTop: 5 }}>
+            Checking availability...
+          </div>
+        )}
+      </div>
 
       <div style={styles.searchContainer}>
         <input
@@ -880,83 +1079,96 @@ function HomestayListing({ homestays }) {
         </select>
       </div>
 
-      {filteredHomestays.length === 0 ? (
+      {sortedHomestays.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 40 }}>
           <h3>No homestays found matching your criteria</h3>
           <p>Try adjusting your filters or search query</p>
         </div>
       ) : (
         <ul style={styles.homestayList}>
-          {filteredHomestays.map(homestay => (
-            <li key={homestay.id} style={styles.homestayItem}>
-              <Link to={`/homestays/${homestay.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <div style={{ position: 'relative' }}>
-                  <img
-                    src={homestay.imageUrl}
-                    alt={homestay.name}
-                    style={styles.homestayImage}
-                  />
-                  {homestay.premium && (
-                    <div style={{
-                      position: 'absolute',
-                      top: 10,
-                      left: 10,
-                      backgroundColor: '#ffd700',
-                      color: '#333',
-                      padding: '3px 8px',
-                      borderRadius: 4,
-                      fontSize: 10,
-                      fontWeight: 'bold',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 3
-                    }}>
-                      <FiStar fill="#333" /> PREMIUM
-                    </div>
-                  )}
-                </div>
-                <div style={styles.homestayInfo}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <h3 style={styles.title}>{homestay.name}</h3>
-                    <div style={styles.rating}>
-                      <FiStar fill="#ff385c" color="#ff385c" />
-                      {homestay.rating || "New"}
-                    </div>
-                  </div>
-                  <p style={styles.location}>
-                    <FiMapPin /> {homestay.area}, {homestay.city}
-                  </p>
-                  <p style={styles.price}>₹{homestay.price} / night</p>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
-                    {homestay.coupleFriendly && (
-                      <span style={{
-                        backgroundColor: '#e8f5e8',
-                        color: '#2e7d32',
-                        padding: '2px 8px',
-                        borderRadius: 12,
-                        fontSize: 12,
-                        fontWeight: 500
+          {sortedHomestays.map(homestay => {
+            const availability = availabilityStatus[homestay.id];
+            return (
+              <li key={homestay.id} style={styles.homestayItem}>
+                <Link to={`/homestays/${homestay.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <div style={{ position: 'relative' }}>
+                    <img
+                      src={homestay.imageUrl}
+                      alt={homestay.name}
+                      style={styles.homestayImage}
+                    />
+                    {homestay.premium && (
+                      <div style={{
+                        position: 'absolute',
+                        top: 10,
+                        left: 10,
+                        backgroundColor: '#ffd700',
+                        color: '#333',
+                        padding: '3px 8px',
+                        borderRadius: 4,
+                        fontSize: 10,
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 3
                       }}>
-                        Couple Friendly
-                      </span>
+                        <FiStar fill="#333" /> PREMIUM
+                      </div>
                     )}
-                    {homestay.hourly && (
-                      <span style={{
-                        backgroundColor: '#e3f2fd',
-                        color: '#1565c0',
-                        padding: '2px 8px',
-                        borderRadius: 12,
-                        fontSize: 12,
-                        fontWeight: 500
-                      }}>
-                        Hourly Stays
-                      </span>
+                    {checkInDate && checkOutDate && availability === 'available' && (
+                      <div style={styles.availabilityBadge}>
+                        <FiCheck size={12} /> AVAILABLE
+                      </div>
+                    )}
+                    {checkInDate && checkOutDate && availability === 'unavailable' && (
+                      <div style={styles.unavailableBadge}>
+                        <FiX size={12} /> BOOKED
+                      </div>
                     )}
                   </div>
-                </div>
-              </Link>
-            </li>
-          ))}
+                  <div style={styles.homestayInfo}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <h3 style={styles.title}>{homestay.name}</h3>
+                      <div style={styles.rating}>
+                        <FiStar fill="#ff385c" color="#ff385c" />
+                        {homestay.rating || "New"}
+                      </div>
+                    </div>
+                    <p style={styles.location}>
+                      <FiMapPin /> {homestay.area}, {homestay.city}
+                    </p>
+                    <p style={styles.price}>₹{homestay.price} / night</p>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
+                      {homestay.coupleFriendly && (
+                        <span style={{
+                          backgroundColor: '#e8f5e8',
+                          color: '#2e7d32',
+                          padding: '2px 8px',
+                          borderRadius: 12,
+                          fontSize: 12,
+                          fontWeight: 500
+                        }}>
+                          Couple Friendly
+                        </span>
+                      )}
+                      {homestay.hourly && (
+                        <span style={{
+                          backgroundColor: '#e3f2fd',
+                          color: '#1565c0',
+                          padding: '2px 8px',
+                          borderRadius: 12,
+                          fontSize: 12,
+                          fontWeight: 500
+                        }}>
+                          Hourly Stays
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
