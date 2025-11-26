@@ -33,13 +33,24 @@ import {
 } from "react-router-dom";
 import {
   FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch,
-  FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiSmartphone, FiCalendar
+  FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiSmartphone, FiCalendar, FiNavigation, FiMap
 } from "react-icons/fi";
 import { Helmet } from "react-helmet";
 import ICAL from "ical.js";
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 import logo from "./IMG-20250818-WA0009.jpg";
+
+// Fix for default marker icons in Leaflet
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 /* ------------------------------
    Firebase configuration
@@ -121,6 +132,14 @@ const AMENITIES = [
 
 const ROOM_TYPES = [
   "Entire Home", "Private Room", "Shared Room", "Studio", "Villa"
+];
+
+const PRICE_TYPES = [
+  { id: "perNight", label: "Per Night", suffix: "night" },
+  { id: "perHour", label: "Per Hour", suffix: "hour" },
+  { id: "perDay", label: "Per Day", suffix: "day" },
+  { id: "perWeek", label: "Per Week", suffix: "week" },
+  { id: "perMonth", label: "Per Month", suffix: "month" }
 ];
 
 /* ------------------------------
@@ -431,6 +450,26 @@ const styles = {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 16
+  },
+  priceTypeLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: 'normal',
+    marginLeft: 4
+  },
+  additionalPricing: {
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    fontSize: 13
+  },
+  priceRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+    paddingBottom: 6,
+    borderBottom: '1px solid #e0e0e0'
   },
   bookButton: {
     width: '100%',
@@ -816,6 +855,57 @@ const styles = {
     justifyContent: 'center',
     gap: 8,
     marginTop: 10
+  },
+  locationButton: {
+    padding: '10px 15px',
+    borderRadius: 8,
+    border: '1px solid #2196F3',
+    backgroundColor: '#2196F3',
+    color: 'white',
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 500,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 10
+  },
+  mapContainer: {
+    height: '400px',
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 20,
+    border: '1px solid #ddd'
+  },
+  viewToggleContainer: {
+    display: 'flex',
+    gap: 8,
+    marginBottom: 20,
+    backgroundColor: '#f8f9fa',
+    padding: 8,
+    borderRadius: 12
+  },
+  viewToggleButton: {
+    flex: 1,
+    padding: '10px 15px',
+    borderRadius: 8,
+    border: 'none',
+    backgroundColor: 'white',
+    color: '#666',
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 500,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    transition: 'all 0.2s'
+  },
+  viewToggleButtonActive: {
+    backgroundColor: '#ff385c',
+    color: 'white'
   }
 };
 
@@ -908,6 +998,7 @@ function HomestayListing({ homestays }) {
   const [hourlyOnly, setHourlyOnly] = useState(false);
   const [roomType, setRoomType] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState("list"); // 'list' or 'map'
   
   // Initialize with today's date
   const getTodayDate = () => {
@@ -1028,6 +1119,18 @@ function HomestayListing({ homestays }) {
 
   const availableCount = Object.values(availabilityStatus).filter(status => status === 'available').length;
   const bookedCount = Object.values(availabilityStatus).filter(status => status === 'unavailable').length;
+
+  // Get center coordinates for map based on selected city
+  const getCityCenter = () => {
+    const cityCoords = {
+      'Guwahati': [26.1445, 91.7362],
+      'Shillong': [25.5788, 91.8933],
+      'Goa': [15.2993, 74.1240]
+    };
+    return selectedCity !== "All" && cityCoords[selectedCity] 
+      ? cityCoords[selectedCity] 
+      : [23.6345, 85.3803]; // Center of India as default
+  };
 
   return (
     <div>
@@ -1230,6 +1333,115 @@ function HomestayListing({ homestays }) {
         </select>
       </div>
 
+      <div style={styles.viewToggleContainer}>
+        <button 
+          style={{
+            ...styles.viewToggleButton,
+            ...(viewMode === 'list' ? styles.viewToggleButtonActive : {})
+          }}
+          onClick={() => setViewMode('list')}
+        >
+          <FiHome size={16} />
+          List View
+        </button>
+        <button 
+          style={{
+            ...styles.viewToggleButton,
+            ...(viewMode === 'map' ? styles.viewToggleButtonActive : {})
+          }}
+          onClick={() => setViewMode('map')}
+        >
+          <FiMap size={16} />
+          Map View
+        </button>
+      </div>
+
+      {viewMode === 'map' && sortedHomestays.filter(h => h.latitude && h.longitude).length > 0 && (
+        <div style={styles.mapContainer}>
+          <MapContainer 
+            center={getCityCenter()} 
+            zoom={selectedCity !== "All" ? 12 : 5} 
+            style={{ height: '100%', width: '100%' }}
+          >
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            />
+            {sortedHomestays
+              .filter(homestay => homestay.latitude && homestay.longitude)
+              .map(homestay => {
+                const availability = availabilityStatus[homestay.id];
+                return (
+                  <Marker 
+                    key={homestay.id} 
+                    position={[homestay.latitude, homestay.longitude]}
+                  >
+                    <Popup>
+                      <div style={{ minWidth: 200 }}>
+                        <img 
+                          src={homestay.imageUrl} 
+                          alt={homestay.name}
+                          style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }}
+                        />
+                        <h4 style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 'bold' }}>
+                          {homestay.name}
+                        </h4>
+                        <p style={{ margin: '0 0 4px 0', fontSize: 12, color: '#666' }}>
+                          {homestay.area}, {homestay.city}
+                        </p>
+                        <p style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 'bold', color: '#ff385c' }}>
+                          ₹{homestay.price} / {PRICE_TYPES.find(pt => pt.id === homestay.priceType)?.suffix || 'night'}
+                        </p>
+                        {availability === 'available' && (
+                          <span style={{ 
+                            backgroundColor: '#4CAF50', 
+                            color: 'white', 
+                            padding: '2px 6px', 
+                            borderRadius: 4, 
+                            fontSize: 11,
+                            fontWeight: 'bold'
+                          }}>
+                            AVAILABLE
+                          </span>
+                        )}
+                        {availability === 'unavailable' && (
+                          <span style={{ 
+                            backgroundColor: '#ff5252', 
+                            color: 'white', 
+                            padding: '2px 6px', 
+                            borderRadius: 4, 
+                            fontSize: 11,
+                            fontWeight: 'bold'
+                          }}>
+                            BOOKED
+                          </span>
+                        )}
+                        <Link 
+                          to={`/homestays/${homestay.id}`}
+                          style={{
+                            display: 'block',
+                            marginTop: 8,
+                            padding: '6px 12px',
+                            backgroundColor: '#ff385c',
+                            color: 'white',
+                            textAlign: 'center',
+                            borderRadius: 6,
+                            textDecoration: 'none',
+                            fontSize: 12,
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          View Details
+                        </Link>
+                      </div>
+                    </Popup>
+                  </Marker>
+                );
+              })}
+          </MapContainer>
+        </div>
+      )}
+
       {sortedHomestays.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 40 }}>
           <h3>No homestays found matching your criteria</h3>
@@ -1296,7 +1508,14 @@ function HomestayListing({ homestays }) {
                     <p style={styles.location}>
                       <FiMapPin /> {homestay.area}, {homestay.city}
                     </p>
-                    <p style={styles.price}>₹{homestay.price} / night</p>
+                    <p style={styles.price}>
+                      ₹{homestay.price} / {PRICE_TYPES.find(pt => pt.id === homestay.priceType)?.suffix || 'night'}
+                    </p>
+                    {homestay.additionalPrices && Object.keys(homestay.additionalPrices).length > 0 && (
+                      <p style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                        + {Object.keys(homestay.additionalPrices).length} more pricing option{Object.keys(homestay.additionalPrices).length > 1 ? 's' : ''}
+                      </p>
+                    )}
                     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
                       {homestay.coupleFriendly && (
                         <span style={{
@@ -1342,6 +1561,8 @@ function AddHomestayForm() {
     name: "",
     description: "",
     price: "",
+    priceType: "perNight",
+    additionalPrices: {},
     city: "",
     area: "",
     contact: "",
@@ -1354,12 +1575,17 @@ function AddHomestayForm() {
     amenities: [],
     premium: false,
     imagePreview: null,
-    icalUrl: ""
+    icalUrl: "",
+    latitude: null,
+    longitude: null,
+    address: ""
   });
   const [imageFile, setImageFile] = useState(null);
   const [imageError, setImageError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState(null);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(setUser);
@@ -1372,6 +1598,69 @@ function AddHomestayForm() {
       : [...form.amenities, amenityId];
 
     setForm({ ...form, amenities: updatedAmenities });
+  };
+
+  const handleAdditionalPriceChange = (priceTypeId, value) => {
+    const updatedPrices = { ...form.additionalPrices };
+    if (value && !isNaN(value) && Number(value) > 0) {
+      updatedPrices[priceTypeId] = Number(value);
+    } else {
+      delete updatedPrices[priceTypeId];
+    }
+    setForm({ ...form, additionalPrices: updatedPrices });
+  };
+
+  const getCurrentLocation = () => {
+    setLocationLoading(true);
+    setLocationError(null);
+
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your browser");
+      setLocationLoading(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        
+        // Reverse geocoding to get address
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await response.json();
+          const address = data.display_name || `${latitude}, ${longitude}`;
+          
+          setForm({ 
+            ...form, 
+            latitude, 
+            longitude,
+            address
+          });
+          setLocationLoading(false);
+          alert("Location captured successfully!");
+        } catch (error) {
+          setForm({ 
+            ...form, 
+            latitude, 
+            longitude,
+            address: `${latitude}, ${longitude}`
+          });
+          setLocationLoading(false);
+        }
+      },
+      (error) => {
+        setLocationError("Unable to retrieve your location. Please enable location access.");
+        setLocationLoading(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
   };
 
   const handleCityChange = (e) => {
@@ -1471,6 +1760,8 @@ function AddHomestayForm() {
         name: form.name,
         description: form.description,
         price: Number(form.price),
+        priceType: form.priceType,
+        additionalPrices: form.additionalPrices,
         city: form.city,
         area: form.area,
         contact: form.contact,
@@ -1483,6 +1774,9 @@ function AddHomestayForm() {
         amenities: form.amenities,
         premium: form.premium,
         imageUrl,
+        latitude: form.latitude,
+        longitude: form.longitude,
+        address: form.address,
         createdBy: user.uid,
         createdByName: user.displayName,
         createdAt: serverTimestamp(),
@@ -1494,6 +1788,8 @@ function AddHomestayForm() {
         name: "",
         description: "",
         price: "",
+        priceType: "perNight",
+        additionalPrices: {},
         city: "",
         area: "",
         contact: "",
@@ -1506,7 +1802,10 @@ function AddHomestayForm() {
         amenities: [],
         premium: false,
         imagePreview: null,
-        icalUrl: ""
+        icalUrl: "",
+        latitude: null,
+        longitude: null,
+        address: ""
       });
       setImageFile(null);
       alert("Homestay added successfully!");
@@ -1562,16 +1861,54 @@ function AddHomestayForm() {
 
         <div style={styles.formGrid}>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Price (₹ per night) *</label>
+            <label style={styles.label}>Primary Price (₹) *</label>
             <input
               style={styles.input}
               type="number"
               value={form.price}
               onChange={(e) => setForm({ ...form, price: e.target.value })}
               required
+              placeholder="Enter primary price"
             />
           </div>
 
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Primary Price Type *</label>
+            <select
+              style={styles.input}
+              value={form.priceType}
+              onChange={(e) => setForm({ ...form, priceType: e.target.value })}
+              required
+            >
+              {PRICE_TYPES.map(type => (
+                <option key={type.id} value={type.id}>{type.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Additional Pricing Options (Optional)</label>
+          <p style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>
+            Add alternative pricing for different booking periods
+          </p>
+          {PRICE_TYPES.filter(pt => pt.id !== form.priceType).map(priceType => (
+            <div key={priceType.id} style={{ marginBottom: 12 }}>
+              <label style={{ ...styles.label, fontSize: 13, color: '#666' }}>
+                {priceType.label} (₹)
+              </label>
+              <input
+                style={styles.input}
+                type="number"
+                value={form.additionalPrices[priceType.id] || ''}
+                onChange={(e) => handleAdditionalPriceChange(priceType.id, e.target.value)}
+                placeholder={`Optional price per ${priceType.suffix}`}
+              />
+            </div>
+          ))}
+        </div>
+
+        <div style={styles.formGrid}>
           <div style={styles.inputGroup}>
             <label style={styles.label}>City *</label>
             <select
@@ -1652,6 +1989,48 @@ function AddHomestayForm() {
             />
             <small style={{ color: '#666' }}>
               Optional. Paste an iCal (ICS) link to your availability calendar to use later.
+            </small>
+          </div>
+
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Property Location (GPS)</label>
+            <button
+              type="button"
+              style={styles.locationButton}
+              onClick={getCurrentLocation}
+              disabled={locationLoading}
+            >
+              <FiNavigation size={16} />
+              {locationLoading ? 'Getting Location...' : 'Use Current Location'}
+            </button>
+            {locationError && (
+              <p style={{ color: '#ff5252', marginTop: 8, fontSize: 13 }}>
+                {locationError}
+              </p>
+            )}
+            {form.latitude && form.longitude && (
+              <div style={{ 
+                marginTop: 10, 
+                padding: 10, 
+                backgroundColor: '#e8f5e9', 
+                borderRadius: 8,
+                fontSize: 13
+              }}>
+                <p style={{ margin: 0, color: '#2e7d32', fontWeight: 'bold', marginBottom: 4 }}>
+                  ✓ Location Captured
+                </p>
+                <p style={{ margin: 0, color: '#666', fontSize: 12 }}>
+                  Lat: {form.latitude.toFixed(6)}, Lng: {form.longitude.toFixed(6)}
+                </p>
+                {form.address && (
+                  <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: 12 }}>
+                    📍 {form.address}
+                  </p>
+                )}
+              </div>
+            )}
+            <small style={{ color: '#666', display: 'block', marginTop: 8 }}>
+              Click the button to automatically capture your property's exact location. This helps guests find you on the map.
             </small>
           </div>
         </div>
@@ -1798,6 +2177,38 @@ function HomestayDetail() {
         style={styles.detailImage}
       />
 
+      {homestay.latitude && homestay.longitude && (
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 15 }}>Location</h2>
+          <div style={styles.mapContainer}>
+            <MapContainer 
+              center={[homestay.latitude, homestay.longitude]} 
+              zoom={15} 
+              style={{ height: '100%', width: '100%' }}
+            >
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              />
+              <Marker position={[homestay.latitude, homestay.longitude]}>
+                <Popup>
+                  <div style={{ textAlign: 'center' }}>
+                    <strong>{homestay.name}</strong>
+                    <br />
+                    {homestay.address || `${homestay.area}, ${homestay.city}`}
+                  </div>
+                </Popup>
+              </Marker>
+            </MapContainer>
+          </div>
+          {homestay.address && (
+            <p style={{ marginTop: 10, fontSize: 14, color: '#666' }}>
+              📍 {homestay.address}
+            </p>
+          )}
+        </div>
+      )}
+
       <div style={styles.detailInfo}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 15 }}>About this place</h2>
@@ -1820,8 +2231,26 @@ function HomestayDetail() {
 
         <div style={styles.bookingCard}>
           <div style={styles.priceDetail}>
-            ₹{homestay.price} <span style={{ fontWeight: 'normal' }}>/ night</span>
+            ₹{homestay.price} 
+            <span style={{ fontWeight: 'normal', fontSize: 16 }}>
+              / {PRICE_TYPES.find(pt => pt.id === homestay.priceType)?.suffix || 'night'}
+            </span>
           </div>
+
+          {homestay.additionalPrices && Object.keys(homestay.additionalPrices).length > 0 && (
+            <div style={styles.additionalPricing}>
+              <h4 style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 8 }}>Other Pricing Options</h4>
+              {Object.entries(homestay.additionalPrices).map(([priceTypeId, price]) => {
+                const priceTypeInfo = PRICE_TYPES.find(pt => pt.id === priceTypeId);
+                return (
+                  <div key={priceTypeId} style={styles.priceRow}>
+                    <span style={{ color: '#666' }}>{priceTypeInfo?.label}</span>
+                    <span style={{ fontWeight: 'bold' }}>₹{price}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {homestay.premium && (
             <div style={{ backgroundColor: '#fff8e1', padding: 12, borderRadius: 8, marginBottom: 15 }}>
