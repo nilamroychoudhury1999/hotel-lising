@@ -958,14 +958,6 @@ const styles = {
 };
 
 /* ------------------------------
-   Helpers
------------------------------- */
-const isMobileDevice = () =>
-  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-    navigator.userAgent
-  );
-
-/* ------------------------------
    iCal Availability Helper
 ------------------------------ */
 const fetchAndCheckAvailability = async (icalUrl, checkInDate, checkOutDate) => {
@@ -1037,37 +1029,6 @@ const fetchAndCheckAvailability = async (icalUrl, checkInDate, checkOutDate) => 
     return 'unknown';
   }
 };
-
-/* ------------------------------
-   Desktop Warning
------------------------------- */
-function DesktopWarning() {
-  return (
-    <div style={styles.desktopWarning}>
-      <FiSmartphone style={styles.warningIcon} />
-      <h1 style={styles.warningTitle}>Mobile App Only</h1>
-      <p style={styles.warningText}>
-        This application is designed specifically for mobile devices. 
-        Please open this app on your smartphone or tablet for the best experience.
-      </p>
-      <div style={{ 
-        backgroundColor: '#fff', 
-        padding: 20, 
-        borderRadius: 12, 
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-        maxWidth: 400,
-        width: '100%'
-      }}>
-        <h3 style={{ marginBottom: 10, color: '#333' }}>How to access:</h3>
-        <ul style={{ textAlign: 'left', color: '#666', lineHeight: 1.8, paddingLeft: 20 }}>
-          <li>Open this link on your mobile device</li>
-          <li>Scan the QR code if available</li>
-          <li>Use your smartphone's browser</li>
-        </ul>
-      </div>
-    </div>
-  );
-}
 
 /* ------------------------------
    Homestay Listing
