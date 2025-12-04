@@ -3164,25 +3164,6 @@ function HomestayDetail() {
             <FiPhone /> Call Host
           </a>
 
-          {homestay.icalUrl && (
-            <div style={{ marginTop: 12 }}>
-              <h4 style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 6 }}>Host Calendar</h4>
-              <a
-                href={homestay.icalUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  color: '#1565c0',
-                  textDecoration: 'underline',
-                  wordBreak: 'break-all',
-                  fontSize: 14
-                }}
-              >
-                Open iCal Link
-              </a>
-            </div>
-          )}
-
           {(auth.currentUser?.uid === homestay.createdBy || isAdminUser(auth.currentUser)) && (
             <>
               <button
