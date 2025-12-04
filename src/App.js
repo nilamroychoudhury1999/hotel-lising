@@ -34,7 +34,7 @@ import {
 } from "react-router-dom";
 import {
   FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch,
-  FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiSmartphone, FiCalendar, FiNavigation, FiMap
+  FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiCalendar, FiNavigation, FiMap
 } from "react-icons/fi";
 import { Helmet } from "react-helmet";
 import ICAL from "ical.js";
@@ -1074,7 +1074,6 @@ function HomestayListing({ homestays }) {
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [showCalendar, setShowCalendar] = useState(null); // null, 'checkin', or 'checkout'
   const [showAvailableOnly, setShowAvailableOnly] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(new Date());
 
   // Check availability for all homestays with iCal URLs when dates are selected
   useEffect(() => {
@@ -1172,17 +1171,6 @@ function HomestayListing({ homestays }) {
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showCalendar]);
-
-  const handleCalendarChange = (date) => {
-    setSelectedDate(date);
-    const selectedDateStr = date.toISOString().split('T')[0];
-    const nextDay = new Date(date);
-    nextDay.setDate(nextDay.getDate() + 1);
-    const nextDayStr = nextDay.toISOString().split('T')[0];
-    
-    setCheckInDate(selectedDateStr);
-    setCheckOutDate(nextDayStr);
-  };
 
   const toggleShowAvailableOnly = () => {
     setShowAvailableOnly(!showAvailableOnly);
