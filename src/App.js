@@ -7,6 +7,7 @@ import {
   onSnapshot,
   doc,
   getDoc,
+  updateDoc,
   serverTimestamp,
   query,
   where,
@@ -498,7 +499,8 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
-    transition: 'background-color 0.2s'
+    transition: 'background-color 0.2s',
+    textDecoration: 'none'
   },
   searchContainer: {
     display: 'flex',
@@ -1139,117 +1141,7 @@ function HomestayListing({ homestays }) {
         <meta name="description" content="Discover the perfect homestay for your stay in Guwahati, Shillong, and Goa." />
       </Helmet>
 
-      <div style={styles.datePickerContainer}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <FiCalendar size={18} color="#ff385c" />
-          <h3 style={{ fontSize: 16, fontWeight: 'bold', margin: 0 }}>Check Availability</h3>
-        </div>
-        
-        {checkingAvailability && (
-          <div style={{ fontSize: 13, color: '#666', fontStyle: 'italic', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ 
-              width: 16, 
-              height: 16, 
-              border: '2px solid #ddd', 
-              borderTop: '2px solid #ff385c',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite'
-            }}></div>
-            Checking availability...
-          </div>
-        )}
 
-        {!checkingAvailability && (checkInDate || checkOutDate) && (
-          <div style={{ fontSize: 13, color: '#4CAF50', fontWeight: 500, marginBottom: 10 }}>
-            ✓ {availableCount} available • {bookedCount} booked
-          </div>
-        )}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div>
-            <label style={{ ...styles.label, fontSize: 13 }}>Check-in Date</label>
-            <input
-              type="date"
-              style={styles.dateInput}
-              value={checkInDate}
-              onChange={(e) => setCheckInDate(e.target.value)}
-              min={getTodayDate()}
-            />
-          </div>
-          <div>
-            <label style={{ ...styles.label, fontSize: 13 }}>Check-out Date</label>
-            <input
-              type="date"
-              style={styles.dateInput}
-              value={checkOutDate}
-              onChange={(e) => setCheckOutDate(e.target.value)}
-              min={checkInDate || getTodayDate()}
-            />
-          </div>
-          
-          <button 
-            style={styles.toggleCalendarButton} 
-            onClick={() => setShowCalendar(!showCalendar)}
-          >
-            <FiCalendar size={16} />
-            {showCalendar ? 'Hide Calendar' : 'Show Calendar'}
-          </button>
-
-          {showCalendar && (
-            <div style={styles.calendarContainer}>
-              <Calendar
-                onChange={handleCalendarChange}
-                value={selectedDate}
-                minDate={new Date()}
-                className="custom-calendar"
-              />
-              <style>{`
-                .custom-calendar {
-                  width: 100%;
-                  border: 1px solid #ddd;
-                  border-radius: 12px;
-                  padding: 10px;
-                  background-color: white;
-                  font-family: 'Inter', sans-serif;
-                }
-                .custom-calendar .react-calendar__tile--active {
-                  background: #ff385c;
-                  color: white;
-                }
-                .custom-calendar .react-calendar__tile--now {
-                  background: #ffebee;
-                }
-                .custom-calendar .react-calendar__tile:hover {
-                  background: #ffe0e5;
-                }
-                @keyframes spin {
-                  0% { transform: rotate(0deg); }
-                  100% { transform: rotate(360deg); }
-                }
-              `}</style>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button 
-              style={{
-                ...styles.showAvailableOnlyButton,
-                ...(showAvailableOnly ? {} : { backgroundColor: 'white', color: '#4CAF50', border: '1px solid #4CAF50' })
-              }}
-              onClick={toggleShowAvailableOnly}
-            >
-              <FiCheck size={16} />
-              {showAvailableOnly ? 'Showing Available Only' : 'Show All'}
-            </button>
-            
-            {(checkInDate || checkOutDate) && (
-              <button style={styles.clearDatesButton} onClick={clearDates}>
-                Clear
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
 
       <div style={styles.searchContainer}>
         <input
@@ -1835,287 +1727,908 @@ function AddHomestayForm() {
         </div>
       </div>
 
-      <div style={styles.formSection}>
-        <h2 style={styles.sectionTitle}>Basic Information</h2>
+      <form onSubmit={handleSubmit}>
+        <div style={styles.formSection}>
+          <h2 style={styles.sectionTitle}>Basic Information</h2>
 
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Homestay Name *</label>
-          <input
-            style={styles.input}
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            required
-          />
-        </div>
-
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Description *</label>
-          <textarea
-            style={styles.textarea}
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            required
-            placeholder="Tell guests what makes your place special..."
-          />
-        </div>
-
-        <div style={styles.formGrid}>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Primary Price (₹) *</label>
+            <label style={styles.label}>Homestay Name *</label>
             <input
               style={styles.input}
-              type="number"
-              value={form.price}
-              onChange={(e) => setForm({ ...form, price: e.target.value })}
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
-              placeholder="Enter primary price"
             />
           </div>
 
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Primary Price Type *</label>
-            <select
-              style={styles.input}
-              value={form.priceType}
-              onChange={(e) => setForm({ ...form, priceType: e.target.value })}
+            <label style={styles.label}>Description *</label>
+            <textarea
+              style={styles.textarea}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
               required
-            >
-              {PRICE_TYPES.map(type => (
-                <option key={type.id} value={type.id}>{type.label}</option>
-              ))}
-            </select>
+              placeholder="Tell guests what makes your place special..."
+            />
           </div>
-        </div>
 
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Additional Pricing Options (Optional)</label>
-          <p style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>
-            Add alternative pricing for different booking periods
-          </p>
-          {PRICE_TYPES.filter(pt => pt.id !== form.priceType).map(priceType => (
-            <div key={priceType.id} style={{ marginBottom: 12 }}>
-              <label style={{ ...styles.label, fontSize: 13, color: '#666' }}>
-                {priceType.label} (₹)
-              </label>
+          <div style={styles.formGrid}>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Primary Price (₹) *</label>
               <input
                 style={styles.input}
                 type="number"
-                value={form.additionalPrices[priceType.id] || ''}
-                onChange={(e) => handleAdditionalPriceChange(priceType.id, e.target.value)}
-                placeholder={`Optional price per ${priceType.suffix}`}
+                value={form.price}
+                onChange={(e) => setForm({ ...form, price: e.target.value })}
+                required
+                placeholder="Enter primary price"
               />
             </div>
-          ))}
-        </div>
 
-        <div style={styles.formGrid}>
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>City *</label>
-            <select
-              style={styles.input}
-              value={form.city}
-              onChange={handleCityChange}
-              required
-            >
-              <option value="">Select City</option>
-              {ALL_CITIES.map(city => (
-                <option key={city} value={city}>{city}</option>
-              ))}
-            </select>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Primary Price Type *</label>
+              <select
+                style={styles.input}
+                value={form.priceType}
+                onChange={(e) => setForm({ ...form, priceType: e.target.value })}
+                required
+              >
+                {PRICE_TYPES.map(type => (
+                  <option key={type.id} value={type.id}>{type.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Area *</label>
-            <select
-              style={styles.input}
-              value={form.area}
-              onChange={(e) => setForm({ ...form, area: e.target.value })}
-              required
-              disabled={!form.city}
-            >
-              <option value="">Select Area</option>
-              {availableAreas.map(area => (
-                <option key={area} value={area}>{area}</option>
-              ))}
-            </select>
-          </div>
-
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Room Type *</label>
-            <select
-              style={styles.input}
-              value={form.roomType}
-              onChange={(e) => setForm({ ...form, roomType: e.target.value })}
-              required
-            >
-              <option value="">Select Room Type</option>
-              {ROOM_TYPES.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
-
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Phone Number *</label>
-            <input
-              style={styles.input}
-              type="tel"
-              value={form.contact}
-              onChange={(e) => setForm({ ...form, contact: e.target.value })}
-              required
-            />
-          </div>
-
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Maximum Guests *</label>
-            <input
-              style={styles.input}
-              type="number"
-              min="1"
-              value={form.maxGuests}
-              onChange={(e) => setForm({ ...form, maxGuests: e.target.value })}
-              required
-            />
-          </div>
-
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Host Calendar (iCal URL)</label>
-            <input
-              style={styles.input}
-              type="url"
-              placeholder="https://example.com/calendar.ics or webcal://..."
-              value={form.icalUrl}
-              onChange={(e) => setForm({ ...form, icalUrl: e.target.value })}
-            />
-            <small style={{ color: '#666' }}>
-              Optional. Paste an iCal (ICS) link to your availability calendar to use later.
-            </small>
-          </div>
-
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Property Location (GPS)</label>
-            <button
-              type="button"
-              style={styles.locationButton}
-              onClick={getCurrentLocation}
-              disabled={locationLoading}
-            >
-              <FiNavigation size={16} />
-              {locationLoading ? 'Getting Location...' : 'Use Current Location'}
-            </button>
-            {locationError && (
-              <p style={{ color: '#ff5252', marginTop: 8, fontSize: 13 }}>
-                {locationError}
-              </p>
-            )}
-            {form.latitude && form.longitude && (
-              <div style={{ 
-                marginTop: 10, 
-                padding: 10, 
-                backgroundColor: '#e8f5e9', 
-                borderRadius: 8,
-                fontSize: 13
-              }}>
-                <p style={{ margin: 0, color: '#2e7d32', fontWeight: 'bold', marginBottom: 4 }}>
-                  ✓ Location Captured
-                </p>
-                <p style={{ margin: 0, color: '#666', fontSize: 12 }}>
-                  Lat: {form.latitude.toFixed(6)}, Lng: {form.longitude.toFixed(6)}
-                </p>
-                {form.address && (
-                  <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: 12 }}>
-                    📍 {form.address}
-                  </p>
-                )}
+            <label style={styles.label}>Additional Pricing Options (Optional)</label>
+            <p style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>
+              Add alternative pricing for different booking periods
+            </p>
+            {PRICE_TYPES.filter(pt => pt.id !== form.priceType).map(priceType => (
+              <div key={priceType.id} style={{ marginBottom: 12 }}>
+                <label style={{ ...styles.label, fontSize: 13, color: '#666' }}>
+                  {priceType.label} (₹)
+                </label>
+                <input
+                  style={styles.input}
+                  type="number"
+                  value={form.additionalPrices[priceType.id] || ''}
+                  onChange={(e) => handleAdditionalPriceChange(priceType.id, e.target.value)}
+                  placeholder={`Optional price per ${priceType.suffix}`}
+                />
               </div>
-            )}
-            <small style={{ color: '#666', display: 'block', marginTop: 8 }}>
-              Click the button to automatically capture your property's exact location. This helps guests find you on the map.
-            </small>
+            ))}
+          </div>
+
+          <div style={styles.formGrid}>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>City *</label>
+              <select
+                style={styles.input}
+                value={form.city}
+                onChange={handleCityChange}
+                required
+              >
+                <option value="">Select City</option>
+                {ALL_CITIES.map(city => (
+                  <option key={city} value={city}>{city}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Area *</label>
+              <select
+                style={styles.input}
+                value={form.area}
+                onChange={(e) => setForm({ ...form, area: e.target.value })}
+                required
+                disabled={!form.city}
+              >
+                <option value="">Select Area</option>
+                {availableAreas.map(area => (
+                  <option key={area} value={area}>{area}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Room Type *</label>
+              <select
+                style={styles.input}
+                value={form.roomType}
+                onChange={(e) => setForm({ ...form, roomType: e.target.value })}
+                required
+              >
+                <option value="">Select Room Type</option>
+                {ROOM_TYPES.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Phone Number *</label>
+              <input
+                style={styles.input}
+                type="tel"
+                value={form.contact}
+                onChange={(e) => setForm({ ...form, contact: e.target.value })}
+                required
+              />
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Maximum Guests *</label>
+              <input
+                style={styles.input}
+                type="number"
+                min="1"
+                value={form.maxGuests}
+                onChange={(e) => setForm({ ...form, maxGuests: e.target.value })}
+                required
+              />
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Host Calendar (iCal URL)</label>
+              <input
+                style={styles.input}
+                type="url"
+                placeholder="https://example.com/calendar.ics or webcal://..."
+                value={form.icalUrl}
+                onChange={(e) => setForm({ ...form, icalUrl: e.target.value })}
+              />
+              <small style={{ color: '#666' }}>
+                Optional. Paste an iCal (ICS) link to your availability calendar to use later.
+              </small>
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Property Location (GPS)</label>
+              <button
+                type="button"
+                style={styles.locationButton}
+                onClick={getCurrentLocation}
+                disabled={locationLoading}
+              >
+                <FiNavigation size={16} />
+                {locationLoading ? 'Getting Location...' : 'Use Current Location'}
+              </button>
+              {locationError && (
+                <p style={{ color: '#ff5252', marginTop: 8, fontSize: 13 }}>
+                  {locationError}
+                </p>
+              )}
+              {form.latitude && form.longitude && (
+                <div style={{ 
+                  marginTop: 10, 
+                  padding: 10, 
+                  backgroundColor: '#e8f5e9', 
+                  borderRadius: 8,
+                  fontSize: 13
+                }}>
+                  <p style={{ margin: 0, color: '#2e7d32', fontWeight: 'bold', marginBottom: 4 }}>
+                    ✓ Location Captured
+                  </p>
+                  <p style={{ margin: 0, color: '#666', fontSize: 12 }}>
+                    Lat: {form.latitude.toFixed(6)}, Lng: {form.longitude.toFixed(6)}
+                  </p>
+                  {form.address && (
+                    <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: 12 }}>
+                      📍 {form.address}
+                    </p>
+                  )}
+                </div>
+              )}
+              <small style={{ color: '#666', display: 'block', marginTop: 8 }}>
+                Click the button to automatically capture your property's exact location. This helps guests find you on the map.
+              </small>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div style={styles.formSection}>
-        <h2 style={styles.sectionTitle}>Photos</h2>
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Main Photo *</label>
-          <input
-            style={styles.input}
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-            required
-          />
-          {imageError && <p style={{ color: 'red', marginTop: 5, fontSize: 12 }}>{imageError}</p>}
-          {form.imagePreview && (
-            <img
-              src={form.imagePreview}
-              alt="Preview"
-              style={styles.imagePreview}
+        <div style={styles.formSection}>
+          <h2 style={styles.sectionTitle}>Photos</h2>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Main Photo *</label>
+            <input
+              style={styles.input}
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              required
             />
-          )}
+            {imageError && <p style={{ color: 'red', marginTop: 5, fontSize: 12 }}>{imageError}</p>}
+            {form.imagePreview && (
+              <img
+                src={form.imagePreview}
+                alt="Preview"
+                style={styles.imagePreview}
+              />
+            )}
+          </div>
         </div>
-      </div>
 
-      <div style={styles.formSection}>
-        <h2 style={styles.sectionTitle}>Amenities</h2>
-        <div style={styles.checkboxGroup}>
-          {AMENITIES.map(amenity => (
-            <label key={amenity.id} style={styles.checkboxItem}>
+        <div style={styles.formSection}>
+          <h2 style={styles.sectionTitle}>Amenities</h2>
+          <div style={styles.checkboxGroup}>
+            {AMENITIES.map(amenity => (
+              <label key={amenity.id} style={styles.checkboxItem}>
+                <input
+                  type="checkbox"
+                  checked={form.amenities.includes(amenity.id)}
+                  onChange={() => handleAmenityChange(amenity.id)}
+                />
+                {amenity.icon && <span>{amenity.icon}</span>}
+                {amenity.name}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div style={styles.formSection}>
+          <h2 style={styles.sectionTitle}>Additional Information</h2>
+          <div style={styles.checkboxGroup}>
+            <label style={styles.checkboxItem}>
               <input
                 type="checkbox"
-                checked={form.amenities.includes(amenity.id)}
-                onChange={() => handleAmenityChange(amenity.id)}
+                checked={form.coupleFriendly}
+                onChange={(e) => setForm({ ...form, coupleFriendly: e.target.checked })}
               />
-              {amenity.icon && <span>{amenity.icon}</span>}
-              {amenity.name}
+              Couple Friendly
             </label>
-          ))}
+
+            <label style={styles.checkboxItem}>
+              <input
+                type="checkbox"
+                checked={form.hourly}
+                onChange={(e) => setForm({ ...form, hourly: e.target.checked })}
+              />
+              Hourly Stays Available
+            </label>
+
+            <label style={styles.checkboxItem}>
+              <input
+                type="checkbox"
+                checked={form.premium}
+                onChange={(e) => setForm({ ...form, premium: e.target.checked })}
+              />
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                Premium Listing <span style={styles.premiumBadge}><FiStar /> FEATURED</span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <button
+          style={styles.submitButton}
+          type="submit"
+          disabled={loading || !user || imageError}
+        >
+          {loading ? "Submitting..." : "List Your Homestay"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+/* ------------------------------
+   Edit Homestay Form
+------------------------------ */
+function EditHomestayForm() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    price: "",
+    priceType: "perNight",
+    additionalPrices: {},
+    city: "",
+    area: "",
+    contact: "",
+    roomType: "",
+    maxGuests: 2,
+    coupleFriendly: false,
+    hourly: false,
+    petsAllowed: false,
+    smokingAllowed: false,
+    amenities: [],
+    premium: false,
+    imagePreview: null,
+    icalUrl: "",
+    latitude: null,
+    longitude: null,
+    address: ""
+  });
+  const [imageFile, setImageFile] = useState(null);
+  const [imageError, setImageError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState(null);
+  const [initialLoaded, setInitialLoaded] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(setUser);
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const loadHomestay = async () => {
+      try {
+        const ref = doc(db, "homestays", id);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) {
+          alert("Listing not found");
+          navigate("/");
+          return;
+        }
+        const data = snap.data();
+
+        const currentUser = auth.currentUser;
+        if (
+          currentUser &&
+          data.createdBy &&
+          data.createdBy !== currentUser.uid &&
+          !isAdminUser(currentUser)
+        ) {
+          alert("You are not allowed to edit this listing.");
+          navigate("/");
+          return;
+        }
+
+        setForm({
+          name: data.name || "",
+          description: data.description || "",
+          price: data.price || "",
+          priceType: data.priceType || "perNight",
+          additionalPrices: data.additionalPrices || {},
+          city: data.city || "",
+          area: data.area || "",
+          contact: data.contact || "",
+          roomType: data.roomType || "",
+          maxGuests: data.maxGuests || 2,
+          coupleFriendly: !!data.coupleFriendly,
+          hourly: !!data.hourly,
+          petsAllowed: !!data.petsAllowed,
+          smokingAllowed: !!data.smokingAllowed,
+          amenities: data.amenities || [],
+          premium: !!data.premium,
+          imagePreview: data.imageUrl || null,
+          icalUrl: data.icalUrl || "",
+          latitude: data.latitude || null,
+          longitude: data.longitude || null,
+          address: data.address || ""
+        });
+        setInitialLoaded(true);
+      } catch (err) {
+        console.error(err);
+        alert("Failed to load listing");
+        navigate("/");
+      }
+    };
+
+    loadHomestay();
+  }, [id, navigate]);
+
+  const handleAmenityChange = (amenityId) => {
+    const updatedAmenities = form.amenities.includes(amenityId)
+      ? form.amenities.filter(id => id !== amenityId)
+      : [...form.amenities, amenityId];
+
+    setForm({ ...form, amenities: updatedAmenities });
+  };
+
+  const handleAdditionalPriceChange = (priceTypeId, value) => {
+    const updatedPrices = { ...form.additionalPrices };
+    if (value && !isNaN(value) && Number(value) > 0) {
+      updatedPrices[priceTypeId] = Number(value);
+    } else {
+      delete updatedPrices[priceTypeId];
+    }
+    setForm({ ...form, additionalPrices: updatedPrices });
+  };
+
+  const getCurrentLocation = () => {
+    setLocationLoading(true);
+    setLocationError(null);
+
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your browser");
+      setLocationLoading(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await response.json();
+          const address = data.display_name || `${latitude}, ${longitude}`;
+          
+          setForm({ 
+            ...form, 
+            latitude, 
+            longitude,
+            address
+          });
+          setLocationLoading(false);
+          alert("Location captured successfully!");
+        } catch (error) {
+          setForm({ 
+            ...form, 
+            latitude, 
+            longitude,
+            address: `${latitude}, ${longitude}`
+          });
+          setLocationLoading(false);
+        }
+      },
+      (error) => {
+        setLocationError("Unable to retrieve your location. Please enable location access.");
+        setLocationLoading(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  };
+
+  const handleCityChange = (e) => {
+    const city = e.target.value;
+    setForm({ 
+      ...form, 
+      city,
+      area: ""
+    });
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setImageError("Image size must be less than 2MB");
+      return;
+    }
+
+    if (!file.type.match("image.*")) {
+      setImageError("Only image files are allowed");
+      return;
+    }
+
+    setImageError(null);
+    setImageFile(file);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setForm(prev => ({ ...prev, imagePreview: reader.result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const isValidIcalUrl = (url) => {
+    if (!url) return true; // optional
+    try {
+      const u = new URL(url);
+      const isWebCal = u.protocol === "webcal:";
+      const isHttp = u.protocol === "http:" || u.protocol === "https:";
+      return isWebCal || isHttp;
+    } catch {
+      return false;
+    }
+  };
+
+  const normalizeIcalUrl = (url) => {
+    if (!url) return "";
+    try {
+      const u = new URL(url);
+      if (u.protocol === "webcal:") {
+        u.protocol = "https:";
+        return u.toString();
+      }
+      return url;
+    } catch {
+      return url;
+    }
+  };
+
+  const uploadImage = async () => {
+    if (!imageFile) return null;
+
+    const formData = new FormData();
+    formData.append("file", imageFile);
+    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+    try {
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+        { method: "POST", body: formData }
+      );
+      const data = await response.json();
+      return data.secure_url;
+    } catch (error) {
+      console.error("Upload failed:", error);
+      return null;
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!user) return;
+    if (imageError) return;
+    if (!isValidIcalUrl(form.icalUrl)) {
+      alert("Please enter a valid iCal URL (https://, http://, or webcal://).");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      let imageUrlToSave = form.imagePreview;
+
+      if (imageFile) {
+        const uploadedUrl = await uploadImage();
+        if (!uploadedUrl) throw new Error("Image upload failed");
+        imageUrlToSave = uploadedUrl;
+      }
+
+      const ref = doc(db, "homestays", id);
+      await updateDoc(ref, {
+        name: form.name,
+        description: form.description,
+        price: Number(form.price),
+        priceType: form.priceType,
+        additionalPrices: form.additionalPrices,
+        city: form.city,
+        area: form.area,
+        contact: form.contact,
+        roomType: form.roomType,
+        maxGuests: Number(form.maxGuests),
+        coupleFriendly: form.coupleFriendly,
+        hourly: form.hourly,
+        petsAllowed: form.petsAllowed,
+        smokingAllowed: form.smokingAllowed,
+        amenities: form.amenities,
+        premium: form.premium,
+        imageUrl: imageUrlToSave,
+        latitude: form.latitude,
+        longitude: form.longitude,
+        address: form.address,
+        icalUrl: normalizeIcalUrl(form.icalUrl)
+      });
+
+      alert("Homestay updated successfully!");
+      navigate(`/homestays/${id}`);
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Failed to update homestay");
+    }
+    setLoading(false);
+  };
+
+  const availableAreas = form.city ? AREAS_BY_CITY[form.city] || [] : [];
+
+  if (!initialLoaded) {
+    return (
+      <div style={{ padding: 24, textAlign: "center" }}>
+        Loading listing...
+      </div>
+    );
+  }
+
+  return (
+    <div style={styles.formContainer}>
+      <Helmet>
+        <title>Edit Homestay - Homavia</title>
+        <meta name="description" content="Edit your homestay listing on Homavia." />
+      </Helmet>
+
+      <h1 style={styles.formTitle}>Edit your homestay</h1>
+
+      <div style={styles.premiumBanner}>
+        <FiStar size={20} color="#ffd700" />
+        <div>
+          <p style={{ fontWeight: 'bold', marginBottom: 5, fontSize: 14 }}>Premium Listing</p>
+          <p style={{ fontSize: 12 }}>Update your details and keep your listing fresh.</p>
         </div>
       </div>
 
-      <div style={styles.formSection}>
-        <h2 style={styles.sectionTitle}>Additional Information</h2>
-        <div style={styles.checkboxGroup}>
-          <label style={styles.checkboxItem}>
-            <input
-              type="checkbox"
-              checked={form.coupleFriendly}
-              onChange={(e) => setForm({ ...form, coupleFriendly: e.target.checked })}
-            />
-            Couple Friendly
-          </label>
+      <form onSubmit={handleSubmit}>
+        <div style={styles.formSection}>
+          <h2 style={styles.sectionTitle}>Basic Information</h2>
 
-          <label style={styles.checkboxItem}>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Homestay Name *</label>
             <input
-              type="checkbox"
-              checked={form.hourly}
-              onChange={(e) => setForm({ ...form, hourly: e.target.checked })}
+              style={styles.input}
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              required
             />
-            Hourly Stays Available
-          </label>
+          </div>
 
-          <label style={styles.checkboxItem}>
-            <input
-              type="checkbox"
-              checked={form.premium}
-              onChange={(e) => setForm({ ...form, premium: e.target.checked })}
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Description *</label>
+            <textarea
+              style={styles.textarea}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              required
+              placeholder="Tell guests what makes your place special..."
             />
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              Premium Listing <span style={styles.premiumBadge}><FiStar /> FEATURED</span>
-            </span>
-          </label>
+          </div>
+
+          <div style={styles.formGrid}>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Primary Price (₹) *</label>
+              <input
+                style={styles.input}
+                type="number"
+                value={form.price}
+                onChange={(e) => setForm({ ...form, price: e.target.value })}
+                required
+                placeholder="Enter primary price"
+              />
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Primary Price Type *</label>
+              <select
+                style={styles.input}
+                value={form.priceType}
+                onChange={(e) => setForm({ ...form, priceType: e.target.value })}
+                required
+              >
+                {PRICE_TYPES.map(type => (
+                  <option key={type.id} value={type.id}>{type.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Additional Pricing Options (Optional)</label>
+            <p style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>
+              Add alternative pricing for different booking periods
+            </p>
+            {PRICE_TYPES.filter(pt => pt.id !== form.priceType).map(priceType => (
+              <div key={priceType.id} style={{ marginBottom: 12 }}>
+                <label style={{ ...styles.label, fontSize: 13, color: '#666' }}>
+                  {priceType.label} (₹)
+                </label>
+                <input
+                  style={styles.input}
+                  type="number"
+                  value={form.additionalPrices[priceType.id] || ''}
+                  onChange={(e) => handleAdditionalPriceChange(priceType.id, e.target.value)}
+                  placeholder={`Optional price per ${priceType.suffix}`}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div style={styles.formGrid}>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>City *</label>
+              <select
+                style={styles.input}
+                value={form.city}
+                onChange={handleCityChange}
+                required
+              >
+                <option value="">Select City</option>
+                {ALL_CITIES.map(city => (
+                  <option key={city} value={city}>{city}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Area *</label>
+              <select
+                style={styles.input}
+                value={form.area}
+                onChange={(e) => setForm({ ...form, area: e.target.value })}
+                required
+                disabled={!form.city}
+              >
+                <option value="">Select Area</option>
+                {availableAreas.map(area => (
+                  <option key={area} value={area}>{area}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Room Type *</label>
+              <select
+                style={styles.input}
+                value={form.roomType}
+                onChange={(e) => setForm({ ...form, roomType: e.target.value })}
+                required
+              >
+                <option value="">Select Room Type</option>
+                {ROOM_TYPES.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Phone Number *</label>
+              <input
+                style={styles.input}
+                type="tel"
+                value={form.contact}
+                onChange={(e) => setForm({ ...form, contact: e.target.value })}
+                required
+              />
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Maximum Guests *</label>
+              <input
+                style={styles.input}
+                type="number"
+                min="1"
+                value={form.maxGuests}
+                onChange={(e) => setForm({ ...form, maxGuests: e.target.value })}
+                required
+              />
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Host Calendar (iCal URL)</label>
+              <input
+                style={styles.input}
+                type="url"
+                placeholder="https://example.com/calendar.ics or webcal://..."
+                value={form.icalUrl}
+                onChange={(e) => setForm({ ...form, icalUrl: e.target.value })}
+              />
+              <small style={{ color: '#666' }}>
+                Optional. Paste an iCal (ICS) link to your availability calendar.
+              </small>
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Property Location (GPS)</label>
+              <button
+                type="button"
+                style={styles.locationButton}
+                onClick={getCurrentLocation}
+                disabled={locationLoading}
+              >
+                <FiNavigation size={16} />
+                {locationLoading ? 'Getting Location...' : 'Use Current Location'}
+              </button>
+              {locationError && (
+                <p style={{ color: '#ff5252', marginTop: 8, fontSize: 13 }}>
+                  {locationError}
+                </p>
+              )}
+              {form.latitude && form.longitude && (
+                <div style={{ 
+                  marginTop: 10, 
+                  padding: 10, 
+                  backgroundColor: '#e8f5e9', 
+                  borderRadius: 8,
+                  fontSize: 13
+                }}>
+                  <p style={{ margin: 0, color: '#2e7d32', fontWeight: 'bold', marginBottom: 4 }}>
+                    ✓ Location Captured
+                  </p>
+                  <p style={{ margin: 0, color: '#666', fontSize: 12 }}>
+                    Lat: {form.latitude.toFixed(6)}, Lng: {form.longitude.toFixed(6)}
+                  </p>
+                  {form.address && (
+                    <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: 12 }}>
+                      📍 {form.address}
+                    </p>
+                  )}
+                </div>
+              )}
+              <small style={{ color: '#666', display: 'block', marginTop: 8 }}>
+                Capture or update your property's exact location.
+              </small>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <button
-        style={styles.submitButton}
-        onClick={handleSubmit}
-        disabled={loading || !user || imageError}
-      >
-        {loading ? "Submitting..." : "List Your Homestay"}
-      </button>
+        <div style={styles.formSection}>
+          <h2 style={styles.sectionTitle}>Photos</h2>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Main Photo</label>
+            <input
+              style={styles.input}
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+            />
+            <p style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+              Leave empty to keep the existing photo.
+            </p>
+            {imageError && <p style={{ color: 'red', marginTop: 5, fontSize: 12 }}>{imageError}</p>}
+            {form.imagePreview && (
+              <img
+                src={form.imagePreview}
+                alt="Preview"
+                style={styles.imagePreview}
+              />
+            )}
+          </div>
+        </div>
+
+        <div style={styles.formSection}>
+          <h2 style={styles.sectionTitle}>Amenities</h2>
+          <div style={styles.checkboxGroup}>
+            {AMENITIES.map(amenity => (
+              <label key={amenity.id} style={styles.checkboxItem}>
+                <input
+                  type="checkbox"
+                  checked={form.amenities.includes(amenity.id)}
+                  onChange={() => handleAmenityChange(amenity.id)}
+                />
+                {amenity.icon && <span>{amenity.icon}</span>}
+                {amenity.name}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div style={styles.formSection}>
+          <h2 style={styles.sectionTitle}>Additional Information</h2>
+          <div style={styles.checkboxGroup}>
+            <label style={styles.checkboxItem}>
+              <input
+                type="checkbox"
+                checked={form.coupleFriendly}
+                onChange={(e) => setForm({ ...form, coupleFriendly: e.target.checked })}
+              />
+              Couple Friendly
+            </label>
+
+            <label style={styles.checkboxItem}>
+              <input
+                type="checkbox"
+                checked={form.hourly}
+                onChange={(e) => setForm({ ...form, hourly: e.target.checked })}
+              />
+              Hourly Stays Available
+            </label>
+
+            <label style={styles.checkboxItem}>
+              <input
+                type="checkbox"
+                checked={form.premium}
+                onChange={(e) => setForm({ ...form, premium: e.target.checked })}
+              />
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                Premium Listing <span style={styles.premiumBadge}><FiStar /> FEATURED</span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <button
+          style={styles.submitButton}
+          type="submit"
+          disabled={loading || !user || imageError}
+        >
+          {loading ? "Saving..." : "Save Changes"}
+        </button>
+      </form>
     </div>
   );
 }
@@ -2290,16 +2803,25 @@ function HomestayDetail() {
           )}
 
           {(auth.currentUser?.uid === homestay.createdBy || isAdminUser(auth.currentUser)) && (
-            <button
-              style={{ ...styles.bookButton, backgroundColor: '#c62828', marginTop: 10 }}
-              onClick={async () => {
-                if (!window.confirm("Delete this listing?")) return;
-                await deleteDoc(doc(db, "homestays", homestay.id));
-                navigate("/");
-              }}
-            >
-              Delete Listing
-            </button>
+            <>
+              <button
+                style={{ ...styles.bookButton, backgroundColor: '#1565c0', marginTop: 10 }}
+                onClick={() => navigate(`/edit-homestay/${homestay.id}`)}
+              >
+                Edit Listing
+              </button>
+
+              <button
+                style={{ ...styles.bookButton, backgroundColor: '#c62828', marginTop: 10 }}
+                onClick={async () => {
+                  if (!window.confirm("Delete this listing?")) return;
+                  await deleteDoc(doc(db, "homestays", homestay.id));
+                  navigate("/");
+                }}
+              >
+                Delete Listing
+              </button>
+            </>
           )}
 
           <div style={{ marginTop: 15, paddingTop: 15, borderTop: '1px solid #ebebeb' }}>
@@ -2310,6 +2832,137 @@ function HomestayDetail() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------
+   My Listings (Host's own homestays)
+------------------------------ */
+function MyListings() {
+  const [user, setUser] = useState(null);
+  const [myHomestays, setMyHomestays] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsubAuth = auth.onAuthStateChanged((u) => {
+      setUser(u);
+      if (!u) {
+        setMyHomestays([]);
+        setLoading(false);
+        return;
+      }
+
+      const qRef = query(
+        collection(db, "homestays"),
+        where("createdBy", "==", u.uid),
+        orderBy("createdAt", "desc")
+      );
+
+      const unsub = onSnapshot(qRef, (snapshot) => {
+        const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setMyHomestays(docs);
+        setLoading(false);
+      });
+
+      return () => unsub();
+    });
+
+    return () => unsubAuth();
+  }, []);
+
+  if (!user) {
+    return (
+      <div style={{ padding: 24, textAlign: "center" }}>
+        Please log in to view your listings.
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div style={{ padding: 24, textAlign: "center" }}>
+        Loading your listings...
+      </div>
+    );
+  }
+
+  return (
+    <div style={styles.pageContainer}>
+      <Helmet>
+        <title>My Listings - Homavia</title>
+      </Helmet>
+
+      <h1 style={styles.pageTitle}>My Listings</h1>
+
+      {myHomestays.length === 0 ? (
+        <div style={{ textAlign: "center" }}>
+          <p>You haven't listed any homestays yet.</p>
+          <button
+            style={styles.submitButton}
+            onClick={() => navigate("/add-homestay")}
+          >
+            List Your First Homestay
+          </button>
+        </div>
+      ) : (
+        <ul style={styles.homestayList}>
+          {myHomestays.map((h) => (
+            <li key={h.id} style={styles.homestayItem}>
+              <div style={{ position: "relative" }}>
+                <img
+                  src={h.imageUrl}
+                  alt={h.name}
+                  style={styles.homestayImage}
+                />
+              </div>
+              <div style={styles.homestayInfo}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <h3 style={styles.title}>{h.name || "(No name)"}</h3>
+                  <span style={{ fontSize: 12, color: "#666" }}>
+                    {h.city} • {h.area}
+                  </span>
+                </div>
+                <p style={styles.price}>
+                  ₹{h.price} /{" "}
+                  {PRICE_TYPES.find((pt) => pt.id === h.priceType)?.suffix ||
+                    "night"}
+                </p>
+
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button
+                    style={{
+                      ...styles.filterButton,
+                      borderColor: "#ff385c",
+                      color: "#ff385c",
+                    }}
+                    onClick={() => navigate(`/homestays/${h.id}`)}
+                  >
+                    View
+                  </button>
+                  <button
+                    style={{
+                      ...styles.filterButton,
+                      borderColor: "#1565c0",
+                      color: "#1565c0",
+                    }}
+                    onClick={() => navigate(`/edit-homestay/${h.id}`)}
+                  >
+                    Edit
+                  </button>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -2335,8 +2988,6 @@ function AdminTools() {
   }
 
   const cutoffToTimestamp = () => {
-    // Localize to IST midnight
-    // Using fixed offset +05:30
     const iso = `${cutoff}T00:00:00+05:30`;
     return Timestamp.fromDate(new Date(iso));
   };
@@ -2349,7 +3000,6 @@ function AdminTools() {
       const ts = cutoffToTimestamp();
       const pageLimit = 200;
 
-      // Query by Timestamp field
       const qRef = query(
         collection(db, "homestays"),
         orderBy("createdAt"),
@@ -2360,13 +3010,12 @@ function AdminTools() {
       let snap = await getDocs(qRef);
       all.push(...snap.docs);
 
-      // Fallback: include docs where createdAt is a string older than cutoff
       const allSnap = await getDocs(collection(db, "homestays"));
       const cutoffMs = ts.toDate().getTime();
       allSnap.forEach(d => {
         const data = d.data();
         const ca = data.createdAt;
-        if (!ca || ca instanceof Timestamp) return; // handled above
+        if (!ca || ca instanceof Timestamp) return;
         if (typeof ca === "string") {
           const parsed = Date.parse(ca);
           if (!Number.isNaN(parsed) && parsed < cutoffMs) {
@@ -2801,6 +3450,7 @@ function Footer() {
           <Link to="/contact" style={styles.footerLink}><FiPhone /> Contact</Link>
           <Link to="/premium" style={styles.footerLink}><FiStar /> Premium</Link>
           <Link to="/add-homestay" style={styles.footerLink}><FiHome /> List Your Homestay</Link>
+          <Link to="/my-listings" style={styles.footerLink}><FiUser /> My Listings</Link>
         </div>
 
         <div style={styles.footerColumn}>
@@ -2832,7 +3482,6 @@ function MobileApp() {
         ...docu.data()
       }));
 
-      // Hide everything created before Nov 1, 2025 (IST)
       const cutoffIST = new Date("2025-11-01T00:00:00+05:30").getTime();
 
       const normalizeCreatedAtMs = (ca) => {
@@ -2924,6 +3573,11 @@ function MobileApp() {
             <Link to="/about" style={styles.navLink} onClick={closeMobileMenu}>About Us</Link>
             <Link to="/contact" style={styles.navLink} onClick={closeMobileMenu}>Contact</Link>
             <Link to="/premium" style={styles.navLink} onClick={closeMobileMenu}>Premium</Link>
+            {user && (
+              <Link to="/my-listings" style={styles.navLink} onClick={closeMobileMenu}>
+                My Listings
+              </Link>
+            )}
             {user && isAdminUser(user) && (
               <Link to="/admin" style={styles.navLink} onClick={closeMobileMenu}>Admin</Link>
             )}
@@ -2961,6 +3615,8 @@ function MobileApp() {
           <Routes>
             <Route path="/" element={<HomestayListing homestays={homestays} />} />
             <Route path="/add-homestay" element={<AddHomestayForm />} />
+            <Route path="/edit-homestay/:id" element={<EditHomestayForm />} />
+            <Route path="/my-listings" element={<MyListings />} />
             <Route path="/homestays/:id" element={<HomestayDetail />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/contact" element={<ContactPage />} />
