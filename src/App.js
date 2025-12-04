@@ -816,6 +816,20 @@ const styles = {
     borderRadius: 12,
     border: '1px solid #e8e8e8'
   },
+  calendarPopup: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: 8,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08)',
+    zIndex: 1000,
+    overflow: 'hidden',
+    border: '1px solid #e0e0e0',
+    animation: 'slideDown 0.2s ease-out'
+  },
   reactCalendar: {
     width: '100%',
     border: 'none',
@@ -1058,7 +1072,7 @@ function HomestayListing({ homestays }) {
   const [checkOutDate, setCheckOutDate] = useState(getTomorrowDate());
   const [availabilityStatus, setAvailabilityStatus] = useState({});
   const [checkingAvailability, setCheckingAvailability] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(null); // null, 'checkin', or 'checkout'
   const [showAvailableOnly, setShowAvailableOnly] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
@@ -1142,7 +1156,22 @@ function HomestayListing({ homestays }) {
     setCheckOutDate("");
     setAvailabilityStatus({});
     setShowAvailableOnly(false);
+    setShowCalendar(null);
   };
+
+  // Close calendar popup when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showCalendar && !event.target.closest('.calendar-popup-container')) {
+        setShowCalendar(null);
+      }
+    };
+
+    if (showCalendar) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showCalendar]);
 
   const handleCalendarChange = (date) => {
     setSelectedDate(date);
@@ -1236,29 +1265,154 @@ function HomestayListing({ homestays }) {
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
+          {/* Check-in Date with Calendar Popup */}
+          <div style={{ position: 'relative' }}>
             <label style={{ ...styles.label, fontSize: 13, fontWeight: 600, color: '#444' }}>
               Check-in Date
             </label>
-            <input
-              type="date"
-              style={styles.dateInput}
-              value={checkInDate}
-              onChange={(e) => setCheckInDate(e.target.value)}
-              min={getTodayDate()}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                readOnly
+                style={{
+                  ...styles.dateInput,
+                  cursor: 'pointer',
+                  paddingRight: 40
+                }}
+                value={checkInDate ? new Date(checkInDate).toLocaleDateString('en-US', { 
+                  weekday: 'short', 
+                  month: 'short', 
+                  day: 'numeric',
+                  year: 'numeric'
+                }) : 'Select check-in date'}
+                onClick={() => setShowCalendar(showCalendar === 'checkin' ? null : 'checkin')}
+              />
+              <FiCalendar 
+                size={18} 
+                style={{ 
+                  position: 'absolute', 
+                  right: 14, 
+                  top: '50%', 
+                  transform: 'translateY(-50%)',
+                  color: '#ff385c',
+                  pointerEvents: 'none'
+                }} 
+              />
+            </div>
+            
+            {showCalendar === 'checkin' && (
+              <div style={styles.calendarPopup} className="calendar-popup-container">
+                <div style={{ 
+                  padding: '12px 16px', 
+                  borderBottom: '1px solid #e0e0e0',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#222' }}>
+                    Select Check-in Date
+                  </h4>
+                  <button
+                    onClick={() => setShowCalendar(null)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: 4,
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: '#666'
+                    }}
+                  >
+                    <FiX size={20} />
+                  </button>
+                </div>
+                <Calendar
+                  onChange={(date) => {
+                    setCheckInDate(date.toISOString().split('T')[0]);
+                    setShowCalendar('checkout');
+                  }}
+                  value={checkInDate ? new Date(checkInDate) : new Date()}
+                  minDate={new Date()}
+                  className="professional-calendar"
+                />
+              </div>
+            )}
           </div>
-          <div>
+
+          {/* Check-out Date with Calendar Popup */}
+          <div style={{ position: 'relative' }}>
             <label style={{ ...styles.label, fontSize: 13, fontWeight: 600, color: '#444' }}>
               Check-out Date
             </label>
-            <input
-              type="date"
-              style={styles.dateInput}
-              value={checkOutDate}
-              onChange={(e) => setCheckOutDate(e.target.value)}
-              min={checkInDate || getTodayDate()}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                readOnly
+                style={{
+                  ...styles.dateInput,
+                  cursor: 'pointer',
+                  paddingRight: 40
+                }}
+                value={checkOutDate ? new Date(checkOutDate).toLocaleDateString('en-US', { 
+                  weekday: 'short', 
+                  month: 'short', 
+                  day: 'numeric',
+                  year: 'numeric'
+                }) : 'Select check-out date'}
+                onClick={() => setShowCalendar(showCalendar === 'checkout' ? null : 'checkout')}
+              />
+              <FiCalendar 
+                size={18} 
+                style={{ 
+                  position: 'absolute', 
+                  right: 14, 
+                  top: '50%', 
+                  transform: 'translateY(-50%)',
+                  color: '#ff385c',
+                  pointerEvents: 'none'
+                }} 
+              />
+            </div>
+            
+            {showCalendar === 'checkout' && (
+              <div style={styles.calendarPopup} className="calendar-popup-container">
+                <div style={{ 
+                  padding: '12px 16px', 
+                  borderBottom: '1px solid #e0e0e0',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#222' }}>
+                    Select Check-out Date
+                  </h4>
+                  <button
+                    onClick={() => setShowCalendar(null)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: 4,
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: '#666'
+                    }}
+                  >
+                    <FiX size={20} />
+                  </button>
+                </div>
+                <Calendar
+                  onChange={(date) => {
+                    setCheckOutDate(date.toISOString().split('T')[0]);
+                    setShowCalendar(null);
+                  }}
+                  value={checkOutDate ? new Date(checkOutDate) : new Date()}
+                  minDate={checkInDate ? new Date(new Date(checkInDate).getTime() + 86400000) : new Date()}
+                  className="professional-calendar"
+                />
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
@@ -1291,42 +1445,23 @@ function HomestayListing({ homestays }) {
               </button>
             )}
           </div>
-
-          {/* Calendar Toggle Button */}
-          <button 
-            style={styles.toggleCalendarButton} 
-            onClick={() => setShowCalendar(!showCalendar)}
-          >
-            <FiCalendar size={16} />
-            {showCalendar ? 'Hide Calendar' : 'Show Calendar'}
-          </button>
-
-          {/* Visual Calendar */}
-          {showCalendar && (
-            <div style={styles.calendarContainer}>
-              <Calendar
-                onChange={handleCalendarChange}
-                value={selectedDate}
-                minDate={new Date()}
-                className="professional-calendar"
-              />
-              <p style={{ 
-                fontSize: 12, 
-                color: '#666', 
-                marginTop: 10, 
-                textAlign: 'center',
-                fontStyle: 'italic'
-              }}>
-                Click a date to check availability for that night
-              </p>
-            </div>
-          )}
         </div>
 
         <style>{`
           @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+          }
+
+          @keyframes slideDown {
+            from {
+              opacity: 0;
+              transform: translateY(-10px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
           }
 
           /* Professional Calendar Styles */
