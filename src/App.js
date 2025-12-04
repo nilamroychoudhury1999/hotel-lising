@@ -151,11 +151,11 @@ const styles = {
     maxWidth: '100%',
     margin: "0 auto",
     padding: "0 16px",
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: '#fff'
+    backgroundColor: '#fafafa'
   },
   desktopWarning: {
     display: 'flex',
@@ -189,122 +189,147 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '16px 0',
-    borderBottom: '1px solid #ebebeb',
+    padding: '20px 0',
+    borderBottom: '1px solid #e0e0e0',
     marginBottom: 24,
-    position: 'relative'
+    position: 'sticky',
+    top: 0,
+    backgroundColor: '#fff',
+    zIndex: 100,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
   },
   logoContainer: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     color: '#ff385c',
     fontWeight: 'bold',
-    fontSize: 20,
-    textDecoration: 'none'
+    fontSize: 22,
+    textDecoration: 'none',
+    letterSpacing: '-0.5px'
   },
   logo: {
-    height: 32,
-    borderRadius: 6
+    height: 36,
+    borderRadius: 8,
+    boxShadow: '0 2px 8px rgba(255,56,92,0.2)'
   },
   navLinks: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 16
+    gap: 20
   },
   navLink: {
-    color: '#333',
+    color: '#222',
     textDecoration: 'none',
     fontWeight: 500,
     fontSize: 16,
-    transition: 'color 0.2s'
+    transition: 'color 0.2s',
+    letterSpacing: '-0.2px'
   },
   authButton: {
     display: 'flex',
     alignItems: 'center',
-    gap: 5,
-    padding: '8px 12px',
-    borderRadius: 30,
-    border: '1px solid #ddd',
+    gap: 6,
+    padding: '10px 16px',
+    borderRadius: 24,
+    border: '1px solid #e0e0e0',
     backgroundColor: 'white',
     cursor: 'pointer',
-    fontWeight: 500,
-    fontSize: 14
+    fontWeight: 600,
+    fontSize: 14,
+    transition: 'all 0.2s',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.04)'
   },
   btnPrimary: {
     backgroundColor: '#ff385c',
     color: 'white',
-    border: 'none'
+    border: 'none',
+    boxShadow: '0 4px 12px rgba(255,56,92,0.25)'
   },
   homestayList: {
     display: 'grid',
     gridTemplateColumns: '1fr',
-    gap: 20,
+    gap: 24,
     padding: 0,
-    listStyle: 'none'
+    listStyle: 'none',
+    marginTop: 10
   },
   homestayItem: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
-    transition: 'transform 0.2s',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+    transition: 'all 0.3s ease',
+    boxShadow: '0 2px 16px rgba(0,0,0,0.08)',
+    backgroundColor: '#fff',
+    cursor: 'pointer'
   },
   homestayImage: {
     width: '100%',
-    height: 200,
+    height: 220,
     objectFit: 'cover',
-    borderRadius: 12,
-    marginBottom: 10
+    borderRadius: '16px 16px 0 0',
+    marginBottom: 0
   },
   homestayInfo: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 5,
-    padding: '0 10px 15px'
+    gap: 6,
+    padding: '16px'
   },
   price: {
     fontWeight: 'bold',
-    fontSize: 18
+    fontSize: 19,
+    color: '#222',
+    letterSpacing: '-0.3px'
   },
   title: {
-    fontWeight: 500,
-    fontSize: 16
+    fontWeight: 600,
+    fontSize: 17,
+    color: '#222',
+    letterSpacing: '-0.2px',
+    lineHeight: 1.3
   },
   location: {
     color: '#717171',
     fontSize: 14,
     display: 'flex',
     alignItems: 'center',
-    gap: 5
+    gap: 5,
+    letterSpacing: '-0.1px'
   },
   rating: {
     display: 'flex',
     alignItems: 'center',
     gap: 5,
-    fontSize: 14
+    fontSize: 14,
+    fontWeight: 600
   },
   filterContainer: {
     display: 'flex',
-    gap: 12,
+    gap: 10,
     marginBottom: 20,
     overflowX: 'auto',
     paddingBottom: 10,
-    scrollbarWidth: 'none'
+    scrollbarWidth: 'none',
+    WebkitOverflowScrolling: 'touch'
   },
   filterButton: {
-    padding: '8px 12px',
-    borderRadius: 30,
-    border: '1px solid #ddd',
+    padding: '10px 18px',
+    borderRadius: 24,
+    border: '1px solid #e0e0e0',
     backgroundColor: 'white',
     cursor: 'pointer',
     whiteSpace: 'nowrap',
     fontSize: 14,
-    fontWeight: 500
+    fontWeight: 600,
+    transition: 'all 0.2s',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+    letterSpacing: '-0.1px'
   },
   activeFilter: {
-    backgroundColor: '#000',
+    backgroundColor: '#222',
     color: 'white',
-    borderColor: '#000'
+    borderColor: '#222',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
   },
   locationDropdown: {
     padding: '12px 15px',
@@ -762,116 +787,137 @@ const styles = {
   datePickerContainer: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 10,
-    marginBottom: 20,
-    backgroundColor: '#f8f9fa',
-    padding: 15,
-    borderRadius: 12,
-    border: '1px solid #ddd'
+    gap: 12,
+    marginBottom: 24,
+    backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: 'white',
+    padding: 20,
+    borderRadius: 16,
+    border: '1px solid #e0e0e0',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
   },
   dateInput: {
-    padding: '12px 15px',
-    borderRadius: 8,
-    border: '1px solid #ddd',
-    fontSize: 14,
+    padding: '14px 16px',
+    borderRadius: 12,
+    border: '1.5px solid #e0e0e0',
+    fontSize: 15,
     width: '100%',
     boxSizing: 'border-box',
-    backgroundColor: 'white'
+    backgroundColor: 'white',
+    fontWeight: 500,
+    transition: 'all 0.2s',
+    color: '#222'
   },
   calendarContainer: {
-    marginTop: 10,
-    marginBottom: 10
+    marginTop: 12,
+    marginBottom: 12,
+    padding: 12,
+    backgroundColor: '#fafafa',
+    borderRadius: 12,
+    border: '1px solid #e8e8e8'
   },
   reactCalendar: {
     width: '100%',
-    border: '1px solid #ddd',
+    border: 'none',
     borderRadius: 12,
-    padding: 10,
+    padding: 12,
     backgroundColor: 'white',
-    fontFamily: "'Inter', sans-serif"
+    fontFamily: "'Inter', -apple-system, sans-serif",
+    boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
   },
   availabilityBadge: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: '#4CAF50',
+    top: 12,
+    right: 12,
+    backgroundColor: '#10b981',
     color: 'white',
-    padding: '4px 10px',
-    borderRadius: 12,
+    padding: '6px 12px',
+    borderRadius: 20,
     fontSize: 11,
     fontWeight: 'bold',
     display: 'flex',
     alignItems: 'center',
-    gap: 4
+    gap: 4,
+    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+    letterSpacing: '0.5px'
   },
   unavailableBadge: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: '#ff5252',
+    top: 12,
+    right: 12,
+    backgroundColor: '#ef4444',
     color: 'white',
-    padding: '4px 10px',
-    borderRadius: 12,
+    padding: '6px 12px',
+    borderRadius: 20,
     fontSize: 11,
     fontWeight: 'bold',
     display: 'flex',
     alignItems: 'center',
-    gap: 4
+    gap: 4,
+    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
+    letterSpacing: '0.5px'
   },
   clearDatesButton: {
-    padding: '8px 12px',
-    borderRadius: 8,
-    border: '1px solid #ddd',
+    padding: '10px 16px',
+    borderRadius: 12,
+    border: '1.5px solid #e0e0e0',
     backgroundColor: 'white',
     cursor: 'pointer',
     fontSize: 14,
-    fontWeight: 500,
-    color: '#666'
+    fontWeight: 600,
+    color: '#666',
+    transition: 'all 0.2s'
   },
   toggleCalendarButton: {
-    padding: '10px 15px',
-    borderRadius: 8,
-    border: '1px solid #ff385c',
+    padding: '12px 18px',
+    borderRadius: 12,
+    border: '1.5px solid #ff385c',
     backgroundColor: 'white',
     color: '#ff385c',
     cursor: 'pointer',
     fontSize: 14,
-    fontWeight: 500,
+    fontWeight: 600,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 10
+    marginTop: 10,
+    transition: 'all 0.2s',
+    boxShadow: '0 2px 8px rgba(255, 56, 92, 0.1)'
   },
   showAvailableOnlyButton: {
-    padding: '10px 15px',
-    borderRadius: 8,
-    border: '1px solid #4CAF50',
-    backgroundColor: '#4CAF50',
+    padding: '12px 18px',
+    borderRadius: 12,
+    border: 'none',
+    backgroundColor: '#10b981',
     color: 'white',
     cursor: 'pointer',
     fontSize: 14,
-    fontWeight: 500,
+    fontWeight: 600,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 10
+    marginTop: 10,
+    transition: 'all 0.2s',
+    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)'
   },
   locationButton: {
-    padding: '10px 15px',
-    borderRadius: 8,
-    border: '1px solid #2196F3',
-    backgroundColor: '#2196F3',
+    padding: '12px 18px',
+    borderRadius: 12,
+    border: 'none',
+    backgroundColor: '#3b82f6',
     color: 'white',
     cursor: 'pointer',
     fontSize: 14,
-    fontWeight: 500,
+    fontWeight: 600,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 10
+    marginTop: 10,
+    transition: 'all 0.2s',
+    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)'
   },
   mapContainer: {
     height: '400px',
