@@ -969,24 +969,55 @@ const isMobileDevice = () =>
    iCal Availability Helper
 ------------------------------ */
 const fetchAndCheckAvailability = async (icalUrl, checkInDate, checkOutDate) => {
-  if (!icalUrl || !checkInDate || !checkOutDate) return 'unknown';
+  if (!icalUrl || !checkInDate || !checkOutDate) {
+    console.log('Missing parameters:', { icalUrl, checkInDate, checkOutDate });
+    return 'unknown';
+  }
   
   try {
-    const response = await fetch(icalUrl);
-    if (!response.ok) return 'unknown';
+    console.log('Fetching iCal from:', icalUrl);
+    
+    // Use a CORS proxy for external iCal URLs
+    const proxyUrl = 'https://api.allorigins.win/raw?url=';
+    const urlToFetch = icalUrl.startsWith('http') ? proxyUrl + encodeURIComponent(icalUrl) : icalUrl;
+    
+    const response = await fetch(urlToFetch);
+    if (!response.ok) {
+      console.error('Failed to fetch iCal:', response.status, response.statusText);
+      return 'unknown';
+    }
     
     const icalData = await response.text();
+    console.log('iCal data received, length:', icalData.length);
+    
+    if (!icalData || icalData.length < 10) {
+      console.error('Invalid iCal data received');
+      return 'unknown';
+    }
+    
     const jcalData = ICAL.parse(icalData);
     const comp = new ICAL.Component(jcalData);
     const vevents = comp.getAllSubcomponents('vevent');
     
+    console.log('Found', vevents.length, 'events in calendar');
+    
     const checkIn = new Date(checkInDate);
     const checkOut = new Date(checkOutDate);
+    
+    checkIn.setHours(0, 0, 0, 0);
+    checkOut.setHours(23, 59, 59, 999);
     
     for (const vevent of vevents) {
       const event = new ICAL.Event(vevent);
       const eventStart = event.startDate.toJSDate();
       const eventEnd = event.endDate.toJSDate();
+      
+      console.log('Checking event:', {
+        eventStart: eventStart.toISOString(),
+        eventEnd: eventEnd.toISOString(),
+        checkIn: checkIn.toISOString(),
+        checkOut: checkOut.toISOString()
+      });
       
       // Check if there's any overlap between the requested dates and booked dates
       if (
@@ -994,10 +1025,12 @@ const fetchAndCheckAvailability = async (icalUrl, checkInDate, checkOutDate) => 
         (checkOut > eventStart && checkOut <= eventEnd) ||
         (checkIn <= eventStart && checkOut >= eventEnd)
       ) {
+        console.log('Found conflict - property is unavailable');
         return 'unavailable';
       }
     }
     
+    console.log('No conflicts found - property is available');
     return 'available';
   } catch (error) {
     console.error('Error checking availability:', error);
@@ -1187,7 +1220,262 @@ function HomestayListing({ homestays }) {
         <meta name="description" content="Discover the perfect homestay for your stay in Guwahati, Shillong, and Goa." />
       </Helmet>
 
+      {/* Availability Calendar Section */}
+      <div style={styles.datePickerContainer}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <FiCalendar size={20} color="#ff385c" />
+          <h3 style={{ fontSize: 17, fontWeight: 'bold', margin: 0, letterSpacing: '-0.3px' }}>
+            Check Availability
+          </h3>
+        </div>
+        
+        {checkingAvailability && (
+          <div style={{ 
+            fontSize: 13, 
+            color: '#666', 
+            fontStyle: 'italic', 
+            marginBottom: 12, 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 8,
+            padding: '10px 14px',
+            backgroundColor: '#f0f9ff',
+            borderRadius: 10,
+            border: '1px solid #bae6fd'
+          }}>
+            <div style={{ 
+              width: 16, 
+              height: 16, 
+              border: '2px solid #e0e0e0', 
+              borderTop: '2px solid #ff385c',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }}></div>
+            Checking availability for {homestays.length} properties...
+          </div>
+        )}
 
+        {!checkingAvailability && (checkInDate || checkOutDate) && (
+          <div style={{ 
+            fontSize: 14, 
+            color: '#10b981', 
+            fontWeight: 600, 
+            marginBottom: 12,
+            padding: '10px 14px',
+            backgroundColor: '#f0fdf4',
+            borderRadius: 10,
+            border: '1px solid #bbf7d0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
+          }}>
+            <FiCheck size={16} />
+            {availableCount} available • {bookedCount} booked
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <label style={{ ...styles.label, fontSize: 13, fontWeight: 600, color: '#444' }}>
+              Check-in Date
+            </label>
+            <input
+              type="date"
+              style={styles.dateInput}
+              value={checkInDate}
+              onChange={(e) => setCheckInDate(e.target.value)}
+              min={getTodayDate()}
+            />
+          </div>
+          <div>
+            <label style={{ ...styles.label, fontSize: 13, fontWeight: 600, color: '#444' }}>
+              Check-out Date
+            </label>
+            <input
+              type="date"
+              style={styles.dateInput}
+              value={checkOutDate}
+              onChange={(e) => setCheckOutDate(e.target.value)}
+              min={checkInDate || getTodayDate()}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <button 
+              style={{
+                ...styles.showAvailableOnlyButton,
+                flex: 1,
+                ...(showAvailableOnly ? {} : { 
+                  backgroundColor: 'white', 
+                  color: '#10b981', 
+                  border: '1.5px solid #10b981',
+                  boxShadow: 'none'
+                })
+              }}
+              onClick={toggleShowAvailableOnly}
+            >
+              <FiCheck size={16} />
+              {showAvailableOnly ? 'Available Only' : 'Show All'}
+            </button>
+            
+            {(checkInDate || checkOutDate) && (
+              <button 
+                style={{
+                  ...styles.clearDatesButton,
+                  padding: '12px 16px'
+                }} 
+                onClick={clearDates}
+              >
+                <FiX size={16} />
+              </button>
+            )}
+          </div>
+
+          {/* Calendar Toggle Button */}
+          <button 
+            style={styles.toggleCalendarButton} 
+            onClick={() => setShowCalendar(!showCalendar)}
+          >
+            <FiCalendar size={16} />
+            {showCalendar ? 'Hide Calendar' : 'Show Calendar'}
+          </button>
+
+          {/* Visual Calendar */}
+          {showCalendar && (
+            <div style={styles.calendarContainer}>
+              <Calendar
+                onChange={handleCalendarChange}
+                value={selectedDate}
+                minDate={new Date()}
+                className="professional-calendar"
+              />
+              <p style={{ 
+                fontSize: 12, 
+                color: '#666', 
+                marginTop: 10, 
+                textAlign: 'center',
+                fontStyle: 'italic'
+              }}>
+                Click a date to check availability for that night
+              </p>
+            </div>
+          )}
+        </div>
+
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+
+          /* Professional Calendar Styles */
+          .professional-calendar {
+            width: 100%;
+            border: none;
+            border-radius: 12px;
+            background: white;
+            font-family: 'Inter', -apple-system, sans-serif;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+          }
+
+          .professional-calendar .react-calendar__navigation {
+            display: flex;
+            height: 44px;
+            margin-bottom: 12px;
+            background: #fafafa;
+            border-radius: 10px;
+            padding: 4px;
+          }
+
+          .professional-calendar .react-calendar__navigation button {
+            min-width: 44px;
+            background: transparent;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            color: #222;
+            border-radius: 8px;
+            transition: all 0.2s;
+          }
+
+          .professional-calendar .react-calendar__navigation button:hover {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+          }
+
+          .professional-calendar .react-calendar__navigation button:disabled {
+            color: #ccc;
+          }
+
+          .professional-calendar .react-calendar__month-view__weekdays {
+            text-align: center;
+            font-weight: 600;
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+          }
+
+          .professional-calendar .react-calendar__month-view__weekdays__weekday {
+            padding: 8px;
+          }
+
+          .professional-calendar .react-calendar__month-view__weekdays abbr {
+            text-decoration: none;
+          }
+
+          .professional-calendar .react-calendar__tile {
+            max-width: 100%;
+            padding: 12px 6px;
+            background: transparent;
+            text-align: center;
+            line-height: 16px;
+            border-radius: 10px;
+            border: none;
+            font-weight: 500;
+            font-size: 14px;
+            color: #222;
+            transition: all 0.2s;
+            margin: 2px;
+          }
+
+          .professional-calendar .react-calendar__tile:hover {
+            background: #f0f9ff;
+            color: #0284c7;
+          }
+
+          .professional-calendar .react-calendar__tile--now {
+            background: #fef3c7;
+            color: #92400e;
+            font-weight: 600;
+          }
+
+          .professional-calendar .react-calendar__tile--now:hover {
+            background: #fde68a;
+          }
+
+          .professional-calendar .react-calendar__tile--active {
+            background: #ff385c !important;
+            color: white !important;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(255, 56, 92, 0.3);
+          }
+
+          .professional-calendar .react-calendar__tile--active:hover {
+            background: #e31c5f !important;
+          }
+
+          .professional-calendar .react-calendar__tile:disabled {
+            color: #ddd;
+            background: transparent;
+          }
+
+          .professional-calendar .react-calendar__month-view__days__day--neighboringMonth {
+            color: #ccc;
+          }
+        `}</style>
+      </div>
 
       <div style={styles.searchContainer}>
         <input
@@ -3688,16 +3976,6 @@ function MobileApp() {
    Main App
 ------------------------------ */
 function App() {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    setIsMobile(isMobileDevice());
-  }, []);
-
-  if (!isMobile) {
-    return <DesktopWarning />;
-  }
-
   return <MobileApp />;
 }
 
