@@ -1081,6 +1081,9 @@ function HomestayListing({ homestays }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState("list"); // 'list' or 'map'
   const [showFilters, setShowFilters] = useState(true); // Filter expand/collapse
+  const [mapSearchQuery, setMapSearchQuery] = useState("");
+  const [mapCenter, setMapCenter] = useState(null);
+  const [mapZoom, setMapZoom] = useState(null);
   
   // Initialize with today's date
   const getTodayDate = () => {
@@ -1201,6 +1204,8 @@ function HomestayListing({ homestays }) {
 
   // Get center coordinates for map based on selected city
   const getCityCenter = () => {
+    if (mapCenter) return mapCenter;
+    
     const cityCoords = {
       'Guwahati': [26.1445, 91.7362],
       'Shillong': [25.5788, 91.8933],
@@ -1209,6 +1214,29 @@ function HomestayListing({ homestays }) {
     return selectedCity !== "All" && cityCoords[selectedCity] 
       ? cityCoords[selectedCity] 
       : [23.6345, 85.3803]; // Center of India as default
+  };
+
+  // Search for location on map
+  const handleMapSearch = async () => {
+    if (!mapSearchQuery.trim()) return;
+    
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(mapSearchQuery)}&limit=1`
+      );
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        const { lat, lon } = data[0];
+        setMapCenter([parseFloat(lat), parseFloat(lon)]);
+        setMapZoom(13);
+      } else {
+        alert('Location not found. Try searching for a city, area, or landmark.');
+      }
+    } catch (error) {
+      console.error('Map search error:', error);
+      alert('Failed to search location. Please try again.');
+    }
   };
 
   return (
@@ -1840,10 +1868,110 @@ function HomestayListing({ homestays }) {
       )}
 
       {viewMode === 'map' && sortedHomestays.filter(h => h.latitude && h.longitude).length > 0 && (
-        <div style={styles.mapContainer}>
+        <div>
+          {/* Map Search Bar */}
+          <div style={{ 
+            marginBottom: 16, 
+            padding: 16, 
+            backgroundColor: '#fff',
+            borderRadius: 12,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            border: '1px solid #ebebeb'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <FiSearch size={18} color="#ff385c" />
+              <h4 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>Search Location on Map</h4>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="text"
+                placeholder="Search city, area, or landmark..."
+                value={mapSearchQuery}
+                onChange={(e) => setMapSearchQuery(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleMapSearch()}
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  border: '1px solid #ddd',
+                  borderRadius: 8,
+                  fontSize: 15,
+                  outline: 'none',
+                  transition: 'border-color 0.2s'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#ff385c'}
+                onBlur={(e) => e.target.style.borderColor = '#ddd'}
+              />
+              <button
+                onClick={handleMapSearch}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: '#ff385c',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontSize: 15,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  transition: 'all 0.2s',
+                  minHeight: 48,
+                  whiteSpace: 'nowrap'
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#e31c5f'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#ff385c'}
+              >
+                <FiSearch size={16} />
+                Search
+              </button>
+              {mapCenter && (
+                <button
+                  onClick={() => {
+                    setMapCenter(null);
+                    setMapZoom(null);
+                    setMapSearchQuery('');
+                  }}
+                  style={{
+                    padding: '12px 20px',
+                    backgroundColor: '#fff',
+                    color: '#666',
+                    border: '1px solid #ddd',
+                    borderRadius: 8,
+                    fontSize: 15,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    transition: 'all 0.2s',
+                    minHeight: 48,
+                    whiteSpace: 'nowrap'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = '#f8f8f8';
+                    e.target.style.borderColor = '#ff385c';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = '#fff';
+                    e.target.style.borderColor = '#ddd';
+                  }}
+                >
+                  <FiX size={16} />
+                  Reset
+                </button>
+              )}
+            </div>
+            <small style={{ fontSize: 12, color: '#666', marginTop: 8, display: 'block' }}>
+              💡 Search for any location to navigate the map. Press Enter or click Search.
+            </small>
+          </div>
+
+          <div style={styles.mapContainer}>
           <MapContainer 
+            key={mapCenter ? `${mapCenter[0]}-${mapCenter[1]}` : 'default'}
             center={getCityCenter()} 
-            zoom={selectedCity !== "All" ? 12 : 5} 
+            zoom={mapZoom || (selectedCity !== "All" ? 12 : 5)} 
             style={{ height: '100%', width: '100%' }}
           >
             <TileLayer
@@ -1922,6 +2050,7 @@ function HomestayListing({ homestays }) {
                 );
               })}
           </MapContainer>
+        </div>
         </div>
       )}
 
