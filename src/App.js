@@ -2200,6 +2200,7 @@ function AddHomestayForm() {
   const [locationError, setLocationError] = useState(null);
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [mapCenter, setMapCenter] = useState([23.6345, 85.3803]); // Center of India
+  const [locationSearchQuery, setLocationSearchQuery] = useState("");
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(setUser);
@@ -2253,6 +2254,7 @@ function AddHomestayForm() {
             longitude,
             address
           });
+          setMapCenter([latitude, longitude]);
           setLocationLoading(false);
           alert("Location captured successfully!");
         } catch (error) {
@@ -2262,19 +2264,50 @@ function AddHomestayForm() {
             longitude,
             address: `${latitude}, ${longitude}`
           });
+          setMapCenter([latitude, longitude]);
           setLocationLoading(false);
         }
       },
       (error) => {
         setLocationError("Unable to retrieve your location. Please enable location access.");
         setLocationLoading(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
       }
     );
+  };
+
+  const handleLocationSearch = async () => {
+    if (!locationSearchQuery.trim()) return;
+    
+    setLocationLoading(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationSearchQuery)}&limit=1`
+      );
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        const { lat, lon, display_name } = data[0];
+        const latitude = parseFloat(lat);
+        const longitude = parseFloat(lon);
+        
+        setForm({
+          ...form,
+          latitude,
+          longitude,
+          address: display_name
+        });
+        setMapCenter([latitude, longitude]);
+        setLocationLoading(false);
+        alert("Location found and set successfully!");
+      } else {
+        setLocationLoading(false);
+        alert('Location not found. Try searching for a city, area, or landmark.');
+      }
+    } catch (error) {
+      console.error('Location search error:', error);
+      setLocationLoading(false);
+      alert('Failed to search location. Please try again.');
+    }
   };
 
   const handleCityChange = (e) => {
