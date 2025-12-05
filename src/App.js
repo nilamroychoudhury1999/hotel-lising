@@ -2702,6 +2702,48 @@ function AddHomestayForm() {
               
               {showMapPicker && (
                 <div style={{ marginTop: 12, border: '2px solid #ff385c', borderRadius: 12, overflow: 'hidden' }}>
+                  {/* Location Search Bar */}
+                  <div style={{ padding: 12, backgroundColor: '#fff', borderBottom: '1px solid #e0e0e0' }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input
+                        type="text"
+                        value={locationSearchQuery}
+                        onChange={(e) => setLocationSearchQuery(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleLocationSearch()}
+                        placeholder="Search city, area, or landmark..."
+                        style={{
+                          flex: 1,
+                          padding: '10px 12px',
+                          fontSize: 14,
+                          border: '1px solid #ddd',
+                          borderRadius: 8,
+                          outline: 'none'
+                        }}
+                        disabled={locationLoading}
+                      />
+                      <button
+                        onClick={handleLocationSearch}
+                        disabled={locationLoading || !locationSearchQuery.trim()}
+                        style={{
+                          padding: '10px 20px',
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: '#fff',
+                          backgroundColor: locationLoading || !locationSearchQuery.trim() ? '#ccc' : '#ff385c',
+                          border: 'none',
+                          borderRadius: 8,
+                          cursor: locationLoading || !locationSearchQuery.trim() ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6
+                        }}
+                      >
+                        <FiSearch size={16} />
+                        {locationLoading ? 'Searching...' : 'Search'}
+                      </button>
+                    </div>
+                  </div>
+                  
                   <div style={{ height: 400 }}>
                     <MapContainer 
                       center={mapCenter} 
@@ -2741,7 +2783,7 @@ function AddHomestayForm() {
                     </MapContainer>
                   </div>
                   <div style={{ padding: 12, backgroundColor: '#f8f8f8', textAlign: 'center', fontSize: 13, color: '#666' }}>
-                    💡 Click anywhere on the map to set your property location
+                    💡 Search for your property location or click on the map
                   </div>
                 </div>
               )}
@@ -2877,6 +2919,7 @@ function EditHomestayForm() {
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [mapCenter, setMapCenter] = useState([23.6345, 85.3803]);
+  const [locationSearchQuery, setLocationSearchQuery] = useState("");
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(setUser);
@@ -2987,6 +3030,7 @@ function EditHomestayForm() {
             longitude,
             address
           });
+          setMapCenter([latitude, longitude]);
           setLocationLoading(false);
           alert("Location captured successfully!");
         } catch (error) {
@@ -2996,6 +3040,7 @@ function EditHomestayForm() {
             longitude,
             address: `${latitude}, ${longitude}`
           });
+          setMapCenter([latitude, longitude]);
           setLocationLoading(false);
         }
       },
@@ -3009,6 +3054,41 @@ function EditHomestayForm() {
         maximumAge: 0
       }
     );
+  };
+
+  const handleLocationSearch = async () => {
+    if (!locationSearchQuery.trim()) return;
+    
+    setLocationLoading(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationSearchQuery)}&limit=1`
+      );
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        const { lat, lon, display_name } = data[0];
+        const latitude = parseFloat(lat);
+        const longitude = parseFloat(lon);
+        
+        setForm({
+          ...form,
+          latitude,
+          longitude,
+          address: display_name
+        });
+        setMapCenter([latitude, longitude]);
+        setLocationLoading(false);
+        alert("Location found and set successfully!");
+      } else {
+        setLocationLoading(false);
+        alert('Location not found. Try searching for a city, area, or landmark.');
+      }
+    } catch (error) {
+      console.error('Location search error:', error);
+      setLocationLoading(false);
+      alert('Failed to search location. Please try again.');
+    }
   };
 
   const handleCityChange = (e) => {
@@ -3390,6 +3470,48 @@ function EditHomestayForm() {
               
               {showMapPicker && (
                 <div style={{ marginTop: 12, border: '2px solid #ff385c', borderRadius: 12, overflow: 'hidden' }}>
+                  {/* Location Search Bar */}
+                  <div style={{ padding: 12, backgroundColor: '#fff', borderBottom: '1px solid #e0e0e0' }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input
+                        type="text"
+                        value={locationSearchQuery}
+                        onChange={(e) => setLocationSearchQuery(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleLocationSearch()}
+                        placeholder="Search city, area, or landmark..."
+                        style={{
+                          flex: 1,
+                          padding: '10px 12px',
+                          fontSize: 14,
+                          border: '1px solid #ddd',
+                          borderRadius: 8,
+                          outline: 'none'
+                        }}
+                        disabled={locationLoading}
+                      />
+                      <button
+                        onClick={handleLocationSearch}
+                        disabled={locationLoading || !locationSearchQuery.trim()}
+                        style={{
+                          padding: '10px 20px',
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: '#fff',
+                          backgroundColor: locationLoading || !locationSearchQuery.trim() ? '#ccc' : '#ff385c',
+                          border: 'none',
+                          borderRadius: 8,
+                          cursor: locationLoading || !locationSearchQuery.trim() ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6
+                        }}
+                      >
+                        <FiSearch size={16} />
+                        {locationLoading ? 'Searching...' : 'Search'}
+                      </button>
+                    </div>
+                  </div>
+                  
                   <div style={{ height: 400 }}>
                     <MapContainer 
                       center={mapCenter} 
@@ -3429,7 +3551,7 @@ function EditHomestayForm() {
                     </MapContainer>
                   </div>
                   <div style={{ padding: 12, backgroundColor: '#f8f8f8', textAlign: 'center', fontSize: 13, color: '#666' }}>
-                    💡 Click anywhere on the map to set your property location
+                    💡 Search for your property location or click on the map
                   </div>
                 </div>
               )}
