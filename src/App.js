@@ -150,12 +150,18 @@ const styles = {
   container: {
     maxWidth: '100%',
     margin: "0 auto",
-    padding: "0 16px",
+    padding: "0",
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
     backgroundColor: '#fafafa'
+  },
+  mainContent: {
+    maxWidth: '1440px',
+    margin: '0 auto',
+    width: '100%',
+    padding: '0 24px',
   },
   desktopWarning: {
     display: 'flex',
@@ -189,9 +195,9 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '20px 0',
+    padding: '20px 24px',
     borderBottom: '1px solid #e0e0e0',
-    marginBottom: 24,
+    marginBottom: 0,
     position: 'sticky',
     top: 0,
     backgroundColor: '#fff',
@@ -1074,6 +1080,7 @@ function HomestayListing({ homestays }) {
   const [availabilityStatus, setAvailabilityStatus] = useState({});
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [showAvailableOnly, setShowAvailableOnly] = useState(true);
+  const [showCalendar, setShowCalendar] = useState(false);
 
   // Check availability for all homestays with iCal URLs when dates are selected
   useEffect(() => {
@@ -1263,89 +1270,128 @@ function HomestayListing({ homestays }) {
             )}
           </div>
 
-          {/* Selected Dates Display */}
+          {/* Clickable Date Boxes */}
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: '1fr 1fr', 
             gap: 12, 
-            marginBottom: 16 
+            marginBottom: showCalendar ? 16 : 0
           }}>
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 6 }}>
                 Check-in
               </label>
-              <div style={{
-                padding: '10px 12px',
-                backgroundColor: checkInDate ? '#fff' : '#f8f8f8',
-                border: checkInDate ? '2px solid #ff385c' : '1px solid #e0e0e0',
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: 600,
-                color: checkInDate ? '#222' : '#999',
-                minHeight: 42,
-                display: 'flex',
-                alignItems: 'center'
-              }}>
-                {checkInDate ? new Date(checkInDate).toLocaleDateString('en-US', { 
-                  month: 'short', 
-                  day: 'numeric'
-                }) : 'Select date'}
+              <div 
+                onClick={() => setShowCalendar(!showCalendar)}
+                style={{
+                  padding: '10px 12px',
+                  backgroundColor: checkInDate ? '#fff' : '#f8f8f8',
+                  border: checkInDate ? '2px solid #ff385c' : '1px solid #e0e0e0',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: checkInDate ? '#222' : '#999',
+                  minHeight: 42,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#ff385c';
+                }}
+                onMouseLeave={(e) => {
+                  if (!checkInDate) e.currentTarget.style.borderColor = '#e0e0e0';
+                }}
+              >
+                <span>
+                  {checkInDate ? new Date(checkInDate).toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    year: 'numeric'
+                  }) : 'Select date'}
+                </span>
+                <FiCalendar size={16} color="#ff385c" />
               </div>
             </div>
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 6 }}>
                 Check-out
               </label>
-              <div style={{
-                padding: '10px 12px',
-                backgroundColor: checkOutDate ? '#fff' : '#f8f8f8',
-                border: checkOutDate ? '2px solid #ff385c' : '1px solid #e0e0e0',
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: 600,
-                color: checkOutDate ? '#222' : '#999',
-                minHeight: 42,
-                display: 'flex',
-                alignItems: 'center'
-              }}>
-                {checkOutDate ? new Date(checkOutDate).toLocaleDateString('en-US', { 
-                  month: 'short', 
-                  day: 'numeric'
-                }) : 'Select date'}
+              <div 
+                onClick={() => setShowCalendar(!showCalendar)}
+                style={{
+                  padding: '10px 12px',
+                  backgroundColor: checkOutDate ? '#fff' : '#f8f8f8',
+                  border: checkOutDate ? '2px solid #ff385c' : '1px solid #e0e0e0',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: checkOutDate ? '#222' : '#999',
+                  minHeight: 42,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#ff385c';
+                }}
+                onMouseLeave={(e) => {
+                  if (!checkOutDate) e.currentTarget.style.borderColor = '#e0e0e0';
+                }}
+              >
+                <span>
+                  {checkOutDate ? new Date(checkOutDate).toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    year: 'numeric'
+                  }) : 'Select date'}
+                </span>
+                <FiCalendar size={16} color="#ff385c" />
               </div>
             </div>
           </div>
 
-          {/* Calendar Component */}
-          <Calendar
-            selectRange={true}
-            onChange={(dates) => {
-              if (Array.isArray(dates)) {
-                const [start, end] = dates;
-                setCheckInDate(start.toISOString().split('T')[0]);
-                if (end) {
-                  setCheckOutDate(end.toISOString().split('T')[0]);
-                } else {
-                  // If only start date selected, set checkout to next day
-                  const nextDay = new Date(start);
-                  nextDay.setDate(nextDay.getDate() + 1);
-                  setCheckOutDate(nextDay.toISOString().split('T')[0]);
-                }
-              }
-            }}
-            value={checkInDate && checkOutDate ? [new Date(checkInDate), new Date(checkOutDate)] : null}
-            minDate={new Date()}
-            className="professional-calendar"
-          />
-          <p style={{ 
-            fontSize: 12, 
-            color: '#666', 
-            marginTop: 12, 
-            textAlign: 'center',
-            fontStyle: 'italic'
-          }}>
-            Click and drag to select your check-in and check-out dates
-          </p>
+          {/* Collapsible Calendar */}
+          {showCalendar && (
+            <div style={{
+              animation: 'slideDown 0.2s ease-out',
+              marginTop: 16
+            }}>
+              <Calendar
+                selectRange={true}
+                onChange={(dates) => {
+                  if (Array.isArray(dates)) {
+                    const [start, end] = dates;
+                    setCheckInDate(start.toISOString().split('T')[0]);
+                    if (end) {
+                      setCheckOutDate(end.toISOString().split('T')[0]);
+                    } else {
+                      // If only start date selected, set checkout to next day
+                      const nextDay = new Date(start);
+                      nextDay.setDate(nextDay.getDate() + 1);
+                      setCheckOutDate(nextDay.toISOString().split('T')[0]);
+                    }
+                  }
+                }}
+                value={checkInDate && checkOutDate ? [new Date(checkInDate), new Date(checkOutDate)] : null}
+                minDate={new Date()}
+                className="professional-calendar"
+              />
+              <p style={{ 
+                fontSize: 12, 
+                color: '#666', 
+                marginTop: 12, 
+                textAlign: 'center',
+                fontStyle: 'italic'
+              }}>
+                Click and drag to select your check-in and check-out dates
+              </p>
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1395,6 +1441,66 @@ function HomestayListing({ homestays }) {
             to {
               opacity: 1;
               transform: translateY(0);
+            }
+          }
+
+          /* Desktop Navigation */
+          @media (min-width: 768px) {
+            .desktop-nav {
+              display: flex !important;
+              align-items: center;
+              gap: 24px;
+            }
+            .desktop-nav a {
+              color: #222;
+              text-decoration: none;
+              font-weight: 500;
+              font-size: 15px;
+              transition: color 0.2s;
+              white-space: nowrap;
+            }
+            .desktop-nav a:hover {
+              color: #ff385c;
+            }
+            .hamburger-button {
+              display: none !important;
+            }
+            .mobile-menu, .overlay {
+              display: none !important;
+            }
+          }
+
+          /* Desktop Responsive Grid */
+          @media (min-width: 768px) {
+            .homestay-list {
+              grid-template-columns: repeat(2, 1fr) !important;
+            }
+            .main-content {
+              padding: 0 32px !important;
+            }
+            .filter-grid {
+              grid-template-columns: repeat(2, 1fr) !important;
+            }
+          }
+
+          @media (min-width: 1024px) {
+            .homestay-list {
+              grid-template-columns: repeat(3, 1fr) !important;
+            }
+            .filter-grid {
+              grid-template-columns: repeat(3, 1fr) !important;
+            }
+            .form-grid {
+              grid-template-columns: repeat(2, 1fr) !important;
+            }
+          }
+
+          @media (min-width: 1440px) {
+            .homestay-list {
+              grid-template-columns: repeat(4, 1fr) !important;
+            }
+            .main-content {
+              padding: 0 48px !important;
             }
           }
 
@@ -1537,7 +1643,7 @@ function HomestayListing({ homestays }) {
         </button>
       </div>
 
-      <div style={styles.filterGrid}>
+      <div style={styles.filterGrid} className="filter-grid">
         <div>
           <label style={styles.label}>Select City</label>
           <select
@@ -1729,7 +1835,7 @@ function HomestayListing({ homestays }) {
           )}
         </div>
       ) : (
-        <ul style={styles.homestayList}>
+        <ul style={styles.homestayList} className="homestay-list">
           {sortedHomestays.map(homestay => {
             const availability = availabilityStatus[homestay.id];
             return (
@@ -2133,7 +2239,7 @@ function AddHomestayForm() {
             />
           </div>
 
-          <div style={styles.formGrid}>
+          <div style={styles.formGrid} className="form-grid">
             <div style={styles.inputGroup}>
               <label style={styles.label}>Primary Price (₹) *</label>
               <input
@@ -2182,7 +2288,7 @@ function AddHomestayForm() {
             ))}
           </div>
 
-          <div style={styles.formGrid}>
+          <div style={styles.formGrid} className="form-grid">
             <div style={styles.inputGroup}>
               <label style={styles.label}>City *</label>
               <select
@@ -2750,7 +2856,7 @@ function EditHomestayForm() {
             />
           </div>
 
-          <div style={styles.formGrid}>
+          <div style={styles.formGrid} className="form-grid">
             <div style={styles.inputGroup}>
               <label style={styles.label}>Primary Price (₹) *</label>
               <input
@@ -2799,7 +2905,7 @@ function EditHomestayForm() {
             ))}
           </div>
 
-          <div style={styles.formGrid}>
+          <div style={styles.formGrid} className="form-grid">
             <div style={styles.inputGroup}>
               <label style={styles.label}>City *</label>
               <select
@@ -3269,7 +3375,7 @@ function MyListings() {
           </button>
         </div>
       ) : (
-        <ul style={styles.homestayList}>
+        <ul style={styles.homestayList} className="homestay-list">
           {myHomestays.map((h) => (
             <li key={h.id} style={styles.homestayItem}>
               <div style={{ position: "relative" }}>
@@ -3907,12 +4013,51 @@ function MobileApp() {
             <img src={logo} alt="Homavia Logo" style={styles.logo} />
           </Link>
 
-          <button style={styles.hamburgerButton} onClick={toggleMobileMenu}>
+          {/* Desktop Navigation */}
+          <nav className="desktop-nav" style={{ display: 'none' }}>
+            <Link to="/">Home</Link>
+            <Link to="/about">About Us</Link>
+            <Link to="/contact">Contact</Link>
+            <Link to="/premium">Premium</Link>
+            {user && <Link to="/my-listings">My Listings</Link>}
+            {user && isAdminUser(user) && <Link to="/admin">Admin</Link>}
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginLeft: 12 }}>
+              {user ? (
+                <>
+                  <Link 
+                    to="/add-homestay" 
+                    style={{ ...styles.authButton, ...styles.btnPrimary }}
+                  >
+                    Add Homestay
+                  </Link>
+                  <button 
+                    style={styles.authButton} 
+                    onClick={handleLogout}
+                  >
+                    <FiUser /> Logout
+                  </button>
+                </>
+              ) : (
+                <button 
+                  style={styles.authButton} 
+                  onClick={handleLogin}
+                >
+                  <FiUser /> Login
+                </button>
+              )}
+            </div>
+          </nav>
+
+          {/* Mobile Hamburger */}
+          <button className="hamburger-button" style={styles.hamburgerButton} onClick={toggleMobileMenu}>
             <FiMenu />
           </button>
         </header>
 
+        {/* Mobile Overlay */}
         <div 
+          className="overlay"
           style={{
             ...styles.overlay,
             ...(mobileMenuOpen ? styles.overlayVisible : {})
@@ -3920,7 +4065,9 @@ function MobileApp() {
           onClick={closeMobileMenu}
         />
 
+        {/* Mobile Menu */}
         <div 
+          className="mobile-menu"
           style={{
             ...styles.mobileMenu,
             ...(mobileMenuOpen ? styles.mobileMenuOpen : {})
@@ -3974,10 +4121,11 @@ function MobileApp() {
         </div>
 
         <main style={{ flex: 1 }}>
-          <Routes>
-            <Route path="/" element={<HomestayListing homestays={homestays} />} />
-            <Route path="/add-homestay" element={<AddHomestayForm />} />
-            <Route path="/edit-homestay/:id" element={<EditHomestayForm />} />
+          <div className="main-content" style={styles.mainContent}>
+            <Routes>
+              <Route path="/" element={<HomestayListing homestays={homestays} />} />
+              <Route path="/add-homestay" element={<AddHomestayForm />} />
+              <Route path="/edit-homestay/:id" element={<EditHomestayForm />} />
             <Route path="/my-listings" element={<MyListings />} />
             <Route path="/homestays/:id" element={<HomestayDetail />} />
             <Route path="/about" element={<AboutPage />} />
@@ -3992,6 +4140,7 @@ function MobileApp() {
               }
             />
           </Routes>
+          </div>
         </main>
 
         <Footer />
