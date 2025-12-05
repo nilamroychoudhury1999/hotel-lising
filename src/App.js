@@ -3581,7 +3581,7 @@ function HomestayDetail() {
             <FiPhone /> Call Host
           </a>
 
-          {(auth.currentUser?.uid === homestay.createdBy || isAdminUser(auth.currentUser)) && (
+          {auth.currentUser?.uid === homestay.createdBy && (
             <>
               <button
                 style={{ ...styles.bookButton, backgroundColor: '#1565c0', marginTop: 10 }}
@@ -3754,13 +3754,33 @@ function AdminTools() {
   const [cutoff, setCutoff] = useState("2025-11-01"); // default Nov 1, 2025
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
+  const [allListings, setAllListings] = useState([]);
   const [mode, setMode] = useState("preview"); // 'preview' | 'delete'
+  const [activeTab, setActiveTab] = useState("manage"); // 'manage' | 'cleanup'
   const [msg, setMsg] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     const unsub = auth.onAuthStateChanged(setCurrentUser);
     return unsub;
   }, []);
+
+  // Fetch all listings for management
+  useEffect(() => {
+    if (!isAdminUser(currentUser)) return;
+    
+    const unsubscribe = onSnapshot(
+      query(collection(db, "homestays"), orderBy("createdAt", "desc")),
+      (snapshot) => {
+        const listings = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setAllListings(listings);
+      }
+    );
+    return unsubscribe;
+  }, [currentUser]);
 
   if (!isAdminUser(currentUser)) {
     return <div style={{ padding: 24, textAlign: 'center' }}>Forbidden</div>;
@@ -3823,6 +3843,8 @@ function AdminTools() {
     try {
       await deleteDoc(doc(db, "homestays", id));
       setResults(prev => prev.filter(x => x.id !== id));
+      setAllListings(prev => prev.filter(x => x.id !== id));
+      alert("Listing deleted successfully!");
     } catch (e) {
       console.error(e);
       alert("Delete failed.");
@@ -3864,12 +3886,151 @@ function AdminTools() {
   return (
     <div style={styles.pageContainer}>
       <Helmet>
-        <title>Admin Tools - Homavia</title>
+        <title>Admin Panel - Homavia</title>
       </Helmet>
 
-      <h1 style={styles.pageTitle}>Admin Tools</h1>
+      <h1 style={styles.pageTitle}>Admin Panel</h1>
 
-      <div style={{ ...styles.pageContent, display: 'grid', gap: 16 }}>
+      {/* Tab Navigation */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 24, borderBottom: '2px solid #ebebeb' }}>
+        <button
+          style={{
+            padding: '12px 24px',
+            border: 'none',
+            borderBottom: activeTab === 'manage' ? '3px solid #ff385c' : '3px solid transparent',
+            backgroundColor: 'transparent',
+            color: activeTab === 'manage' ? '#ff385c' : '#666',
+            fontWeight: activeTab === 'manage' ? 'bold' : 'normal',
+            fontSize: 16,
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+          onClick={() => setActiveTab('manage')}
+        >
+          Manage All Listings ({allListings.length})
+        </button>
+        <button
+          style={{
+            padding: '12px 24px',
+            border: 'none',
+            borderBottom: activeTab === 'cleanup' ? '3px solid #ff385c' : '3px solid transparent',
+            backgroundColor: 'transparent',
+            color: activeTab === 'cleanup' ? '#ff385c' : '#666',
+            fontWeight: activeTab === 'cleanup' ? 'bold' : 'normal',
+            fontSize: 16,
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+          onClick={() => setActiveTab('cleanup')}
+        >
+          Cleanup Old Listings
+        </button>
+      </div>
+
+      {/* Manage All Listings Tab */}
+      {activeTab === 'manage' && (
+        <div style={styles.pageContent}>
+          <div style={{ 
+            padding: 16, 
+            backgroundColor: '#f0f9ff', 
+            borderRadius: 12, 
+            marginBottom: 24,
+            border: '1px solid #bae6fd'
+          }}>
+            <h3 style={{ margin: 0, marginBottom: 8, fontSize: 16, color: '#0284c7' }}>
+              All Property Listings
+            </h3>
+            <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
+              View, edit, or delete any property listing. Total: {allListings.length} listings
+            </p>
+          </div>
+
+          {allListings.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 40, color: '#666' }}>
+              No listings found
+            </div>
+          ) : (
+            <ul style={{ ...styles.homestayList, marginTop: 10 }}>
+              {allListings.map((h) => {
+                const created = h.createdAt instanceof Timestamp
+                  ? h.createdAt.toDate().toLocaleDateString()
+                  : (h.createdAt || "—");
+                return (
+                  <li key={h.id} style={styles.homestayItem}>
+                    <div style={{ padding: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 12 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 4 }}>
+                            {h.name || "(No name)"}
+                            {h.premium && (
+                              <span style={{ ...styles.premiumBadge, marginLeft: 8, fontSize: 10 }}>
+                                <FiStar /> PREMIUM
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 13, color: '#666', marginBottom: 6 }}>
+                            📍 {h.city || "City"} • {h.area || "Area"} • {h.roomType || "Room Type"}
+                          </div>
+                          <div style={{ fontSize: 12, color: '#999' }}>
+                            Host: {h.createdByName || "Unknown"} • Created: {String(created)}
+                          </div>
+                          <div style={{ fontSize: 12, color: '#0284c7', marginTop: 4 }}>
+                            ₹{h.price} / {PRICE_TYPES.find(pt => pt.id === h.priceType)?.suffix || 'night'}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 100 }}>
+                          <Link 
+                            to={`/homestays/${h.id}`} 
+                            style={{ 
+                              ...styles.filterButton, 
+                              textDecoration: 'none',
+                              textAlign: 'center',
+                              padding: '8px 16px',
+                              fontSize: 14
+                            }}
+                          >
+                            <FiInfo size={14} /> View
+                          </Link>
+                          <button
+                            style={{ 
+                              ...styles.filterButton,
+                              backgroundColor: '#1565c0',
+                              color: 'white',
+                              border: 'none',
+                              padding: '8px 16px',
+                              fontSize: 14
+                            }}
+                            onClick={() => navigate(`/edit-homestay/${h.id}`)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            style={{ 
+                              ...styles.filterButton,
+                              backgroundColor: '#c62828',
+                              color: 'white',
+                              border: 'none',
+                              padding: '8px 16px',
+                              fontSize: 14
+                            }}
+                            onClick={() => deleteOne(h.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {/* Cleanup Old Listings Tab */}
+      {activeTab === 'cleanup' && (
+        <div style={{ ...styles.pageContent, display: 'grid', gap: 16 }}>
         <label style={styles.label}>Delete everything created before (IST):</label>
         <input
           type="date"
@@ -3945,7 +4106,8 @@ function AdminTools() {
             </ul>
           </>
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
