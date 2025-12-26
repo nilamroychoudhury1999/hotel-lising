@@ -5214,38 +5214,53 @@ function MobileApp() {
   };
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "homestays"), (snapshot) => {
-      const all = snapshot.docs.map(docu => ({
-        id: docu.id,
-        ...docu.data()
-      }));
-
-      const cutoffIST = new Date("2025-11-01T00:00:00+05:30").getTime();
-
-      const normalizeCreatedAtMs = (ca) => {
-        if (!ca) return 0;
-        if (ca instanceof Timestamp) return ca.toDate().getTime();
-        if (typeof ca === "string") {
-          const parsed = Date.parse(ca);
-          return Number.isNaN(parsed) ? 0 : parsed;
-        }
-        if (ca?.toDate) {
-          try { return ca.toDate().getTime(); } catch { return 0; }
-        }
-        return 0;
-      };
-
-      const filtered = all
-        .filter(x => normalizeCreatedAtMs(x.createdAt) >= cutoffIST)
-        .sort((a, b) => normalizeCreatedAtMs(b.createdAt) - normalizeCreatedAtMs(a.createdAt));
-
-      setHomestays(filtered);
+    // Set a timeout to hide loader if data takes too long
+    const loaderTimeout = setTimeout(() => {
       setInitialLoading(false);
-    });
+    }, 5000); // 5 seconds max
+
+    const unsubscribe = onSnapshot(
+      collection(db, "homestays"),
+      (snapshot) => {
+        clearTimeout(loaderTimeout);
+        const all = snapshot.docs.map(docu => ({
+          id: docu.id,
+          ...docu.data()
+        }));
+
+        const cutoffIST = new Date("2025-11-01T00:00:00+05:30").getTime();
+
+        const normalizeCreatedAtMs = (ca) => {
+          if (!ca) return 0;
+          if (ca instanceof Timestamp) return ca.toDate().getTime();
+          if (typeof ca === "string") {
+            const parsed = Date.parse(ca);
+            return Number.isNaN(parsed) ? 0 : parsed;
+          }
+          if (ca?.toDate) {
+            try { return ca.toDate().getTime(); } catch { return 0; }
+          }
+          return 0;
+        };
+
+        const filtered = all
+          .filter(x => normalizeCreatedAtMs(x.createdAt) >= cutoffIST)
+          .sort((a, b) => normalizeCreatedAtMs(b.createdAt) - normalizeCreatedAtMs(a.createdAt));
+
+        setHomestays(filtered);
+        setInitialLoading(false);
+      },
+      (error) => {
+        clearTimeout(loaderTimeout);
+        console.error("Error fetching homestays:", error);
+        setInitialLoading(false);
+      }
+    );
 
     const authUnsubscribe = auth.onAuthStateChanged(setUser);
 
     return () => {
+      clearTimeout(loaderTimeout);
       unsubscribe();
       authUnsubscribe();
     };
