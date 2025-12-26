@@ -1,10 +1,12 @@
 [build]
-  command = "rm -rf node_modules/.cache && npm run build"
+  command = "rm -rf .cache node_modules/.cache build && npm run build"
   publish = "build"
 
 [build.environment]
   NODE_VERSION = "18"
   NPM_FLAGS = "--force"
+  # Force new build by changing this value
+  BUILD_ID = "v3"
 
 # Redirect all requests to index.html for client-side routing
 [[redirects]]
