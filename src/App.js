@@ -472,17 +472,18 @@ const styles = {
     textDecoration: 'underline'
   },
   filterSectionWrapper: {
-    marginBottom: designTokens.spacing.lg
+    marginBottom: designTokens.spacing.lg,
+    animation: 'slideDown 0.3s ease-out'
   },
   filterCard: {
     background: designTokens.colors.white,
     borderRadius: designTokens.radius.lg,
-    padding: designTokens.spacing.md,
-    boxShadow: designTokens.shadow.sm,
+    padding: designTokens.spacing.lg,
+    boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
     border: `1px solid ${designTokens.colors.borderLight}`,
     display: 'flex',
     flexDirection: 'column',
-    gap: designTokens.spacing.sm
+    gap: designTokens.spacing.md
   },
   filterSectionHeader: {
     display: 'flex',
@@ -2095,6 +2096,7 @@ function HomestayListing({ homestays }) {
         />
         <button 
           style={styles.searchButton}
+          onClick={() => setShowFilters(true)}
           onMouseEnter={(e) => {
             e.target.style.transform = 'translateY(-2px)';
             e.target.style.boxShadow = '0 6px 20px rgba(255, 56, 92, 0.4)';
@@ -2263,10 +2265,10 @@ function HomestayListing({ homestays }) {
                 </p>
                 <div style={styles.filterFooterActions}>
                   <button
-                    style={styles.summaryToggleBtn}
-                    onClick={() => setShowAdvancedFilters(prev => !prev)}
+                    style={{...styles.summaryToggleBtn, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'}}
+                    onClick={() => setShowFilters(false)}
                   >
-                    {showAdvancedFilters ? 'Basic filters' : 'Advanced filters'}
+                    <FiCheck size={16} /> Apply Filters
                   </button>
                 </div>
               </div>
