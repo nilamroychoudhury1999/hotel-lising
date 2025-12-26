@@ -144,24 +144,94 @@ const PRICE_TYPES = [
 ];
 
 /* ------------------------------
+   Design System Tokens
+------------------------------ */
+const designTokens = {
+  // Typography Scale (8pt base grid: 12, 14, 16, 18, 20, 24, 32, 40, 48)
+  fontSize: {
+    xs: 12,
+    sm: 14,
+    base: 16,
+    lg: 18,
+    xl: 20,
+    '2xl': 24,
+    '3xl': 32,
+    '4xl': 40,
+    '5xl': 48
+  },
+  // Spacing Scale (4px base grid)
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 24,
+    '2xl': 32,
+    '3xl': 48,
+    '4xl': 64
+  },
+  // Border Radius
+  radius: {
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 24,
+    full: 9999
+  },
+  // Shadows (layered approach)
+  shadow: {
+    sm: '0 2px 8px rgba(0,0,0,0.06)',
+    md: '0 4px 16px rgba(0,0,0,0.08)',
+    lg: '0 8px 32px rgba(0,0,0,0.12)',
+    xl: '0 16px 48px rgba(0,0,0,0.15)'
+  },
+  // Colors - Semantic tokens for consistency
+  colors: {
+    primary: '#ff385c',
+    primaryHover: '#e5204b',
+    primaryLight: '#ffe0e7',
+    dark: '#111827',
+    darkMuted: '#374151',
+    text: '#1f2937',
+    textMuted: '#6b7280',
+    textLight: '#9ca3af',
+    border: '#e5e7eb',
+    borderLight: '#f3f4f6',
+    success: '#10b981',
+    successLight: '#d1fae5',
+    warning: '#f59e0b',
+    warningLight: '#fef3c7',
+    error: '#ef4444',
+    errorLight: '#fee2e2',
+    background: '#fafafa',
+    white: '#ffffff'
+  }
+};
+
+/* ------------------------------
    Styles
 ------------------------------ */
 const styles = {
   container: {
     maxWidth: '100%',
+    width: '100%',
     margin: "0 auto",
     padding: "0",
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: '#fafafa'
+    backgroundColor: '#fafafa',
+    position: 'relative',
+    overflowX: 'hidden'
   },
   mainContent: {
-    maxWidth: '1440px',
+    maxWidth: '100%',
     margin: '0 auto',
     width: '100%',
-    padding: '0 24px',
+    padding: '0 16px',
+    boxSizing: 'border-box',
+    overflowX: 'hidden'
   },
   desktopWarning: {
     display: 'flex',
@@ -195,14 +265,18 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '20px 24px',
+    padding: '14px 16px',
     borderBottom: '1px solid #e0e0e0',
     marginBottom: 0,
     position: 'sticky',
     top: 0,
     backgroundColor: '#fff',
     zIndex: 100,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    maxWidth: '100%',
+    boxSizing: 'border-box'
   },
   logoContainer: {
     display: 'flex',
@@ -210,19 +284,22 @@ const styles = {
     gap: 10,
     color: '#ff385c',
     fontWeight: 'bold',
-    fontSize: 22,
+    fontSize: 18,
     textDecoration: 'none',
-    letterSpacing: '-0.5px'
+    letterSpacing: '-0.5px',
+    transition: 'all 0.2s ease',
+    cursor: 'pointer'
   },
   logo: {
     height: 36,
     borderRadius: 8,
-    boxShadow: '0 2px 8px rgba(255,56,92,0.2)'
+    boxShadow: '0 2px 8px rgba(255,56,92,0.25)',
+    transition: 'transform 0.2s ease'
   },
   navLinks: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 20
+    gap: 16
   },
   navLink: {
     color: '#222',
@@ -235,264 +312,443 @@ const styles = {
   authButton: {
     display: 'flex',
     alignItems: 'center',
-    gap: 6,
-    padding: '10px 16px',
-    borderRadius: 24,
-    border: '1px solid #e0e0e0',
-    backgroundColor: 'white',
+    gap: designTokens.spacing.sm,
+    padding: `${designTokens.spacing.sm}px ${designTokens.spacing.lg}px`,
+    borderRadius: designTokens.radius.full,
+    border: `1.5px solid ${designTokens.colors.border}`,
+    backgroundColor: designTokens.colors.white,
     cursor: 'pointer',
     fontWeight: 600,
-    fontSize: 14,
-    transition: 'all 0.2s',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.04)'
+    fontSize: designTokens.fontSize.sm,
+    color: designTokens.colors.text,
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+    boxShadow: designTokens.shadow.sm,
+    whiteSpace: 'nowrap'
   },
   btnPrimary: {
-    backgroundColor: '#ff385c',
-    color: 'white',
+    background: `linear-gradient(135deg, ${designTokens.colors.primary} 0%, #ff5a75 100%)`,
+    color: designTokens.colors.white,
     border: 'none',
-    boxShadow: '0 4px 12px rgba(255,56,92,0.25)'
+    boxShadow: designTokens.shadow.md,
+    fontWeight: 600
   },
   homestayList: {
     display: 'grid',
     gridTemplateColumns: '1fr',
-    gap: 24,
+    gap: designTokens.spacing.xl,
     padding: 0,
     listStyle: 'none',
-    marginTop: 10
+    marginTop: designTokens.spacing.md,
+    animation: 'fadeIn 0.5s ease',
+    width: '100%',
+    maxWidth: '100%',
+    boxSizing: 'border-box',
+    overflowX: 'hidden'
   },
   homestayItem: {
-    borderRadius: 16,
+    borderRadius: designTokens.radius.lg,
     overflow: 'hidden',
-    transition: 'all 0.3s ease',
-    boxShadow: '0 2px 16px rgba(0,0,0,0.08)',
-    backgroundColor: '#fff',
-    cursor: 'pointer'
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    boxShadow: designTokens.shadow.md,
+    backgroundColor: designTokens.colors.white,
+    cursor: 'pointer',
+    position: 'relative',
+    border: `1px solid ${designTokens.colors.borderLight}`
   },
   homestayImage: {
     width: '100%',
     height: 220,
     objectFit: 'cover',
-    borderRadius: '16px 16px 0 0',
-    marginBottom: 0
+    borderRadius: `${designTokens.radius.lg}px ${designTokens.radius.lg}px 0 0`,
+    marginBottom: 0,
+    transition: 'transform 0.3s ease',
+    backgroundColor: designTokens.colors.borderLight
   },
   homestayInfo: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 6,
-    padding: '16px'
+    gap: designTokens.spacing.sm,
+    padding: designTokens.spacing.lg
   },
   price: {
     fontWeight: 'bold',
-    fontSize: 19,
-    color: '#222',
-    letterSpacing: '-0.3px'
+    fontSize: designTokens.fontSize.lg,
+    color: designTokens.colors.text,
+    letterSpacing: '-0.3px',
+    background: `linear-gradient(135deg, ${designTokens.colors.primary} 0%, #ff5a75 100%)`,
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text'
   },
   title: {
     fontWeight: 600,
-    fontSize: 17,
-    color: '#222',
+    fontSize: designTokens.fontSize.base,
+    color: designTokens.colors.text,
     letterSpacing: '-0.2px',
-    lineHeight: 1.3
+    lineHeight: 1.4,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical'
   },
   location: {
-    color: '#717171',
-    fontSize: 14,
+    color: designTokens.colors.textMuted,
+    fontSize: designTokens.fontSize.sm,
     display: 'flex',
     alignItems: 'center',
-    gap: 5,
+    gap: designTokens.spacing.xs,
     letterSpacing: '-0.1px'
   },
   rating: {
     display: 'flex',
     alignItems: 'center',
-    gap: 5,
-    fontSize: 14,
+    gap: 4,
+    fontSize: 13,
     fontWeight: 600
   },
-  filterContainer: {
+  filterSummaryCard: {
+    background: designTokens.colors.white,
+    borderRadius: designTokens.radius.lg,
+    padding: `${designTokens.spacing.lg}px ${designTokens.spacing.xl}px`,
     display: 'flex',
-    gap: 10,
-    marginBottom: 20,
-    overflowX: 'auto',
-    paddingBottom: 10,
-    scrollbarWidth: 'none',
-    WebkitOverflowScrolling: 'touch'
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: designTokens.spacing.lg,
+    marginBottom: designTokens.spacing.lg,
+    boxShadow: designTokens.shadow.md,
+    border: `1px solid ${designTokens.colors.borderLight}`,
+    flexWrap: 'wrap'
   },
-  filterButton: {
-    padding: '10px 18px',
-    borderRadius: 24,
-    border: '1px solid #e0e0e0',
-    backgroundColor: 'white',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-    fontSize: 14,
+  sectionEyebrow: {
+    fontSize: designTokens.fontSize.xs,
+    textTransform: 'uppercase',
+    letterSpacing: '0.4px',
+    color: designTokens.colors.textLight,
+    marginBottom: designTokens.spacing.xs,
+    fontWeight: 700
+  },
+  summaryTitle: {
+    fontSize: designTokens.fontSize.base,
+    fontWeight: 700,
+    margin: 0,
+    color: designTokens.colors.dark
+  },
+  summarySubtext: {
+    fontSize: designTokens.fontSize.sm,
+    color: designTokens.colors.textMuted,
+    marginTop: designTokens.spacing.xs
+  },
+  summaryActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: designTokens.spacing.md,
+    flexWrap: 'wrap'
+  },
+  summaryToggleBtn: {
+    padding: `${designTokens.spacing.md}px ${designTokens.spacing.lg}px`,
+    borderRadius: designTokens.radius.full,
+    border: 'none',
+    background: `linear-gradient(135deg, ${designTokens.colors.dark}, ${designTokens.colors.darkMuted})`,
+    color: designTokens.colors.white,
+    fontSize: designTokens.fontSize.sm,
     fontWeight: 600,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: designTokens.spacing.sm,
     transition: 'all 0.2s',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
-    letterSpacing: '-0.1px'
+    boxShadow: designTokens.shadow.md
   },
-  activeFilter: {
-    backgroundColor: '#222',
-    color: 'white',
-    borderColor: '#222',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+  resetFiltersBtn: {
+    padding: `${designTokens.spacing.sm}px ${designTokens.spacing.md}px`,
+    borderRadius: designTokens.radius.full,
+    border: 'none',
+    backgroundColor: 'transparent',
+    color: '#2563eb',
+    fontSize: designTokens.fontSize.sm,
+    fontWeight: 600,
+    cursor: 'pointer',
+    textDecoration: 'underline'
+  },
+  filterSectionWrapper: {
+    marginBottom: designTokens.spacing.lg
+  },
+  filterCard: {
+    background: designTokens.colors.white,
+    borderRadius: designTokens.radius.lg,
+    padding: designTokens.spacing.lg,
+    boxShadow: designTokens.shadow.md,
+    border: `1px solid ${designTokens.colors.borderLight}`,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: designTokens.spacing.md
+  },
+  filterSectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: designTokens.spacing.sm
+  },
+  filterGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr',
+    gap: designTokens.spacing.md,
+    marginTop: designTokens.spacing.sm
+  },
+  filterPillsWrapper: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: designTokens.spacing.sm
+  },
+  filterPill: {
+    padding: `${designTokens.spacing.sm}px ${designTokens.spacing.md}px`,
+    borderRadius: designTokens.radius.sm,
+    border: `1px solid ${designTokens.colors.border}`,
+    backgroundColor: designTokens.colors.white,
+    cursor: 'pointer',
+    minWidth: 0,
+    flex: '0 0 auto',
+    transition: 'all 0.2s',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2
+  },
+  filterPillActive: {
+    background: designTokens.colors.dark,
+    color: designTokens.colors.white,
+    borderColor: designTokens.colors.dark,
+    boxShadow: designTokens.shadow.sm
+  },
+  filterPillLabel: {
+    fontSize: designTokens.fontSize.xs,
+    fontWeight: 600
+  },
+  filterPillHelper: {
+    fontSize: 11,
+    color: 'inherit',
+    opacity: 0.8
+  },
+  filterDivider: {
+    height: 1,
+    width: '100%',
+    backgroundColor: designTokens.colors.borderLight,
+    margin: `${designTokens.spacing.xs}px 0`
+  },
+  advancedToggle: {
+    padding: `${designTokens.spacing.sm}px ${designTokens.spacing.md}px`,
+    borderRadius: designTokens.radius.sm,
+    border: `1px solid ${designTokens.colors.border}`,
+    backgroundColor: designTokens.colors.borderLight,
+    fontSize: designTokens.fontSize.xs,
+    fontWeight: 600,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: designTokens.spacing.xs,
+    width: 'fit-content',
+    transition: 'all 0.2s'
+  },
+  advancedFilterGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr',
+    gap: designTokens.spacing.md
+  },
+  filterFooter: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: designTokens.spacing.md,
+    marginTop: designTokens.spacing.sm
+  },
+  filterFooterText: {
+    fontSize: designTokens.fontSize.sm,
+    color: designTokens.colors.textMuted
+  },
+  filterFooterActions: {
+    display: 'flex',
+    gap: designTokens.spacing.sm
   },
   locationDropdown: {
-    padding: '12px 15px',
+    padding: '10px 14px',
     borderRadius: 8,
     border: '1px solid #ddd',
-    fontSize: 16,
+    fontSize: 14,
     width: '100%',
-    marginBottom: 16,
+    marginBottom: 12,
     backgroundColor: 'white',
     cursor: 'pointer'
   },
   formContainer: {
     maxWidth: '100%',
+    width: '100%',
     margin: '0 auto',
-    padding: '20px 0',
-    width: '100%'
+    padding: '16px 0',
+    boxSizing: 'border-box'
   },
   formTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 24
+    marginBottom: 20
   },
   formSection: {
-    marginBottom: 24
+    marginBottom: 20
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 'bold',
     marginBottom: 12
   },
   inputGroup: {
-    marginBottom: 16
+    marginBottom: 14
   },
   label: {
     display: 'block',
-    marginBottom: 6,
-    fontWeight: 500,
-    fontSize: 14
+    marginBottom: designTokens.spacing.sm,
+    fontWeight: 600,
+    fontSize: designTokens.fontSize.sm,
+    color: designTokens.colors.text,
+    letterSpacing: '0.2px'
   },
   input: {
     width: '100%',
-    padding: '12px 15px',
-    borderRadius: 8,
-    border: '1px solid #ddd',
-    fontSize: 16,
-    boxSizing: 'border-box'
+    padding: `${designTokens.spacing.md}px ${designTokens.spacing.lg}px`,
+    borderRadius: designTokens.radius.sm,
+    border: `1.5px solid ${designTokens.colors.border}`,
+    fontSize: designTokens.fontSize.sm,
+    color: designTokens.colors.text,
+    boxSizing: 'border-box',
+    transition: 'all 0.2s',
+    fontFamily: 'inherit',
+    backgroundColor: designTokens.colors.white
   },
   textarea: {
     width: '100%',
-    padding: '12px 15px',
-    borderRadius: 8,
-    border: '1px solid #ddd',
-    fontSize: 16,
+    padding: `${designTokens.spacing.md}px ${designTokens.spacing.lg}px`,
+    borderRadius: designTokens.radius.sm,
+    border: `1.5px solid ${designTokens.colors.border}`,
+    fontSize: designTokens.fontSize.sm,
+    color: designTokens.colors.text,
     minHeight: 100,
     resize: 'vertical',
-    boxSizing: 'border-box'
+    boxSizing: 'border-box',
+    transition: 'all 0.2s',
+    fontFamily: 'inherit',
+    lineHeight: 1.6,
+    backgroundColor: designTokens.colors.white
   },
   checkboxGroup: {
     display: 'grid',
     gridTemplateColumns: '1fr',
-    gap: 12,
-    marginTop: 12
+    gap: designTokens.spacing.md,
+    marginTop: designTokens.spacing.md
   },
   checkboxItem: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8
+    gap: designTokens.spacing.sm
   },
   imagePreview: {
     width: '100%',
     maxHeight: 300,
     objectFit: 'cover',
-    borderRadius: 12,
-    marginTop: 15
+    borderRadius: designTokens.radius.md,
+    marginTop: designTokens.spacing.lg
   },
   submitButton: {
-    backgroundColor: '#ff385c',
-    color: 'white',
+    background: `linear-gradient(135deg, ${designTokens.colors.primary} 0%, #ff5a75 100%)`,
+    color: designTokens.colors.white,
     border: 'none',
-    padding: '14px 24px',
-    borderRadius: 10,
-    fontSize: 16,
+    padding: `${designTokens.spacing.lg}px ${designTokens.spacing.xl}px`,
+    borderRadius: designTokens.radius.md,
+    fontSize: designTokens.fontSize.base,
     fontWeight: 600,
     cursor: 'pointer',
-    marginTop: 20,
-    transition: 'all 0.2s',
+    marginTop: designTokens.spacing.xl,
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
     width: '100%',
-    minHeight: 48
+    minHeight: 48,
+    boxShadow: designTokens.shadow.md,
+    letterSpacing: '0.3px'
   },
   detailContainer: {
     maxWidth: '100%',
+    width: '100%',
     margin: '0 auto',
-    padding: '20px 0',
-    width: '100%'
+    padding: `${designTokens.spacing.xl}px 0`,
+    boxSizing: 'border-box'
   },
   detailHeader: {
-    marginBottom: 32,
-    paddingBottom: 24,
-    borderBottom: '1px solid #ebebeb'
+    marginBottom: designTokens.spacing['2xl'],
+    paddingBottom: designTokens.spacing.xl,
+    borderBottom: `1px solid ${designTokens.colors.borderLight}`
   },
   detailTitle: {
-    fontSize: 28,
+    fontSize: designTokens.fontSize['3xl'],
     fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#222',
-    lineHeight: 1.3
+    marginBottom: designTokens.spacing.lg,
+    color: designTokens.colors.dark,
+    lineHeight: 1.3,
+    letterSpacing: '-0.5px'
   },
   detailLocation: {
     display: 'flex',
     alignItems: 'center',
-    gap: 5,
-    color: '#717171',
-    fontSize: 15,
-    marginBottom: 16
+    gap: designTokens.spacing.sm,
+    color: designTokens.colors.textMuted,
+    fontSize: designTokens.fontSize.base,
+    marginBottom: designTokens.spacing.lg
   },
   detailImage: {
     width: '100%',
-    borderRadius: 12,
-    marginBottom: 24,
+    borderRadius: designTokens.radius.lg,
+    marginBottom: designTokens.spacing['2xl'],
     maxHeight: 500,
     objectFit: 'cover',
-    boxShadow: '0 4px 16px rgba(0,0,0,0.12)'
+    boxShadow: designTokens.shadow.lg
   },
   detailInfo: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 30,
-    marginTop: 30
+    gap: designTokens.spacing['2xl'],
+    marginTop: designTokens.spacing['2xl']
   },
   detailAmenities: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-    gap: 16,
-    marginTop: 20
+    gap: designTokens.spacing.lg,
+    marginTop: designTokens.spacing.xl
   },
   amenityItem: {
     display: 'flex',
     alignItems: 'center',
-    gap: 12,
-    padding: '12px 16px',
-    backgroundColor: '#f7f7f7',
-    borderRadius: 8,
-    fontSize: 15
+    gap: designTokens.spacing.md,
+    padding: `${designTokens.spacing.md}px ${designTokens.spacing.lg}px`,
+    backgroundColor: designTokens.colors.borderLight,
+    borderRadius: designTokens.radius.sm,
+    fontSize: designTokens.fontSize.base
   },
   bookingCard: {
-    border: '1px solid #e0e0e0',
-    borderRadius: 16,
-    padding: 24,
-    boxShadow: '0 6px 20px rgba(0,0,0,0.08)',
+    border: '1.5px solid #e0e0e0',
+    borderRadius: 20,
+    padding: 28,
+    boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
     order: -1,
-    backgroundColor: '#fff'
+    backgroundColor: '#fff',
+    position: 'sticky',
+    top: 90
   },
   priceDetail: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#222'
+    marginBottom: 20,
+    color: '#222',
+    background: 'linear-gradient(135deg, #ff385c 0%, #ff5a75 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text'
   },
   priceTypeLabel: {
     fontSize: 12,
@@ -516,67 +772,85 @@ const styles = {
   },
   bookButton: {
     width: '100%',
-    padding: '14px 24px',
-    backgroundColor: '#ff385c',
-    color: 'white',
+    padding: `${designTokens.spacing.md}px ${designTokens.spacing.xl}px`,
+    background: `linear-gradient(135deg, ${designTokens.colors.primary} 0%, #ff5a75 100%)`,
+    color: designTokens.colors.white,
     border: 'none',
-    borderRadius: 10,
-    fontSize: 16,
+    borderRadius: designTokens.radius.md,
+    fontSize: designTokens.fontSize.base,
     fontWeight: 600,
     cursor: 'pointer',
-    transition: 'all 0.2s',
-    minHeight: 48
-  },
-  callButton: {
-    width: '100%',
-    padding: '14px 24px',
-    backgroundColor: '#4CAF50',
-    color: 'white',
-    border: 'none',
-    borderRadius: 10,
-    fontSize: 16,
-    fontWeight: 600,
-    cursor: 'pointer',
-    marginTop: 10,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    transition: 'all 0.2s',
+    gap: designTokens.spacing.sm,
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+    minHeight: 44,
+    boxShadow: designTokens.shadow.sm,
+    letterSpacing: '0.3px',
+    boxSizing: 'border-box'
+  },
+  callButton: {
+    width: '100%',
+    padding: `${designTokens.spacing.md}px ${designTokens.spacing.xl}px`,
+    background: `linear-gradient(135deg, ${designTokens.colors.success} 0%, #059669 100%)`,
+    color: designTokens.colors.white,
+    border: 'none',
+    borderRadius: designTokens.radius.md,
+    fontSize: designTokens.fontSize.base,
+    fontWeight: 600,
+    cursor: 'pointer',
+    marginTop: designTokens.spacing.md,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: designTokens.spacing.sm,
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
     textDecoration: 'none',
-    minHeight: 48
+    minHeight: 44,
+    boxShadow: designTokens.shadow.sm,
+    letterSpacing: '0.3px',
+    boxSizing: 'border-box'
   },
   searchContainer: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 12,
-    marginBottom: 20
+    gap: 10,
+    marginBottom: 20,
+    padding: '14px',
+    background: 'linear-gradient(135deg, #667eea15 0%, #764ba215 100%)',
+    borderRadius: 12,
+    border: '1px solid #e8e8e8'
   },
   searchInput: {
     flex: 1,
-    padding: '12px 15px',
-    borderRadius: 30,
-    border: '1px solid #ddd',
-    fontSize: 16,
+    padding: '12px 16px',
+    borderRadius: 10,
+    border: '1.5px solid #e0e0e0',
+    fontSize: 14,
     width: '100%',
-    boxSizing: 'border-box'
+    boxSizing: 'border-box',
+    transition: 'all 0.2s',
+    backgroundColor: 'white',
+    fontWeight: 500
   },
   searchButton: {
-    padding: '14px 24px',
-    borderRadius: 30,
+    padding: '12px 20px',
+    borderRadius: 10,
     border: 'none',
-    backgroundColor: '#ff385c',
+    background: 'linear-gradient(135deg, #ff385c 0%, #ff5a75 100%)',
     color: 'white',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 600,
-    transition: 'all 0.2s',
-    minHeight: 48,
-    whiteSpace: 'nowrap'
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+    minHeight: 44,
+    whiteSpace: 'nowrap',
+    boxShadow: '0 2px 8px rgba(255, 56, 92, 0.3)'
   },
   premiumBadge: {
     backgroundColor: '#ffd700',
@@ -592,21 +866,28 @@ const styles = {
   },
   pageContainer: {
     maxWidth: '100%',
+    width: '100%',
     margin: '0 auto',
-    padding: '32px 16px',
-    width: '100%'
+    padding: '40px 20px',
+    boxSizing: 'border-box'
   },
   pageTitle: {
-    fontSize: 28,
+    fontSize: 36,
     fontWeight: 'bold',
-    marginBottom: 24,
-    textAlign: 'center'
+    marginBottom: 28,
+    textAlign: 'center',
+    background: 'linear-gradient(135deg, #ff385c 0%, #ff5a75 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
+    letterSpacing: '-1px'
   },
   pageContent: {
     lineHeight: 1.8,
     fontSize: 16,
-    maxWidth: '100%',
-    margin: '0 auto'
+    maxWidth: '800px',
+    margin: '0 auto',
+    color: '#444'
   },
   teamContainer: {
     display: 'grid',
@@ -647,29 +928,34 @@ const styles = {
   },
   featureCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-    textAlign: 'center'
+    borderRadius: 16,
+    padding: 28,
+    boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+    textAlign: 'center',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    border: '1px solid #f0f0f0'
   },
   featureIcon: {
-    fontSize: 32,
+    fontSize: 40,
     color: '#ff385c',
-    marginBottom: 16
+    marginBottom: 20
   },
   footer: {
-    backgroundColor: '#f8f9fa',
-    padding: '32px 0',
+    background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+    padding: '48px 0 24px',
     marginTop: 'auto',
-    borderTop: '1px solid #ebebeb'
+    borderTop: '1px solid #dee2e6',
+    boxShadow: '0 -2px 10px rgba(0,0,0,0.02)'
   },
   footerContainer: {
-    maxWidth: '100%',
+    maxWidth: '1200px',
+    width: '100%',
     margin: '0 auto',
-    padding: '0 16px',
+    padding: '0 20px',
     display: 'grid',
     gridTemplateColumns: '1fr',
-    gap: 32
+    gap: 40,
+    boxSizing: 'border-box'
   },
   footerColumn: {
     display: 'flex',
@@ -677,25 +963,30 @@ const styles = {
     gap: 12
   },
   footerTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 8
+    marginBottom: 16,
+    color: '#222',
+    letterSpacing: '-0.3px'
   },
   footerLink: {
-    color: '#666',
+    color: '#555',
     textDecoration: 'none',
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
-    fontSize: 14
+    gap: 10,
+    fontSize: 15,
+    transition: 'all 0.2s',
+    padding: '6px 0'
   },
   copyright: {
     textAlign: 'center',
-    paddingTop: 24,
+    paddingTop: 32,
     color: '#666',
-    borderTop: '1px solid #ebebeb',
-    marginTop: 24,
-    fontSize: 14
+    borderTop: '1px solid #dee2e6',
+    marginTop: 32,
+    fontSize: 14,
+    letterSpacing: '0.3px'
   },
   testimonialContainer: {
     display: 'flex',
@@ -735,22 +1026,26 @@ const styles = {
     display: 'block',
     backgroundColor: 'transparent',
     border: 'none',
-    fontSize: 24,
+    fontSize: 26,
     cursor: 'pointer',
-    padding: 8
+    padding: 8,
+    color: '#222',
+    transition: 'all 0.2s',
+    borderRadius: 8
   },
   mobileMenu: {
     position: 'fixed',
     top: 0,
     right: 0,
-    width: '80%',
+    width: '85%',
+    maxWidth: '400px',
     height: '100vh',
     backgroundColor: 'white',
     zIndex: 1000,
-    padding: 20,
-    boxShadow: '-2px 0 10px rgba(0,0,0,0.1)',
+    padding: 24,
+    boxShadow: '-4px 0 24px rgba(0,0,0,0.15)',
     transform: 'translateX(100%)',
-    transition: 'transform 0.3s ease-in-out',
+    transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     overflowY: 'auto'
   },
   mobileMenuOpen: {
@@ -769,8 +1064,8 @@ const styles = {
   mobileNav: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 20,
-    marginTop: 40
+    gap: 24,
+    marginTop: 60
   },
   overlay: {
     position: 'fixed',
@@ -778,18 +1073,21 @@ const styles = {
     left: 0,
     width: '100%',
     height: '100%',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     zIndex: 999,
-    display: 'none'
+    display: 'none',
+    backdropFilter: 'blur(2px)',
+    WebkitBackdropFilter: 'blur(2px)',
+    transition: 'opacity 0.3s ease'
   },
   overlayVisible: {
     display: 'block'
   },
   cityDropdown: {
-    padding: '12px 15px',
+    padding: '10px 14px',
     borderRadius: 8,
     border: '1px solid #ddd',
-    fontSize: 16,
+    fontSize: 14,
     width: '100%',
     marginBottom: 12,
     backgroundColor: 'white',
@@ -801,29 +1099,23 @@ const styles = {
     flexDirection: 'column',
     gap: 16
   },
-  filterGrid: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-    marginBottom: 20
-  },
   datePickerContainer: {
     display: 'flex',
     flexDirection: 'column',
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 20,
     backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     background: 'white',
-    padding: 20,
-    borderRadius: 16,
+    padding: '16px',
+    borderRadius: 12,
     border: '1px solid #e0e0e0',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
+    boxShadow: '0 2px 12px rgba(0,0,0,0.06)'
   },
   dateInput: {
-    padding: '14px 16px',
-    borderRadius: 12,
+    padding: '12px 14px',
+    borderRadius: 10,
     border: '1.5px solid #e0e0e0',
-    fontSize: 15,
+    fontSize: 14,
     width: '100%',
     boxSizing: 'border-box',
     backgroundColor: 'white',
@@ -922,23 +1214,6 @@ const styles = {
     marginTop: 10,
     transition: 'all 0.2s',
     boxShadow: '0 2px 8px rgba(255, 56, 92, 0.1)'
-  },
-  showAvailableOnlyButton: {
-    padding: '12px 18px',
-    borderRadius: 12,
-    border: 'none',
-    backgroundColor: '#10b981',
-    color: 'white',
-    cursor: 'pointer',
-    fontSize: 14,
-    fontWeight: 600,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 10,
-    transition: 'all 0.2s',
-    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)'
   },
   locationButton: {
     padding: '14px 20px',
@@ -1080,7 +1355,8 @@ function HomestayListing({ homestays }) {
   const [roomType, setRoomType] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState("list"); // 'list' or 'map'
-  const [showFilters, setShowFilters] = useState(true); // Filter expand/collapse
+  const [showFilters, setShowFilters] = useState(false); // Filter expand/collapse
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [mapSearchQuery, setMapSearchQuery] = useState("");
   const [mapCenter, setMapCenter] = useState(null);
   const [mapZoom, setMapZoom] = useState(null);
@@ -1101,7 +1377,7 @@ function HomestayListing({ homestays }) {
   const [checkOutDate, setCheckOutDate] = useState(getTomorrowDate());
   const [availabilityStatus, setAvailabilityStatus] = useState({});
   const [checkingAvailability, setCheckingAvailability] = useState(false);
-  const [showAvailableOnly, setShowAvailableOnly] = useState(true);
+  const [showAvailableOnly, setShowAvailableOnly] = useState(false);
   const [availabilityFilter, setAvailabilityFilter] = useState('all'); // 'all', 'available', 'booked'
   const [showCalendar, setShowCalendar] = useState(false);
 
@@ -1202,6 +1478,62 @@ function HomestayListing({ homestays }) {
   const availableCount = Object.values(availabilityStatus).filter(status => status === 'available').length;
   const bookedCount = Object.values(availabilityStatus).filter(status => status === 'unavailable').length;
 
+  const activeFilterCount = [
+    selectedCity !== "All",
+    selectedArea !== "All",
+    coupleFriendlyOnly,
+    hourlyOnly,
+    showAvailableOnly,
+    roomType !== "All",
+    availabilityFilter !== 'all'
+  ].filter(Boolean).length;
+
+  const filterSummaryText = [
+    selectedCity !== "All" ? selectedCity : null,
+    selectedArea !== "All" ? selectedArea : null,
+    roomType !== "All" ? roomType : null
+  ].filter(Boolean).join(" • ") || "Browsing every location";
+
+  const quickFilters = [
+    {
+      id: 'coupleFriendly',
+      label: 'Couple friendly',
+      helper: 'Verified & ID compliant',
+      active: coupleFriendlyOnly,
+      onToggle: () => setCoupleFriendlyOnly(prev => !prev)
+    },
+    {
+      id: 'hourly',
+      label: 'Hourly stays',
+      helper: '2-8 hour slots',
+      active: hourlyOnly,
+      onToggle: () => setHourlyOnly(prev => !prev)
+    },
+    {
+      id: 'instantAvail',
+      label: 'Instant availability',
+      helper: 'Only free dates',
+      disabled: !(checkInDate && checkOutDate),
+      active: showAvailableOnly,
+      onToggle: () => {
+        if (!(checkInDate && checkOutDate)) return;
+        toggleShowAvailableOnly();
+      }
+    }
+  ];
+
+  const handleResetFilters = () => {
+    setSelectedCity("All");
+    setSelectedArea("All");
+    setCoupleFriendlyOnly(false);
+    setHourlyOnly(false);
+    setRoomType("All");
+    setShowAvailableOnly(false);
+    setAvailabilityFilter('all');
+    setSearchQuery("");
+    setShowAdvancedFilters(false);
+  };
+
   // Get center coordinates for map based on selected city
   const getCityCenter = () => {
     if (mapCenter) return mapCenter;
@@ -1246,10 +1578,11 @@ function HomestayListing({ homestays }) {
         <meta name="description" content="Discover the perfect homestay for your stay in Guwahati, Shillong, and Goa." />
       </Helmet>
 
-      {/* Availability Calendar Section */}
-      <div style={styles.datePickerContainer}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <FiCalendar size={20} color="#ff385c" />
+      {/* Availability Calendar Section - Completely hidden, moved to advanced filters */}
+      {false && showFilters && showAdvancedFilters && (
+        <div style={styles.datePickerContainer}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <FiCalendar size={20} color="#ff385c" />
           <h3 style={{ fontSize: 17, fontWeight: 'bold', margin: 0, letterSpacing: '-0.3px' }}>
             Check Availability
           </h3>
@@ -1450,40 +1783,11 @@ function HomestayListing({ homestays }) {
           )}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-            <button 
-              style={{
-                ...styles.showAvailableOnlyButton,
-                flex: 1,
-                ...(showAvailableOnly ? {} : { 
-                  backgroundColor: 'white', 
-                  color: '#10b981', 
-                  border: '1.5px solid #10b981',
-                  boxShadow: 'none'
-                })
-              }}
-              onClick={toggleShowAvailableOnly}
-            >
-              <FiCheck size={16} />
-              {showAvailableOnly ? 'Available Only' : 'Show All'}
-            </button>
-            
-            {(checkInDate || checkOutDate) && (
-              <button 
-                style={{
-                  ...styles.clearDatesButton,
-                  padding: '12px 16px'
-                }} 
-                onClick={clearDates}
-              >
-                <FiX size={16} />
-              </button>
-            )}
-          </div>
-        </div>
-
         <style>{`
+          * {
+            box-sizing: border-box;
+          }
+
           @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -1509,6 +1813,12 @@ function HomestayListing({ homestays }) {
               opacity: 1;
               transform: translateY(0);
             }
+          }
+
+          /* Ensure no overflow */
+          body, html, #root {
+            overflow-x: hidden !important;
+            max-width: 100vw !important;
           }
 
           /* Desktop Navigation */
@@ -1716,7 +2026,8 @@ function HomestayListing({ homestays }) {
             color: #ccc;
           }
         `}</style>
-      </div>
+        </div>
+      )}
 
       <div style={styles.searchContainer}>
         <input
@@ -1726,121 +2037,187 @@ function HomestayListing({ homestays }) {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
-        <button style={styles.searchButton}>
+        <button 
+          style={styles.searchButton}
+          onMouseEnter={(e) => {
+            e.target.style.transform = 'translateY(-2px)';
+            e.target.style.boxShadow = '0 6px 20px rgba(255, 56, 92, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.transform = 'translateY(0)';
+            e.target.style.boxShadow = '0 4px 12px rgba(255, 56, 92, 0.3)';
+          }}
+        >
           <FiSearch /> Search
         </button>
       </div>
 
-      {/* Filter Toggle Button */}
-      <div style={{ marginBottom: 16 }}>
-        <button
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '12px 20px',
-            backgroundColor: showFilters ? '#ff385c' : '#fff',
-            color: showFilters ? '#fff' : '#222',
-            border: showFilters ? 'none' : '1px solid #ddd',
-            borderRadius: 10,
-            fontSize: 15,
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
-          }}
-          onClick={() => setShowFilters(!showFilters)}
-        >
-          <FiFilter size={18} />
-          {showFilters ? 'Hide Filters' : 'Show Filters'}
-        </button>
+      <div style={styles.filterSummaryCard}>
+        <div>
+          <p style={styles.sectionEyebrow}>Filters</p>
+          <h3 style={styles.summaryTitle}>{activeFilterCount ? `${activeFilterCount} active` : 'All stays'}</h3>
+          <p style={styles.summarySubtext}>{filterSummaryText}</p>
+        </div>
+        <div style={styles.summaryActions}>
+          {activeFilterCount > 0 && (
+            <button style={styles.resetFiltersBtn} onClick={handleResetFilters}>
+              Reset
+            </button>
+          )}
+          <button
+            style={styles.summaryToggleBtn}
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <FiFilter size={16} /> {showFilters ? 'Hide panel' : 'Open filters'}
+          </button>
+        </div>
       </div>
 
       {showFilters && (
         <div style={{ animation: 'fadeIn 0.3s ease-in-out' }}>
-          <div style={styles.filterGrid} className="filter-grid">
-        <div>
-          <label style={styles.label}>Select City</label>
-          <select
-            style={styles.cityDropdown}
-            value={selectedCity}
-            onChange={(e) => {
-              setSelectedCity(e.target.value);
-              setSelectedArea("All");
-            }}
-          >
-            <option value="All">All Cities</option>
-            {ALL_CITIES.map(city => (
-              <option key={city} value={city}>{city}</option>
-            ))}
-          </select>
-        </div>
+          <div style={styles.filterSectionWrapper}>
+            <div style={styles.filterCard}>
+              <div style={styles.filterSectionHeader}>
+                <div>
+                  <p style={styles.sectionEyebrow}>Refine your stay</p>
+                  <h3 style={styles.summaryTitle}>Choose what matters</h3>
+                </div>
+                <button
+                  style={styles.advancedToggle}
+                  onClick={() => setShowAdvancedFilters(prev => !prev)}
+                >
+                  {showAdvancedFilters ? 'Hide advanced' : 'Advanced filters'}
+                </button>
+              </div>
 
-        <div>
-          <label style={styles.label}>Select Area</label>
-          <select
-            style={styles.locationDropdown}
-            value={selectedArea}
-            onChange={(e) => setSelectedArea(e.target.value)}
-            disabled={selectedCity === "All"}
-          >
-            <option value="All">
-              {selectedCity === "All" ? "Select a city first" : `All Areas in ${selectedCity}`}
-            </option>
-            {availableAreas.map(area => (
-              <option key={area} value={area}>{area}</option>
-            ))}
-          </select>
-        </div>
+              <div style={styles.filterPillsWrapper}>
+                {quickFilters.map(filter => (
+                  <button
+                    key={filter.id}
+                    style={{
+                      ...styles.filterPill,
+                      ...(filter.active ? styles.filterPillActive : {}),
+                      ...(filter.disabled ? { opacity: 0.5, cursor: 'not-allowed' } : {})
+                    }}
+                    onClick={filter.onToggle}
+                    disabled={filter.disabled}
+                  >
+                    <span style={styles.filterPillLabel}>{filter.label}</span>
+                    <span style={styles.filterPillHelper}>{filter.helper}</span>
+                  </button>
+                ))}
+              </div>
 
-        {checkInDate && checkOutDate && (
-          <div>
-            <label style={styles.label}>Availability Status</label>
-            <select
-              style={styles.locationDropdown}
-              value={availabilityFilter}
-              onChange={(e) => setAvailabilityFilter(e.target.value)}
-            >
-              <option value="all">All Properties</option>
-              <option value="available">✓ Available Only ({availableCount})</option>
-              <option value="booked">✗ Booked Only ({bookedCount})</option>
-            </select>
+              <div style={styles.filterDivider} />
+
+              <div style={styles.filterGrid} className="filter-grid">
+                <div>
+                  <label style={styles.label}>City</label>
+                  <select
+                    style={styles.cityDropdown}
+                    value={selectedCity}
+                    onChange={(e) => {
+                      setSelectedCity(e.target.value);
+                      setSelectedArea("All");
+                    }}
+                  >
+                    <option value="All">All Cities</option>
+                    {ALL_CITIES.map(city => (
+                      <option key={city} value={city}>{city}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={styles.label}>Area</label>
+                  <select
+                    style={styles.locationDropdown}
+                    value={selectedArea}
+                    onChange={(e) => setSelectedArea(e.target.value)}
+                    disabled={selectedCity === "All"}
+                  >
+                    <option value="All">
+                      {selectedCity === "All" ? "Select a city first" : `All areas in ${selectedCity}`}
+                    </option>
+                    {availableAreas.map(area => (
+                      <option key={area} value={area}>{area}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {showAdvancedFilters && (
+                <div style={styles.advancedFilterGrid} className="form-grid-desktop">
+                  <div>
+                    <label style={styles.label}>Check-in Date</label>
+                    <input
+                      type="date"
+                      style={styles.input}
+                      value={checkInDate || ''}
+                      onChange={(e) => setCheckInDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={styles.label}>Check-out Date</label>
+                    <input
+                      type="date"
+                      style={styles.input}
+                      value={checkOutDate || ''}
+                      onChange={(e) => setCheckOutDate(e.target.value)}
+                      min={checkInDate || new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={styles.label}>Room type</label>
+                    <select
+                      style={styles.locationDropdown}
+                      value={roomType}
+                      onChange={(e) => setRoomType(e.target.value)}
+                    >
+                      <option value="All">All Types</option>
+                      {ROOM_TYPES.map(type => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {checkInDate && checkOutDate && (
+                    <div>
+                      <label style={styles.label}>Availability</label>
+                      <select
+                        style={styles.locationDropdown}
+                        value={availabilityFilter}
+                        onChange={(e) => setAvailabilityFilter(e.target.value)}
+                      >
+                        <option value="all">All Properties</option>
+                        <option value="available">✓ Available Only ({availableCount})</option>
+                        <option value="booked">✗ Booked Only ({bookedCount})</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={styles.filterFooter}>
+                <p style={styles.filterFooterText}>
+                  {sortedHomestays.length} stays • {filterSummaryText}
+                </p>
+                <div style={styles.filterFooterActions}>
+                  <button
+                    style={styles.summaryToggleBtn}
+                    onClick={() => setShowAdvancedFilters(prev => !prev)}
+                  >
+                    {showAdvancedFilters ? 'Basic filters' : 'Advanced filters'}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        )}
-      </div>
-
-      <div style={styles.filterContainer}>
-        <button
-          style={{
-            ...styles.filterButton,
-            ...(coupleFriendlyOnly ? styles.activeFilter : {})
-          }}
-          onClick={() => setCoupleFriendlyOnly(!coupleFriendlyOnly)}
-        >
-          Couple Friendly
-        </button>
-
-        <button
-          style={{
-            ...styles.filterButton,
-            ...(hourlyOnly ? styles.activeFilter : {})
-          }}
-          onClick={() => setHourlyOnly(!hourlyOnly)}
-        >
-          Hourly Stays
-        </button>
-
-        <select
-          style={styles.filterButton}
-          value={roomType}
-          onChange={(e) => setRoomType(e.target.value)}
-        >
-          <option value="All">All Types</option>
-          {ROOM_TYPES.map(type => (
-            <option key={type} value={type}>{type}</option>
-          ))}
-        </select>
-      </div>
+        </div>
+      )}
 
       <div style={styles.viewToggleContainer}>
         <button 
@@ -1864,8 +2241,6 @@ function HomestayListing({ homestays }) {
           Map View
         </button>
       </div>
-        </div>
-      )}
 
       {viewMode === 'map' && sortedHomestays.filter(h => h.latitude && h.longitude).length > 0 && (
         <div>
@@ -2068,11 +2443,29 @@ function HomestayListing({ homestays }) {
           )}
         </div>
       ) : (
-        <ul style={styles.homestayList} className="homestay-list">
+        <ul style={styles.homestayList} className="homestay-list-grid">
           {sortedHomestays.map(homestay => {
             const availability = availabilityStatus[homestay.id];
             return (
-              <li key={homestay.id} style={styles.homestayItem}>
+              <li 
+                key={homestay.id} 
+                style={styles.homestayItem}
+                className="homestay-item-hover"
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.boxShadow = '0 12px 28px rgba(0,0,0,0.12)';
+                  e.currentTarget.style.borderColor = '#ff385c';
+                  const img = e.currentTarget.querySelector('img');
+                  if (img) img.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)';
+                  e.currentTarget.style.borderColor = 'transparent';
+                  const img = e.currentTarget.querySelector('img');
+                  if (img) img.style.transform = 'scale(1)';
+                }}
+              >
                 <Link to={`/homestays/${homestay.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                   <div style={{ position: 'relative' }}>
                     <img
@@ -3970,7 +4363,7 @@ function MyListings() {
           </button>
         </div>
       ) : (
-        <ul style={styles.homestayList} className="homestay-list">
+        <ul style={styles.homestayList} className="homestay-list-grid">
           {myHomestays.map((h) => (
             <li key={h.id} style={styles.homestayItem}>
               <div style={{ position: "relative" }}>
