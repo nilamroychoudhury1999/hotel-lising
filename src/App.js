@@ -1340,16 +1340,11 @@ const fetchAndCheckAvailability = async (icalUrl, checkInDate, checkOutDate) => 
   try {
     console.log('Fetching iCal from:', icalUrl);
     
-    // Use corsproxy.io as a more reliable CORS proxy
-    const proxyUrl = 'https://corsproxy.io/?';
+    // Use CORS proxy for external iCal URLs
+    const proxyUrl = 'https://api.allorigins.win/raw?url=';
     const urlToFetch = icalUrl.startsWith('http') ? proxyUrl + encodeURIComponent(icalUrl) : icalUrl;
     
-    const response = await fetch(urlToFetch, {
-      method: 'GET',
-      headers: {
-        'Accept': 'text/calendar, text/plain, */*'
-      }
-    });
+    const response = await fetch(urlToFetch);
     if (!response.ok) {
       console.error('Failed to fetch iCal:', response.status, response.statusText);
       return 'unknown';
