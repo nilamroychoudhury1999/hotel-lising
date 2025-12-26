@@ -34,7 +34,7 @@ import {
 } from "react-router-dom";
 import {
   FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch,
-  FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiCalendar, FiNavigation, FiMap, FiFilter
+  FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiCalendar, FiNavigation, FiMap, FiFilter, FiMessageCircle
 } from "react-icons/fi";
 import { Helmet } from "react-helmet";
 import ICAL from "ical.js";
@@ -477,12 +477,12 @@ const styles = {
   filterCard: {
     background: designTokens.colors.white,
     borderRadius: designTokens.radius.lg,
-    padding: designTokens.spacing.lg,
-    boxShadow: designTokens.shadow.md,
+    padding: designTokens.spacing.md,
+    boxShadow: designTokens.shadow.sm,
     border: `1px solid ${designTokens.colors.borderLight}`,
     display: 'flex',
     flexDirection: 'column',
-    gap: designTokens.spacing.md
+    gap: designTokens.spacing.sm
   },
   filterSectionHeader: {
     display: 'flex',
@@ -811,6 +811,34 @@ const styles = {
     boxShadow: designTokens.shadow.sm,
     letterSpacing: '0.3px',
     boxSizing: 'border-box'
+  },
+  whatsappButton: {
+    width: '100%',
+    padding: `${designTokens.spacing.md}px ${designTokens.spacing.xl}px`,
+    background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+    color: designTokens.colors.white,
+    border: 'none',
+    borderRadius: designTokens.radius.md,
+    fontSize: designTokens.fontSize.base,
+    fontWeight: 600,
+    cursor: 'pointer',
+    marginTop: designTokens.spacing.md,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: designTokens.spacing.sm,
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+    textDecoration: 'none',
+    minHeight: 44,
+    boxShadow: designTokens.shadow.sm,
+    letterSpacing: '0.3px',
+    boxSizing: 'border-box'
+  },
+  buttonGroup: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: designTokens.spacing.sm,
+    marginTop: designTokens.spacing.md
   },
   searchContainer: {
     display: 'flex',
@@ -1240,6 +1268,34 @@ const styles = {
     overflow: 'hidden',
     marginBottom: 20,
     border: '1px solid #ddd'
+  },
+  // Loader styles
+  loaderContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '60px 20px',
+    minHeight: '400px'
+  },
+  spinner: {
+    width: 50,
+    height: 50,
+    border: '4px solid #f3f4f6',
+    borderTop: '4px solid #ff385c',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite'
+  },
+  loaderText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: '#6b7280',
+    fontWeight: 500
+  },
+  loaderSubtext: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#9ca3af'
   },
   viewToggleContainer: {
     display: 'flex',
@@ -2430,12 +2486,25 @@ function HomestayListing({ homestays }) {
       )}
 
       {sortedHomestays.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 40 }}>
-          <h3>No homestays found matching your criteria</h3>
-          <p>Try adjusting your filters or search query</p>
+        <div style={styles.loaderContainer}>
+          <div style={{
+            fontSize: 48,
+            marginBottom: 16
+          }}>🏠</div>
+          <h3 style={{
+            fontSize: 20,
+            fontWeight: 600,
+            color: '#1f2937',
+            marginBottom: 8
+          }}>No homestays found</h3>
+          <p style={{
+            fontSize: 14,
+            color: '#6b7280',
+            marginBottom: 20
+          }}>Try adjusting your filters or search query</p>
           {showAvailableOnly && (
             <button 
-              style={{ ...styles.submitButton, marginTop: 15 }}
+              style={{ ...styles.submitButton, marginTop: 15, maxWidth: 300 }}
               onClick={toggleShowAvailableOnly}
             >
               Show All Homestays
@@ -4254,9 +4323,19 @@ function HomestayDetail() {
             </div>
           )}
           
-          <a href={`tel:${homestay.contact}`} style={styles.callButton}>
-            <FiPhone /> Call Host
-          </a>
+          <div style={styles.buttonGroup}>
+            <a href={`tel:${homestay.contact}`} style={{...styles.callButton, marginTop: 0}}>
+              <FiPhone /> Call
+            </a>
+            <a 
+              href={`https://wa.me/${homestay.contact.replace(/[^0-9]/g, '')}?text=Hi, I'm interested in ${encodeURIComponent(homestay.name)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{...styles.whatsappButton, marginTop: 0}}
+            >
+              <FiMessageCircle /> WhatsApp
+            </a>
+          </div>
 
           {auth.currentUser?.uid === homestay.createdBy && (
             <>
@@ -4338,8 +4417,10 @@ function MyListings() {
 
   if (loading) {
     return (
-      <div style={{ padding: 24, textAlign: "center" }}>
-        Loading your listings...
+      <div style={styles.loaderContainer}>
+        <div style={styles.spinner}></div>
+        <p style={styles.loaderText}>Loading your listings...</p>
+        <p style={styles.loaderSubtext}>Please wait while we fetch your properties</p>
       </div>
     );
   }
@@ -5094,6 +5175,7 @@ function MobileApp() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   // PWA Install Prompt
   useEffect(() => {
@@ -5151,6 +5233,7 @@ function MobileApp() {
         .sort((a, b) => normalizeCreatedAtMs(b.createdAt) - normalizeCreatedAtMs(a.createdAt));
 
       setHomestays(filtered);
+      setInitialLoading(false);
     });
 
     const authUnsubscribe = auth.onAuthStateChanged(setUser);
@@ -5179,6 +5262,17 @@ function MobileApp() {
 
   const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
   const closeMobileMenu = () => setMobileMenuOpen(false);
+
+  // Show initial loader
+  if (initialLoading) {
+    return (
+      <div style={styles.loaderContainer}>
+        <div style={styles.spinner}></div>
+        <p style={styles.loaderText}>Loading Homavia...</p>
+        <p style={styles.loaderSubtext}>Finding the best homestays for you</p>
+      </div>
+    );
+  }
 
   return (
     <Router>
