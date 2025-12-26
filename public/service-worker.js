@@ -22,6 +22,14 @@ self.addEventListener('install', (event) => {
 
 // Fetch event
 self.addEventListener('fetch', (event) => {
+  // Skip cross-origin requests and API calls
+  if (!event.request.url.startsWith(self.location.origin) || 
+      event.request.url.includes('corsproxy.io') ||
+      event.request.url.includes('airbnb.com') ||
+      event.request.url.includes('api.')) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
@@ -30,8 +38,11 @@ self.addEventListener('fetch', (event) => {
           return response;
         }
         return fetch(event.request);
-      }
-    )
+      })
+      .catch((error) => {
+        console.log('Fetch failed:', error);
+        return caches.match('/index.html');
+      })
   );
 });
 
