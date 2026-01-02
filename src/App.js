@@ -144,6 +144,24 @@ const PRICE_TYPES = [
 ];
 
 /* ------------------------------
+   Helper Functions
+------------------------------ */
+// Create URL-friendly slug from homestay name and ID
+const createSlug = (name, id) => {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with hyphens
+    .replace(/^-+|-+$/g, '');      // Remove leading/trailing hyphens
+  return `${slug}-${id}`;
+};
+
+// Extract ID from slug
+const getIdFromSlug = (slug) => {
+  const parts = slug.split('-');
+  return parts[parts.length - 1]; // ID is the last part
+};
+
+/* ------------------------------
    Design System Tokens
 ------------------------------ */
 const designTokens = {
@@ -2461,7 +2479,7 @@ function HomestayListing({ homestays }) {
                           </span>
                         )}
                         <Link 
-                          to={`/homestays/${homestay.id}`}
+                          to={`/homestays/${createSlug(homestay.name, homestay.id)}`}
                           style={{
                             display: 'block',
                             marginTop: 8,
@@ -2537,7 +2555,7 @@ function HomestayListing({ homestays }) {
                   if (img) img.style.transform = 'scale(1)';
                 }}
               >
-                <Link to={`/homestays/${homestay.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <Link to={`/homestays/${createSlug(homestay.name, homestay.id)}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                   <div style={{ position: 'relative' }}>
                     <img
                       src={homestay.imageUrl}
@@ -3679,7 +3697,7 @@ function EditHomestayForm() {
       });
 
       alert("Homestay updated successfully!");
-      navigate(`/homestays/${id}`);
+      navigate(`/homestays/${createSlug(form.name, id)}`);
     } catch (error) {
       console.error("Error:", error);
       alert("Failed to update homestay");
@@ -4118,7 +4136,7 @@ function EditHomestayForm() {
    Homestay Detail
 ------------------------------ */
 function HomestayDetail() {
-  const { id } = useParams();
+  const { slug } = useParams();
   const [homestay, setHomestay] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [bookedDates, setBookedDates] = useState([]);
@@ -4126,6 +4144,7 @@ function HomestayDetail() {
 
   useEffect(() => {
     const fetchHomestay = async () => {
+      const id = getIdFromSlug(slug);
       const docRef = doc(db, "homestays", id);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
@@ -4164,7 +4183,7 @@ function HomestayDetail() {
       }
     };
     fetchHomestay();
-  }, [id, navigate]);
+  }, [slug, navigate]);
 
   if (!homestay) return <div style={{ textAlign: "center", padding: 40 }}>Loading...</div>;
 
@@ -4482,7 +4501,7 @@ function MyListings() {
                       borderColor: "#ff385c",
                       color: "#ff385c",
                     }}
-                    onClick={() => navigate(`/homestays/${h.id}`)}
+                    onClick={() => navigate(`/homestays/${createSlug(h.name, h.id)}`)}
                   >
                     View
                   </button>
@@ -4740,7 +4759,7 @@ function AdminTools() {
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 100 }}>
                           <Link 
-                            to={`/homestays/${h.id}`} 
+                            to={`/homestays/${createSlug(h.name, h.id)}`} 
                             style={{ 
                               ...styles.filterButton, 
                               textDecoration: 'none',
@@ -4848,7 +4867,7 @@ function AdminTools() {
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
-                          <Link to={`/homestays/${h.id}`} style={{ ...styles.filterButton, textDecoration: 'none' }}>
+                          <Link to={`/homestays/${createSlug(h.name, h.id)}`} style={{ ...styles.filterButton, textDecoration: 'none' }}>
                             View
                           </Link>
                           <button
@@ -5432,7 +5451,7 @@ function MobileApp() {
               <Route path="/add-homestay" element={<AddHomestayForm />} />
               <Route path="/edit-homestay/:id" element={<EditHomestayForm />} />
             <Route path="/my-listings" element={<MyListings />} />
-            <Route path="/homestays/:id" element={<HomestayDetail />} />
+            <Route path="/homestays/:slug" element={<HomestayDetail />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/premium" element={<PremiumPage />} />
