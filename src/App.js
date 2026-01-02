@@ -83,6 +83,33 @@ const ADMIN_EMAIL = "nilamroychoudhury216@gmail.com";
 const isAdminUser = (user) => !!user && user.email === ADMIN_EMAIL;
 
 /* ------------------------------
+   Analytics Tracking Functions
+------------------------------ */
+const trackEvent = async (eventType, data = {}) => {
+  try {
+    await addDoc(collection(db, "analytics"), {
+      eventType, // 'page_view', 'call_click', 'whatsapp_click'
+      timestamp: serverTimestamp(),
+      ...data
+    });
+  } catch (error) {
+    console.error("Error tracking event:", error);
+  }
+};
+
+const trackPageView = (pagePath, pageTitle) => {
+  trackEvent('page_view', { pagePath, pageTitle });
+};
+
+const trackCallClick = (homestayId, homestayName) => {
+  trackEvent('call_click', { homestayId, homestayName });
+};
+
+const trackWhatsAppClick = (homestayId, homestayName) => {
+  trackEvent('whatsapp_click', { homestayId, homestayName });
+};
+
+/* ------------------------------
    Constants
 ------------------------------ */
 const AREAS_BY_CITY = {
@@ -4221,6 +4248,8 @@ function HomestayDetail() {
         const data = { id: docSnap.id, ...docSnap.data() };
         setHomestay(data);
         
+        // Track page view
+        trackPageView(`/homestays/${slug}`, data.name);
         // Fetch booked dates from iCal
         if (data.icalUrl) {
           try {
@@ -4537,7 +4566,11 @@ function HomestayDetail() {
           )}
           
           <div style={styles.buttonGroup}>
-            <a href={`tel:${homestay.contact}`} style={{...styles.callButton, marginTop: 0}}>
+            <a 
+              href={`tel:${homestay.contact}`} 
+              style={{...styles.callButton, marginTop: 0}}
+              onClick={() => trackCallClick(homestay.id, homestay.name)}
+            >
               <FiPhone /> Call
             </a>
             <a 
@@ -4545,6 +4578,7 @@ function HomestayDetail() {
               target="_blank"
               rel="noopener noreferrer"
               style={{...styles.whatsappButton, marginTop: 0}}
+              onClick={() => trackWhatsAppClick(homestay.id, homestay.name)}
             >
               <FiMessageCircle /> WhatsApp
             </a>
@@ -4718,6 +4752,228 @@ function MyListings() {
 }
 
 /* ------------------------------
+   Analytics Dashboard Component
+------------------------------ */
+function AnalyticsDashboard() {
+  const [stats, setStats] = useState({
+    totalPageViews: 0,
+    totalCalls: 0,
+    totalWhatsApp: 0,
+    recentActivity: []
+  });
+  const [loading, setLoading] = useState(true);
+  const [timeRange, setTimeRange] = useState('all'); // 'today', 'week', 'month', 'all'
+
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      setLoading(true);
+      try {
+        let analyticsQuery = collection(db, "analytics");
+        
+        // Apply time filter
+        if (timeRange !== 'all') {
+          const now = new Date();
+          let startDate = new Date();
+          
+          if (timeRange === 'today') {
+            startDate.setHours(0, 0, 0, 0);
+          } else if (timeRange === 'week') {
+            startDate.setDate(now.getDate() - 7);
+          } else if (timeRange === 'month') {
+            startDate.setMonth(now.getMonth() - 1);
+          }
+          
+          analyticsQuery = query(
+            analyticsQuery,
+            where("timestamp", ">=", Timestamp.fromDate(startDate)),
+            orderBy("timestamp", "desc")
+          );
+        } else {
+          analyticsQuery = query(analyticsQuery, orderBy("timestamp", "desc"), limit(100));
+        }
+
+        const snapshot = await getDocs(analyticsQuery);
+        
+        let pageViews = 0;
+        let calls = 0;
+        let whatsapp = 0;
+        const activity = [];
+
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          
+          if (data.eventType === 'page_view') pageViews++;
+          if (data.eventType === 'call_click') calls++;
+          if (data.eventType === 'whatsapp_click') whatsapp++;
+          
+          activity.push({
+            id: doc.id,
+            ...data,
+            timestamp: data.timestamp?.toDate() || new Date()
+          });
+        });
+
+        setStats({
+          totalPageViews: pageViews,
+          totalCalls: calls,
+          totalWhatsApp: whatsapp,
+          recentActivity: activity.slice(0, 50)
+        });
+      } catch (error) {
+        console.error("Error fetching analytics:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnalytics();
+  }, [timeRange]);
+
+  const statCardStyle = {
+    flex: 1,
+    minWidth: 200,
+    padding: 24,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    textAlign: 'center'
+  };
+
+  const statNumberStyle = {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#ff385c',
+    margin: '12px 0'
+  };
+
+  const statLabelStyle = {
+    fontSize: 14,
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px'
+  };
+
+  return (
+    <div>
+      {/* Time Range Filter */}
+      <div style={{ marginBottom: 24, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        {['today', 'week', 'month', 'all'].map(range => (
+          <button
+            key={range}
+            style={{
+              padding: '10px 20px',
+              border: timeRange === range ? '2px solid #ff385c' : '1px solid #ddd',
+              borderRadius: 8,
+              backgroundColor: timeRange === range ? '#fff0f3' : '#fff',
+              color: timeRange === range ? '#ff385c' : '#666',
+              fontWeight: timeRange === range ? 'bold' : 'normal',
+              cursor: 'pointer',
+              fontSize: 14,
+              transition: 'all 0.2s'
+            }}
+            onClick={() => setTimeRange(range)}
+          >
+            {range === 'all' ? 'All Time' : range.charAt(0).toUpperCase() + range.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40 }}>
+          <p>Loading analytics...</p>
+        </div>
+      ) : (
+        <>
+          {/* Stats Cards */}
+          <div style={{ display: 'flex', gap: 16, marginBottom: 32, flexWrap: 'wrap' }}>
+            <div style={statCardStyle}>
+              <div style={statLabelStyle}>Total Traffic</div>
+              <div style={statNumberStyle}>{stats.totalPageViews}</div>
+              <div style={{ fontSize: 12, color: '#999' }}>Page Views</div>
+            </div>
+            
+            <div style={statCardStyle}>
+              <div style={statLabelStyle}>Call Clicks</div>
+              <div style={{...statNumberStyle, color: '#0284c7'}}>{stats.totalCalls}</div>
+              <div style={{ fontSize: 12, color: '#999' }}>Users clicked call button</div>
+            </div>
+            
+            <div style={statCardStyle}>
+              <div style={statLabelStyle}>WhatsApp Clicks</div>
+              <div style={{...statNumberStyle, color: '#25D366'}}>{stats.totalWhatsApp}</div>
+              <div style={{ fontSize: 12, color: '#999' }}>Users clicked WhatsApp</div>
+            </div>
+
+            <div style={statCardStyle}>
+              <div style={statLabelStyle}>Total Engagement</div>
+              <div style={{...statNumberStyle, color: '#7c3aed'}}>{stats.totalCalls + stats.totalWhatsApp}</div>
+              <div style={{ fontSize: 12, color: '#999' }}>Combined interactions</div>
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div style={{
+            backgroundColor: '#fff',
+            borderRadius: 12,
+            padding: 24,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          }}>
+            <h3 style={{ marginTop: 0, marginBottom: 20, fontSize: 18 }}>Recent Activity</h3>
+            
+            {stats.recentActivity.length === 0 ? (
+              <p style={{ color: '#666', textAlign: 'center' }}>No activity recorded yet</p>
+            ) : (
+              <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+                {stats.recentActivity.map((activity) => {
+                  const icon = activity.eventType === 'page_view' ? '👁️' : 
+                               activity.eventType === 'call_click' ? '📞' : '💬';
+                  const label = activity.eventType === 'page_view' ? 'Page View' :
+                                activity.eventType === 'call_click' ? 'Call Click' : 'WhatsApp Click';
+                  const color = activity.eventType === 'page_view' ? '#666' :
+                                activity.eventType === 'call_click' ? '#0284c7' : '#25D366';
+
+                  return (
+                    <div
+                      key={activity.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: '12px 0',
+                        borderBottom: '1px solid #f0f0f0'
+                      }}
+                    >
+                      <div style={{ fontSize: 24 }}>{icon}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, color, fontSize: 14 }}>{label}</div>
+                        {activity.homestayName && (
+                          <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+                            {activity.homestayName}
+                          </div>
+                        )}
+                        {activity.pageTitle && (
+                          <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+                            {activity.pageTitle}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#999', textAlign: 'right' }}>
+                        {activity.timestamp.toLocaleDateString()}<br/>
+                        {activity.timestamp.toLocaleTimeString()}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------
    Admin Tools (visible only to ADMIN_EMAIL)
 ------------------------------ */
 function AdminTools() {
@@ -4884,6 +5140,22 @@ function AdminTools() {
           style={{
             padding: '12px 24px',
             border: 'none',
+            borderBottom: activeTab === 'analytics' ? '3px solid #ff385c' : '3px solid transparent',
+            backgroundColor: 'transparent',
+            color: activeTab === 'analytics' ? '#ff385c' : '#666',
+            fontWeight: activeTab === 'analytics' ? 'bold' : 'normal',
+            fontSize: 16,
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+          onClick={() => setActiveTab('analytics')}
+        >
+          Analytics
+        </button>
+        <button
+          style={{
+            padding: '12px 24px',
+            border: 'none',
             borderBottom: activeTab === 'cleanup' ? '3px solid #ff385c' : '3px solid transparent',
             backgroundColor: 'transparent',
             color: activeTab === 'cleanup' ? '#ff385c' : '#666',
@@ -4996,6 +5268,13 @@ function AdminTools() {
               })}
             </ul>
           )}
+        </div>
+      )}
+
+      {/* Analytics Tab */}
+      {activeTab === 'analytics' && (
+        <div style={styles.pageContent}>
+          <AnalyticsDashboard />
         </div>
       )}
 
