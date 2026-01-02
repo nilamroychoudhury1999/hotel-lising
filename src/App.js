@@ -146,19 +146,46 @@ const PRICE_TYPES = [
 /* ------------------------------
    Helper Functions
 ------------------------------ */
-// Create URL-friendly slug from homestay name and ID
-const createSlug = (name, id) => {
-  const slug = name
+// Create SEO-friendly URL slug from homestay name, city, and ID
+const createSlug = (name, id, city = '') => {
+  // Clean and normalize the name
+  let slug = name
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with hyphens
-    .replace(/^-+|-+$/g, '');      // Remove leading/trailing hyphens
+    .trim()
+    // Replace common symbols and special characters
+    .replace(/&/g, 'and')
+    .replace(/\+/g, 'plus')
+    .replace(/@/g, 'at')
+    .replace(/'/g, '')
+    .replace(/"/g, '')
+    // Remove all non-alphanumeric characters except spaces and hyphens
+    .replace(/[^a-z0-9\s-]/g, '')
+    // Replace multiple spaces or hyphens with single hyphen
+    .replace(/[\s-]+/g, '-')
+    // Remove leading/trailing hyphens
+    .replace(/^-+|-+$/g, '')
+    // Limit to 50 characters for cleaner URLs
+    .substring(0, 50)
+    .replace(/-+$/g, ''); // Remove trailing hyphen if substring cut in middle
+  
+  // Add city for better SEO context (optional)
+  if (city) {
+    const citySlug = city
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    slug = `${slug}-${citySlug}`;
+  }
+  
+  // Always append ID at the end for uniqueness
   return `${slug}-${id}`;
 };
 
-// Extract ID from slug
+// Extract ID from slug (always the last segment after final hyphen)
 const getIdFromSlug = (slug) => {
+  if (!slug) return null;
   const parts = slug.split('-');
-  return parts[parts.length - 1]; // ID is the last part
+  return parts[parts.length - 1];
 };
 
 /* ------------------------------
@@ -2479,7 +2506,7 @@ function HomestayListing({ homestays }) {
                           </span>
                         )}
                         <Link 
-                          to={`/homestays/${createSlug(homestay.name, homestay.id)}`}
+                          to={`/homestays/${createSlug(homestay.name, homestay.id, homestay.city)}`}
                           style={{
                             display: 'block',
                             marginTop: 8,
@@ -2555,7 +2582,7 @@ function HomestayListing({ homestays }) {
                   if (img) img.style.transform = 'scale(1)';
                 }}
               >
-                <Link to={`/homestays/${createSlug(homestay.name, homestay.id)}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <Link to={`/homestays/${createSlug(homestay.name, homestay.id, homestay.city)}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                   <div style={{ position: 'relative' }}>
                     <img
                       src={homestay.imageUrl}
@@ -3697,7 +3724,7 @@ function EditHomestayForm() {
       });
 
       alert("Homestay updated successfully!");
-      navigate(`/homestays/${createSlug(form.name, id)}`);
+      navigate(`/homestays/${createSlug(form.name, id, form.city)}`);
     } catch (error) {
       console.error("Error:", error);
       alert("Failed to update homestay");
@@ -4501,7 +4528,7 @@ function MyListings() {
                       borderColor: "#ff385c",
                       color: "#ff385c",
                     }}
-                    onClick={() => navigate(`/homestays/${createSlug(h.name, h.id)}`)}
+                    onClick={() => navigate(`/homestays/${createSlug(h.name, h.id, h.city)}`)}
                   >
                     View
                   </button>
@@ -4759,7 +4786,7 @@ function AdminTools() {
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 100 }}>
                           <Link 
-                            to={`/homestays/${createSlug(h.name, h.id)}`} 
+                            to={`/homestays/${createSlug(h.name, h.id, h.city)}`} 
                             style={{ 
                               ...styles.filterButton, 
                               textDecoration: 'none',
@@ -4867,7 +4894,7 @@ function AdminTools() {
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
-                          <Link to={`/homestays/${createSlug(h.name, h.id)}`} style={{ ...styles.filterButton, textDecoration: 'none' }}>
+                          <Link to={`/homestays/${createSlug(h.name, h.id, h.city)}`} style={{ ...styles.filterButton, textDecoration: 'none' }}>
                             View
                           </Link>
                           <button
