@@ -1,3 +1,20 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+Allow: /
+
+# Sitemaps
+Sitemap: https://homavia.in/sitemap.xml
+
+# Crawl-delay for respectful crawling
+Crawl-delay: 1
+
+# Block admin/edit pages
+Disallow: /admin
+Disallow: /edit-homestay/
+Disallow: /add-homestay
+
+# Allow important pages
+Allow: /homestays/
+Allow: /about
+Allow: /contact
+Allow: /premium

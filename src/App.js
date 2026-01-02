@@ -1676,8 +1676,47 @@ function HomestayListing({ homestays }) {
   return (
     <div>
       <Helmet>
-        <title>Find Homestays - Homavia</title>
-        <meta name="description" content="Discover the perfect homestay for your stay in Guwahati, Shillong, and Goa." />
+        <title>
+          {selectedCity !== 'All' 
+            ? `Homestays in ${selectedCity} - Book Best Stays | Homavia`
+            : 'Find & Book Homestays Across India | Homavia'
+          }
+        </title>
+        <meta name="description" content={
+          selectedCity !== 'All'
+            ? `Browse ${sortedHomestays.length}+ verified homestays in ${selectedCity}. ${coupleFriendlyOnly ? 'Couple-friendly, ' : ''}${hourlyOnly ? 'Hourly bookings, ' : ''}Best prices, instant confirmation. Book now on Homavia.`
+            : `Explore ${sortedHomestays.length}+ verified homestays across India. Compare prices, read reviews, book instantly. Couple-friendly & hourly stays available.`
+        } />
+        <meta name="keywords" content={`homestay ${selectedCity !== 'All' ? selectedCity : 'India'}, book homestay, budget accommodation, ${coupleFriendlyOnly ? 'couple friendly homestay, ' : ''}${hourlyOnly ? 'hourly homestay, ' : ''}verified homestays`} />
+        {selectedCity !== 'All' && <link rel="canonical" href={`https://homavia.in/?city=${selectedCity}`} />}
+        
+        {/* ItemList Structured Data (like Airbnb search results) */}
+        {sortedHomestays.length > 0 && (
+          <script type="application/ld+json">
+            {JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "ItemList",
+              "itemListElement": sortedHomestays.slice(0, 10).map((homestay, index) => ({
+                "@type": "ListItem",
+                "position": index + 1,
+                "url": `https://homavia.in/homestays/${createSlug(homestay.name, homestay.id, homestay.city)}`,
+                "name": homestay.name,
+                "item": {
+                  "@type": "LodgingBusiness",
+                  "name": homestay.name,
+                  "image": homestay.imageUrl,
+                  "address": {
+                    "@type": "PostalAddress",
+                    "addressLocality": homestay.area,
+                    "addressRegion": homestay.city,
+                    "addressCountry": "IN"
+                  },
+                  "priceRange": `₹${homestay.price}`
+                }
+              }))
+            })}
+          </script>
+        )}
       </Helmet>
 
       {/* Availability Calendar Section - Completely hidden, moved to advanced filters */}
@@ -2469,7 +2508,9 @@ function HomestayListing({ homestays }) {
                       <div style={{ minWidth: 200 }}>
                         <img 
                           src={homestay.imageUrl} 
-                          alt={homestay.name}
+                          alt={`${homestay.name} - ${homestay.city}`}
+                          title={homestay.name}
+                          loading="lazy"
                           style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }}
                         />
                         <h4 style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 'bold' }}>
@@ -2586,7 +2627,9 @@ function HomestayListing({ homestays }) {
                   <div style={{ position: 'relative' }}>
                     <img
                       src={homestay.imageUrl}
-                      alt={homestay.name}
+                      alt={`${homestay.name} - ${homestay.roomType} in ${homestay.area}, ${homestay.city}`}
+                      title={`Book ${homestay.name} on Homavia`}
+                      loading="lazy"
                       style={styles.homestayImage}
                     />
                     {homestay.premium && (
@@ -4218,11 +4261,132 @@ function HomestayDetail() {
     homestay.amenities?.includes(amenity.id)
   );
 
+  // Generate SEO-friendly description
+  const seoDescription = `Book ${homestay.name} in ${homestay.area}, ${homestay.city}. ${homestay.roomType} with ${homestay.maxGuests} guests capacity. ₹${homestay.price}/${homestay.priceType === 'perNight' ? 'night' : homestay.priceType === 'perHour' ? 'hour' : 'day'}. ${homestay.coupleFriendly ? 'Couple-friendly. ' : ''}${homestay.amenities?.length ? `Amenities: ${homestay.amenities.slice(0, 3).join(', ')}. ` : ''}Book now on Homavia.`;
+  
+  // Structured data for Google
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "LodgingBusiness",
+    "name": homestay.name,
+    "description": homestay.description || seoDescription,
+    "image": homestay.imageUrl,
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": homestay.area,
+      "addressRegion": homestay.city,
+      "addressCountry": "IN"
+    },
+    "geo": homestay.latitude && homestay.longitude ? {
+      "@type": "GeoCoordinates",
+      "latitude": homestay.latitude,
+      "longitude": homestay.longitude
+    } : undefined,
+    "telephone": homestay.contact,
+    "priceRange": `₹${homestay.price}`,
+    "aggregateRating": homestay.rating ? {
+      "@type": "AggregateRating",
+      "ratingValue": homestay.rating,
+      "bestRating": "5"
+    } : undefined,
+    "amenityFeature": selectedAmenities.map(a => ({
+      "@type": "LocationFeatureSpecification",
+      "name": a.name
+    }))
+  };
+
+  const pageUrl = `https://homavia.in/homestays/${createSlug(homestay.name, homestay.id, homestay.city)}`;
+  const imageUrl = homestay.imageUrl || 'https://homavia.in/favicon.jpg';
+
   return (
     <div style={styles.detailContainer} className="detail-page">
       <Helmet>
-        <title>{homestay.name} - Homavia</title>
-        <meta name="description" content={`${homestay.name} in ${homestay.area}, ${homestay.city}`} />
+        <title>{homestay.name} - {homestay.city} | Book on Homavia</title>
+        <meta name="description" content={seoDescription} />
+        <meta name="keywords" content={`${homestay.name}, homestay in ${homestay.city}, ${homestay.area} homestay, ${homestay.roomType}, ${homestay.coupleFriendly ? 'couple friendly homestay, ' : ''}accommodation in ${homestay.city}, book homestay ${homestay.city}`} />
+        
+        {/* Open Graph / Facebook */}
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={pageUrl} />
+        <meta property="og:title" content={`${homestay.name} - ${homestay.city}`} />
+        <meta property="og:description" content={seoDescription} />
+        <meta property="og:image" content={imageUrl} />
+        <meta property="og:site_name" content="Homavia" />
+        
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:url" content={pageUrl} />
+        <meta name="twitter:title" content={`${homestay.name} - ${homestay.city}`} />
+        <meta name="twitter:description" content={seoDescription} />
+        <meta name="twitter:image" content={imageUrl} />
+        
+        {/* Canonical URL */}
+        <link rel="canonical" href={pageUrl} />
+        
+        {/* Structured Data - Lodging Business */}
+        <script type="application/ld+json">
+          {JSON.stringify(structuredData)}
+        </script>
+        
+        {/* Breadcrumb Structured Data (like Airbnb) */}
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://homavia.in"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": homestay.city,
+                "item": `https://homavia.in/?city=${homestay.city}`
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": homestay.area,
+                "item": `https://homavia.in/?city=${homestay.city}&area=${homestay.area}`
+              },
+              {
+                "@type": "ListItem",
+                "position": 4,
+                "name": homestay.name
+              }
+            ]
+          })}
+        </script>
+        
+        {/* Product/Offer Schema (for pricing) */}
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": homestay.name,
+            "description": homestay.description || seoDescription,
+            "image": homestay.imageUrl,
+            "brand": {
+              "@type": "Brand",
+              "name": "Homavia"
+            },
+            "offers": {
+              "@type": "Offer",
+              "url": pageUrl,
+              "priceCurrency": "INR",
+              "price": homestay.price,
+              "priceValidUntil": new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": "Homavia"
+              }
+            }
+          })}
+        </script>
       </Helmet>
 
       <div style={styles.detailHeader}>
@@ -4246,7 +4410,8 @@ function HomestayDetail() {
         <div className="detail-main">
           <img
             src={homestay.imageUrl}
-            alt={homestay.name}
+            alt={`${homestay.name} - Premium ${homestay.roomType} in ${homestay.area}, ${homestay.city}`}
+            title={`${homestay.name} - Book on Homavia`}
             style={styles.detailImage}
           />
 
@@ -5340,9 +5505,67 @@ function MobileApp() {
   return (
     <Router>
       <Helmet>
-        <title>Homavia - Find Your Perfect Homestay</title>
-        <meta name="description" content="Discover authentic homestay experiences across India. Book comfortable, verified homestays in Guwahati, Shillong, Goa and more." />
+        <title>Homavia - Book Homestays in India | Guwahati, Delhi, Mumbai, Bangalore, Goa & More</title>
+        <meta name="description" content="Find and book verified homestays across 30+ Indian cities. Affordable stays in Guwahati, Delhi, Mumbai, Bangalore, Goa, Shimla, Jaipur & more. Couple-friendly, hourly bookings available. Best prices guaranteed." />
+        <meta name="keywords" content="homestay booking India, homestays in Guwahati, budget accommodation India, couple friendly homestay, hourly stays, homestay Delhi, homestay Mumbai, homestay Bangalore, homestay Goa, verified homestays" />
+        <meta name="author" content="Homavia" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://homavia.in/" />
+        <meta property="og:title" content="Homavia - Book Homestays in India" />
+        <meta property="og:description" content="Find and book verified homestays across 30+ Indian cities. Affordable, couple-friendly stays with best prices." />
+        <meta property="og:image" content="https://homavia.in/favicon.jpg" />
+        <meta property="og:site_name" content="Homavia" />
+        
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:url" content="https://homavia.in/" />
+        <meta name="twitter:title" content="Homavia - Book Homestays in India" />
+        <meta name="twitter:description" content="Find and book verified homestays across 30+ Indian cities." />
+        <meta name="twitter:image" content="https://homavia.in/favicon.jpg" />
+        
+        {/* Canonical */}
+        <link rel="canonical" href="https://homavia.in/" />
+        
+        {/* Structured Data for Website */}
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "Homavia",
+            "url": "https://homavia.in",
+            "description": "Book verified homestays across India",
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": "https://homavia.in/?search={search_term_string}",
+              "query-input": "required name=search_term_string"
+            }
+          })}
+        </script>
+        
+        {/* Organization Structured Data */}
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": "Homavia",
+            "url": "https://homavia.in",
+            "logo": "https://homavia.in/favicon.jpg",
+            "contactPoint": {
+              "@type": "ContactPoint",
+              "telephone": "+91-8638572663",
+              "contactType": "customer service",
+              "email": "support@homavia.com"
+            },
+            "sameAs": [
+              "https://facebook.com/homavia",
+              "https://twitter.com/homavia",
+              "https://instagram.com/homavia"
+            ]
+          })}
+        </script>
       </Helmet>
 
       <div style={styles.container}>
