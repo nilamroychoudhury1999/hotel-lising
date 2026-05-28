@@ -43,7 +43,8 @@ import 'react-calendar/dist/Calendar.css';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import logo from "./IMG-20250818-WA0009.jpg";
+import heroImage from "./prairie-haven-51f728.jpg";
+import "./App.css";
 
 // Fix for default marker icons in Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -215,6 +216,69 @@ const getIdFromSlug = (slug) => {
   return parts[parts.length - 1];
 };
 
+const CALENDAR_PORTAL_MATCHERS = [
+  { tokens: ['airbnb'], name: 'Airbnb' },
+  { tokens: ['booking.com'], name: 'Booking.com' },
+  { tokens: ['vrbo', 'homeaway'], name: 'Vrbo' },
+  { tokens: ['google.com/calendar', 'calendar.google'], name: 'Google Calendar' },
+  { tokens: ['agoda'], name: 'Agoda' },
+  { tokens: ['makemytrip'], name: 'MakeMyTrip' },
+  { tokens: ['goibibo'], name: 'Goibibo' },
+  { tokens: ['expedia'], name: 'Expedia' },
+  { tokens: ['tripadvisor'], name: 'Tripadvisor' },
+  { tokens: ['hostaway'], name: 'Hostaway' },
+  { tokens: ['lodgify'], name: 'Lodgify' },
+  { tokens: ['guesty'], name: 'Guesty' },
+  { tokens: ['smoobu'], name: 'Smoobu' },
+  { tokens: ['beds24'], name: 'Beds24' },
+  { tokens: ['ownerrez'], name: 'OwnerRez' },
+  { tokens: ['cloudbeds'], name: 'Cloudbeds' },
+  { tokens: ['eviivo'], name: 'eviivo' }
+];
+
+const getCalendarPortalName = (icalUrl) => {
+  if (!icalUrl) return 'No calendar linked';
+
+  const normalized = String(icalUrl).trim().toLowerCase();
+  let searchable = normalized;
+
+  try {
+    const parsedUrl = new URL(normalized);
+    searchable = `${parsedUrl.hostname}${parsedUrl.pathname}`.replace(/^www\./, '');
+  } catch (error) {
+    // Some pasted calendar values are not valid URLs. Fall back to text matching.
+  }
+
+  const match = CALENDAR_PORTAL_MATCHERS.find(portal =>
+    portal.tokens.some(token => searchable.includes(token))
+  );
+
+  if (match) return match.name;
+
+  try {
+    return new URL(normalized).hostname.replace(/^www\./, '');
+  } catch (error) {
+    return 'External calendar';
+  }
+};
+
+const useIsDesktop = (breakpoint = 1024) => {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth >= breakpoint
+  );
+
+  useEffect(() => {
+    const handleResize = () => {
+      setMatches(typeof window !== 'undefined' && window.innerWidth >= breakpoint);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [breakpoint]);
+
+  return matches;
+};
+
 /* ------------------------------
    Design System Tokens
 ------------------------------ */
@@ -244,38 +308,43 @@ const designTokens = {
   },
   // Border Radius
   radius: {
-    sm: 8,
-    md: 12,
-    lg: 16,
-    xl: 24,
+    sm: 6,
+    md: 8,
+    lg: 8,
+    xl: 12,
     full: 9999
   },
   // Shadows (layered approach)
   shadow: {
-    sm: '0 2px 8px rgba(0,0,0,0.06)',
-    md: '0 4px 16px rgba(0,0,0,0.08)',
-    lg: '0 8px 32px rgba(0,0,0,0.12)',
-    xl: '0 16px 48px rgba(0,0,0,0.15)'
+    sm: '0 1px 2px rgba(15, 23, 42, 0.05)',
+    md: '0 10px 24px rgba(15, 23, 42, 0.08)',
+    lg: '0 18px 46px rgba(15, 23, 42, 0.12)',
+    xl: '0 28px 70px rgba(15, 23, 42, 0.16)'
   },
   // Colors - Semantic tokens for consistency
   colors: {
-    primary: '#ff385c',
-    primaryHover: '#e5204b',
-    primaryLight: '#ffe0e7',
-    dark: '#111827',
-    darkMuted: '#374151',
-    text: '#1f2937',
-    textMuted: '#6b7280',
-    textLight: '#9ca3af',
-    border: '#e5e7eb',
-    borderLight: '#f3f4f6',
-    success: '#10b981',
-    successLight: '#d1fae5',
-    warning: '#f59e0b',
-    warningLight: '#fef3c7',
-    error: '#ef4444',
-    errorLight: '#fee2e2',
-    background: '#fafafa',
+    primary: '#B42318',
+    primaryHover: '#8F1D16',
+    primaryLight: '#FEE4E2',
+    accent: '#0E7490',
+    accentLight: '#CFFAFE',
+    gold: '#B7791F',
+    goldLight: '#FEF3C7',
+    dark: '#101828',
+    darkMuted: '#344054',
+    text: '#182230',
+    textMuted: '#667085',
+    textLight: '#98A2B3',
+    border: '#D0D5DD',
+    borderLight: '#EAECF0',
+    surface: '#F8FAFC',
+    success: '#067647',
+    successLight: '#DCFAE6',
+    warning: '#B54708',
+    warningLight: '#FEF0C7',
+    error: '#B42318',
+    errorLight: '#FEE4E2',
+    background: '#F6F7F9',
     white: '#ffffff'
   }
 };
@@ -293,7 +362,7 @@ const styles = {
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: '#fafafa',
+    backgroundColor: designTokens.colors.background,
     position: 'relative',
     overflowX: 'hidden'
   },
@@ -301,7 +370,7 @@ const styles = {
     maxWidth: '100%',
     margin: '0 auto',
     width: '100%',
-    padding: '0 16px',
+    padding: '20px 16px 0',
     boxSizing: 'border-box',
     overflowX: 'hidden'
   },
@@ -317,7 +386,7 @@ const styles = {
   },
   warningIcon: {
     fontSize: 64,
-    color: '#ff385c',
+    color: designTokens.colors.primary,
     marginBottom: 20
   },
   warningTitle: {
@@ -338,35 +407,72 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '14px 16px',
-    borderBottom: '1px solid #e0e0e0',
+    borderBottom: `1px solid ${designTokens.colors.borderLight}`,
     marginBottom: 0,
     position: 'sticky',
     top: 0,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.96)',
     zIndex: 100,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-    backdropFilter: 'blur(10px)',
-    WebkitBackdropFilter: 'blur(10px)',
+    boxShadow: '0 1px 0 rgba(16, 24, 40, 0.04)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
     maxWidth: '100%',
     boxSizing: 'border-box'
   },
   logoContainer: {
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
-    color: '#ff385c',
-    fontWeight: 'bold',
+    gap: 9,
+    color: designTokens.colors.primary,
+    fontWeight: 800,
     fontSize: 18,
     textDecoration: 'none',
-    letterSpacing: '-0.5px',
+    letterSpacing: 0,
     transition: 'all 0.2s ease',
     cursor: 'pointer'
   },
+  logoMark: {
+    width: 38,
+    height: 38,
+    borderRadius: designTokens.radius.md,
+    backgroundColor: designTokens.colors.primary,
+    color: designTokens.colors.white,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 10px 22px rgba(180, 35, 24, 0.18)',
+    flexShrink: 0
+  },
+  logoText: {
+    color: designTokens.colors.dark,
+    fontSize: 19,
+    fontWeight: 800,
+    letterSpacing: 0,
+    lineHeight: 1
+  },
   logo: {
-    height: 36,
-    borderRadius: 8,
-    boxShadow: '0 2px 8px rgba(255,56,92,0.25)',
+    height: 40,
+    borderRadius: 10,
+    boxShadow: '0 10px 22px rgba(16, 24, 40, 0.12)',
     transition: 'transform 0.2s ease'
+  },
+  desktopNav: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+    flex: 1,
+    minWidth: 0
+  },
+  desktopNavLink: {
+    color: designTokens.colors.text,
+    textDecoration: 'none',
+    fontWeight: 600,
+    fontSize: 14,
+    padding: '9px 11px',
+    borderRadius: designTokens.radius.md,
+    whiteSpace: 'nowrap',
+    transition: 'all 0.2s ease'
   },
   navLinks: {
     display: 'flex',
@@ -374,20 +480,20 @@ const styles = {
     gap: 16
   },
   navLink: {
-    color: '#222',
+    color: designTokens.colors.dark,
     textDecoration: 'none',
     fontWeight: 500,
     fontSize: 16,
     transition: 'color 0.2s',
-    letterSpacing: '-0.2px'
+    letterSpacing: 0
   },
   authButton: {
     display: 'flex',
     alignItems: 'center',
     gap: designTokens.spacing.sm,
-    padding: `${designTokens.spacing.sm}px ${designTokens.spacing.lg}px`,
-    borderRadius: designTokens.radius.full,
-    border: `1.5px solid ${designTokens.colors.border}`,
+    padding: `10px ${designTokens.spacing.lg}px`,
+    borderRadius: designTokens.radius.md,
+    border: `1px solid ${designTokens.colors.border}`,
     backgroundColor: designTokens.colors.white,
     cursor: 'pointer',
     fontWeight: 600,
@@ -398,11 +504,104 @@ const styles = {
     whiteSpace: 'nowrap'
   },
   btnPrimary: {
-    background: `linear-gradient(135deg, ${designTokens.colors.primary} 0%, #ff5a75 100%)`,
+    background: designTokens.colors.primary,
     color: designTokens.colors.white,
     border: 'none',
     boxShadow: designTokens.shadow.md,
     fontWeight: 600
+  },
+  heroShell: {
+    minHeight: 360,
+    borderRadius: designTokens.radius.xl,
+    overflow: 'hidden',
+    position: 'relative',
+    marginBottom: designTokens.spacing.xl,
+    backgroundColor: designTokens.colors.dark,
+    boxShadow: designTokens.shadow.lg,
+    isolation: 'isolate'
+  },
+  heroImage: {
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover'
+  },
+  heroOverlay: {
+    position: 'absolute',
+    inset: 0,
+    background: 'linear-gradient(90deg, rgba(16, 24, 40, 0.86) 0%, rgba(16, 24, 40, 0.62) 46%, rgba(16, 24, 40, 0.14) 100%)'
+  },
+  heroContent: {
+    position: 'relative',
+    zIndex: 1,
+    minHeight: 360,
+    maxWidth: 720,
+    padding: '48px 40px',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    color: designTokens.colors.white
+  },
+  heroEyebrow: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: designTokens.spacing.sm,
+    width: 'fit-content',
+    margin: '0 0 16px',
+    padding: '8px 12px',
+    borderRadius: designTokens.radius.full,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    border: '1px solid rgba(255, 255, 255, 0.22)',
+    color: '#F9FAFB',
+    fontSize: designTokens.fontSize.xs,
+    fontWeight: 700,
+    letterSpacing: 0,
+    textTransform: 'uppercase'
+  },
+  heroTitle: {
+    margin: 0,
+    maxWidth: 640,
+    color: designTokens.colors.white,
+    fontSize: 44,
+    lineHeight: 1.08,
+    fontWeight: 800,
+    letterSpacing: 0
+  },
+  heroSubtitle: {
+    margin: '18px 0 0',
+    maxWidth: 580,
+    color: '#E4E7EC',
+    fontSize: designTokens.fontSize.base,
+    lineHeight: 1.7
+  },
+  heroStats: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: 12,
+    marginTop: 28,
+    maxWidth: 620
+  },
+  heroStat: {
+    padding: '14px 16px',
+    borderRadius: designTokens.radius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.13)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)'
+  },
+  heroStatValue: {
+    margin: 0,
+    color: designTokens.colors.white,
+    fontSize: 20,
+    fontWeight: 800,
+    lineHeight: 1.1
+  },
+  heroStatLabel: {
+    margin: '6px 0 0',
+    color: '#D0D5DD',
+    fontSize: 12,
+    lineHeight: 1.4
   },
   homestayList: {
     display: 'grid',
@@ -410,7 +609,7 @@ const styles = {
     gap: designTokens.spacing.xl,
     padding: 0,
     listStyle: 'none',
-    marginTop: designTokens.spacing.md,
+    marginTop: designTokens.spacing.lg,
     animation: 'fadeIn 0.5s ease',
     width: '100%',
     maxWidth: '100%',
@@ -421,7 +620,7 @@ const styles = {
     borderRadius: designTokens.radius.lg,
     overflow: 'hidden',
     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    boxShadow: designTokens.shadow.md,
+    boxShadow: designTokens.shadow.sm,
     backgroundColor: designTokens.colors.white,
     cursor: 'pointer',
     position: 'relative',
@@ -429,34 +628,31 @@ const styles = {
   },
   homestayImage: {
     width: '100%',
-    height: 220,
+    height: 230,
     objectFit: 'cover',
-    borderRadius: `${designTokens.radius.lg}px ${designTokens.radius.lg}px 0 0`,
+    borderRadius: '0',
     marginBottom: 0,
-    transition: 'transform 0.3s ease',
-    backgroundColor: designTokens.colors.borderLight
+    transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+    backgroundColor: designTokens.colors.borderLight,
+    display: 'block'
   },
   homestayInfo: {
     display: 'flex',
     flexDirection: 'column',
-    gap: designTokens.spacing.sm,
-    padding: designTokens.spacing.lg
+    gap: 8,
+    padding: '16px 18px 18px'
   },
   price: {
-    fontWeight: 'bold',
+    fontWeight: 800,
     fontSize: designTokens.fontSize.lg,
-    color: designTokens.colors.text,
-    letterSpacing: '-0.3px',
-    background: `linear-gradient(135deg, ${designTokens.colors.primary} 0%, #ff5a75 100%)`,
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    backgroundClip: 'text'
+    color: designTokens.colors.primary,
+    letterSpacing: 0
   },
   title: {
-    fontWeight: 600,
+    fontWeight: 700,
     fontSize: designTokens.fontSize.base,
     color: designTokens.colors.text,
-    letterSpacing: '-0.2px',
+    letterSpacing: 0,
     lineHeight: 1.4,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -470,32 +666,34 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: designTokens.spacing.xs,
-    letterSpacing: '-0.1px'
+    letterSpacing: 0
   },
   rating: {
     display: 'flex',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
     fontSize: 13,
-    fontWeight: 600
+    fontWeight: 700,
+    color: designTokens.colors.dark,
+    whiteSpace: 'nowrap'
   },
   filterSummaryCard: {
     background: designTokens.colors.white,
     borderRadius: designTokens.radius.lg,
-    padding: `${designTokens.spacing.lg}px ${designTokens.spacing.xl}px`,
+    padding: '18px 20px',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: designTokens.spacing.lg,
     marginBottom: designTokens.spacing.lg,
-    boxShadow: designTokens.shadow.md,
+    boxShadow: designTokens.shadow.sm,
     border: `1px solid ${designTokens.colors.borderLight}`,
     flexWrap: 'wrap'
   },
   sectionEyebrow: {
     fontSize: designTokens.fontSize.xs,
     textTransform: 'uppercase',
-    letterSpacing: '0.4px',
+    letterSpacing: 0,
     color: designTokens.colors.textLight,
     marginBottom: designTokens.spacing.xs,
     fontWeight: 700
@@ -521,7 +719,7 @@ const styles = {
     padding: `${designTokens.spacing.md}px ${designTokens.spacing.lg}px`,
     borderRadius: designTokens.radius.full,
     border: 'none',
-    background: `linear-gradient(135deg, ${designTokens.colors.dark}, ${designTokens.colors.darkMuted})`,
+    background: designTokens.colors.dark,
     color: designTokens.colors.white,
     fontSize: designTokens.fontSize.sm,
     fontWeight: 600,
@@ -537,7 +735,7 @@ const styles = {
     borderRadius: designTokens.radius.full,
     border: 'none',
     backgroundColor: 'transparent',
-    color: '#2563eb',
+    color: designTokens.colors.accent,
     fontSize: designTokens.fontSize.sm,
     fontWeight: 600,
     cursor: 'pointer',
@@ -550,9 +748,9 @@ const styles = {
   filterCard: {
     background: designTokens.colors.white,
     borderRadius: designTokens.radius.lg,
-    padding: designTokens.spacing.lg,
-    boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-    border: `1px solid ${designTokens.colors.borderLight}`,
+    padding: designTokens.spacing.xl,
+    boxShadow: designTokens.shadow.md,
+    border: `1px solid ${designTokens.colors.border}`,
     display: 'flex',
     flexDirection: 'column',
     gap: designTokens.spacing.md
@@ -577,7 +775,7 @@ const styles = {
   },
   filterPill: {
     padding: `${designTokens.spacing.sm}px ${designTokens.spacing.md}px`,
-    borderRadius: designTokens.radius.sm,
+    borderRadius: designTokens.radius.md,
     border: `1px solid ${designTokens.colors.border}`,
     backgroundColor: designTokens.colors.white,
     cursor: 'pointer',
@@ -613,7 +811,7 @@ const styles = {
     padding: `${designTokens.spacing.sm}px ${designTokens.spacing.md}px`,
     borderRadius: designTokens.radius.sm,
     border: `1px solid ${designTokens.colors.border}`,
-    backgroundColor: designTokens.colors.borderLight,
+    backgroundColor: designTokens.colors.surface,
     fontSize: designTokens.fontSize.xs,
     fontWeight: 600,
     cursor: 'pointer',
@@ -645,13 +843,14 @@ const styles = {
     gap: designTokens.spacing.sm
   },
   locationDropdown: {
-    padding: '10px 14px',
-    borderRadius: 8,
-    border: '1px solid #ddd',
+    padding: '12px 14px',
+    borderRadius: designTokens.radius.md,
+    border: `1px solid ${designTokens.colors.border}`,
     fontSize: 14,
     width: '100%',
     marginBottom: 12,
-    backgroundColor: 'white',
+    backgroundColor: designTokens.colors.white,
+    color: designTokens.colors.text,
     cursor: 'pointer'
   },
   formContainer: {
@@ -683,7 +882,7 @@ const styles = {
     fontWeight: 600,
     fontSize: designTokens.fontSize.sm,
     color: designTokens.colors.text,
-    letterSpacing: '0.2px'
+    letterSpacing: 0
   },
   input: {
     width: '100%',
@@ -731,7 +930,7 @@ const styles = {
     marginTop: designTokens.spacing.lg
   },
   submitButton: {
-    background: `linear-gradient(135deg, ${designTokens.colors.primary} 0%, #ff5a75 100%)`,
+    background: designTokens.colors.primary,
     color: designTokens.colors.white,
     border: 'none',
     padding: `${designTokens.spacing.lg}px ${designTokens.spacing.xl}px`,
@@ -744,13 +943,13 @@ const styles = {
     width: '100%',
     minHeight: 48,
     boxShadow: designTokens.shadow.md,
-    letterSpacing: '0.3px'
+    letterSpacing: 0
   },
   detailContainer: {
-    maxWidth: '100%',
+    maxWidth: '1240px',
     width: '100%',
     margin: '0 auto',
-    padding: `${designTokens.spacing.xl}px 0`,
+    padding: `${designTokens.spacing.xl}px 0 ${designTokens.spacing['3xl']}px`,
     boxSizing: 'border-box'
   },
   detailHeader: {
@@ -760,11 +959,11 @@ const styles = {
   },
   detailTitle: {
     fontSize: designTokens.fontSize['3xl'],
-    fontWeight: 'bold',
+    fontWeight: 800,
     marginBottom: designTokens.spacing.lg,
     color: designTokens.colors.dark,
     lineHeight: 1.3,
-    letterSpacing: '-0.5px'
+    letterSpacing: 0
   },
   detailLocation: {
     display: 'flex',
@@ -776,7 +975,7 @@ const styles = {
   },
   detailImage: {
     width: '100%',
-    borderRadius: designTokens.radius.lg,
+    borderRadius: designTokens.radius.xl,
     marginBottom: designTokens.spacing['2xl'],
     maxHeight: 500,
     objectFit: 'cover',
@@ -787,6 +986,21 @@ const styles = {
     flexDirection: 'column',
     gap: designTokens.spacing['2xl'],
     marginTop: designTokens.spacing['2xl']
+  },
+  detailGridMobile: {
+    display: 'grid',
+    gridTemplateColumns: '1fr',
+    gap: 28,
+    alignItems: 'start'
+  },
+  detailGridDesktop: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) 380px',
+    gap: 32,
+    alignItems: 'start'
+  },
+  detailMain: {
+    minWidth: 0
   },
   detailAmenities: {
     display: 'grid',
@@ -799,15 +1013,16 @@ const styles = {
     alignItems: 'center',
     gap: designTokens.spacing.md,
     padding: `${designTokens.spacing.md}px ${designTokens.spacing.lg}px`,
-    backgroundColor: designTokens.colors.borderLight,
-    borderRadius: designTokens.radius.sm,
+    backgroundColor: designTokens.colors.white,
+    border: `1px solid ${designTokens.colors.borderLight}`,
+    borderRadius: designTokens.radius.md,
     fontSize: designTokens.fontSize.base
   },
   bookingCard: {
-    border: '1.5px solid #e0e0e0',
-    borderRadius: 20,
+    border: `1px solid ${designTokens.colors.border}`,
+    borderRadius: designTokens.radius.xl,
     padding: 28,
-    boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+    boxShadow: designTokens.shadow.lg,
     order: -1,
     backgroundColor: '#fff',
     position: 'sticky',
@@ -815,13 +1030,9 @@ const styles = {
   },
   priceDetail: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: 800,
     marginBottom: 20,
-    color: '#222',
-    background: 'linear-gradient(135deg, #ff385c 0%, #ff5a75 100%)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    backgroundClip: 'text'
+    color: designTokens.colors.primary
   },
   priceTypeLabel: {
     fontSize: 12,
@@ -830,9 +1041,9 @@ const styles = {
     marginLeft: 4
   },
   additionalPricing: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: designTokens.colors.surface,
     padding: 12,
-    borderRadius: 8,
+    borderRadius: designTokens.radius.md,
     marginTop: 12,
     fontSize: 13
   },
@@ -846,7 +1057,7 @@ const styles = {
   bookButton: {
     width: '100%',
     padding: `${designTokens.spacing.md}px ${designTokens.spacing.xl}px`,
-    background: `linear-gradient(135deg, ${designTokens.colors.primary} 0%, #ff5a75 100%)`,
+    background: designTokens.colors.primary,
     color: designTokens.colors.white,
     border: 'none',
     borderRadius: designTokens.radius.md,
@@ -860,13 +1071,13 @@ const styles = {
     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
     minHeight: 44,
     boxShadow: designTokens.shadow.sm,
-    letterSpacing: '0.3px',
+    letterSpacing: 0,
     boxSizing: 'border-box'
   },
   callButton: {
     width: '100%',
     padding: `${designTokens.spacing.md}px ${designTokens.spacing.xl}px`,
-    background: `linear-gradient(135deg, ${designTokens.colors.success} 0%, #059669 100%)`,
+    background: designTokens.colors.success,
     color: designTokens.colors.white,
     border: 'none',
     borderRadius: designTokens.radius.md,
@@ -882,7 +1093,7 @@ const styles = {
     textDecoration: 'none',
     minHeight: 44,
     boxShadow: designTokens.shadow.sm,
-    letterSpacing: '0.3px',
+    letterSpacing: 0,
     boxSizing: 'border-box'
   },
   whatsappButton: {
@@ -904,7 +1115,7 @@ const styles = {
     textDecoration: 'none',
     minHeight: 44,
     boxShadow: designTokens.shadow.sm,
-    letterSpacing: '0.3px',
+    letterSpacing: 0,
     boxSizing: 'border-box'
   },
   buttonGroup: {
@@ -916,30 +1127,31 @@ const styles = {
   searchContainer: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 10,
-    marginBottom: 20,
+    gap: 12,
+    marginBottom: 18,
     padding: '14px',
-    background: 'linear-gradient(135deg, #667eea15 0%, #764ba215 100%)',
-    borderRadius: 12,
-    border: '1px solid #e8e8e8'
+    background: designTokens.colors.white,
+    borderRadius: designTokens.radius.lg,
+    border: `1px solid ${designTokens.colors.border}`,
+    boxShadow: designTokens.shadow.md
   },
   searchInput: {
     flex: 1,
-    padding: '12px 16px',
-    borderRadius: 10,
-    border: '1.5px solid #e0e0e0',
-    fontSize: 14,
+    padding: '14px 16px',
+    borderRadius: designTokens.radius.md,
+    border: `1px solid ${designTokens.colors.border}`,
+    fontSize: 15,
     width: '100%',
     boxSizing: 'border-box',
     transition: 'all 0.2s',
-    backgroundColor: 'white',
+    backgroundColor: designTokens.colors.surface,
     fontWeight: 500
   },
   searchButton: {
-    padding: '12px 20px',
-    borderRadius: 10,
+    padding: '14px 24px',
+    borderRadius: designTokens.radius.md,
     border: 'none',
-    background: 'linear-gradient(135deg, #ff385c 0%, #ff5a75 100%)',
+    background: designTokens.colors.primary,
     color: 'white',
     cursor: 'pointer',
     display: 'flex',
@@ -949,46 +1161,43 @@ const styles = {
     fontSize: 15,
     fontWeight: 600,
     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-    minHeight: 44,
+    minHeight: 48,
     whiteSpace: 'nowrap',
-    boxShadow: '0 2px 8px rgba(255, 56, 92, 0.3)'
+    boxShadow: '0 12px 24px rgba(180, 35, 24, 0.22)'
   },
   premiumBadge: {
-    backgroundColor: '#ffd700',
-    color: '#333',
-    padding: '3px 8px',
-    borderRadius: 4,
-    fontSize: 12,
-    fontWeight: 'bold',
+    backgroundColor: designTokens.colors.goldLight,
+    color: '#7A4E0A',
+    padding: '4px 8px',
+    borderRadius: designTokens.radius.sm,
+    fontSize: 11,
+    fontWeight: 800,
     display: 'inline-flex',
     alignItems: 'center',
     gap: 3,
     marginLeft: 8
   },
   pageContainer: {
-    maxWidth: '100%',
+    maxWidth: '1180px',
     width: '100%',
     margin: '0 auto',
-    padding: '40px 20px',
+    padding: '44px 20px',
     boxSizing: 'border-box'
   },
   pageTitle: {
-    fontSize: 36,
-    fontWeight: 'bold',
+    fontSize: 34,
+    fontWeight: 800,
     marginBottom: 28,
     textAlign: 'center',
-    background: 'linear-gradient(135deg, #ff385c 0%, #ff5a75 100%)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    backgroundClip: 'text',
-    letterSpacing: '-1px'
+    color: designTokens.colors.dark,
+    letterSpacing: 0
   },
   pageContent: {
     lineHeight: 1.8,
     fontSize: 16,
     maxWidth: '800px',
     margin: '0 auto',
-    color: '#444'
+    color: designTokens.colors.text
   },
   teamContainer: {
     display: 'grid',
@@ -1005,7 +1214,7 @@ const styles = {
     borderRadius: '50%',
     objectFit: 'cover',
     margin: '0 auto 12px',
-    border: '3px solid #ff385c'
+    border: `3px solid ${designTokens.colors.primary}`
   },
   contactForm: {
     display: 'flex',
@@ -1029,27 +1238,28 @@ const styles = {
   },
   featureCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 28,
-    boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+    borderRadius: designTokens.radius.lg,
+    padding: 32,
+    boxShadow: designTokens.shadow.sm,
     textAlign: 'center',
     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    border: '1px solid #f0f0f0'
+    border: `1px solid ${designTokens.colors.borderLight}`
   },
   featureIcon: {
-    fontSize: 40,
-    color: '#ff385c',
-    marginBottom: 20
+    fontSize: 44,
+    color: designTokens.colors.primary,
+    marginBottom: 20,
+    display: 'flex',
+    justifyContent: 'center'
   },
   footer: {
-    background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+    background: designTokens.colors.dark,
     padding: '48px 0 24px',
     marginTop: 'auto',
-    borderTop: '1px solid #dee2e6',
-    boxShadow: '0 -2px 10px rgba(0,0,0,0.02)'
+    borderTop: 'none'
   },
   footerContainer: {
-    maxWidth: '1200px',
+    maxWidth: '1240px',
     width: '100%',
     margin: '0 auto',
     padding: '0 20px',
@@ -1064,30 +1274,34 @@ const styles = {
     gap: 12
   },
   footerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: 700,
     marginBottom: 16,
-    color: '#222',
-    letterSpacing: '-0.3px'
+    color: '#fff',
+    letterSpacing: 0,
+    textTransform: 'uppercase'
   },
   footerLink: {
-    color: '#555',
+    color: '#9ca3af',
     textDecoration: 'none',
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    fontSize: 15,
+    fontSize: 14,
     transition: 'all 0.2s',
-    padding: '6px 0'
+    padding: '5px 0'
   },
   copyright: {
     textAlign: 'center',
     paddingTop: 32,
-    color: '#666',
-    borderTop: '1px solid #dee2e6',
+    color: '#6b7280',
+    borderTop: '1px solid #374151',
     marginTop: 32,
-    fontSize: 14,
-    letterSpacing: '0.3px'
+    fontSize: 13,
+    letterSpacing: 0,
+    maxWidth: '1240px',
+    margin: '32px auto 0',
+    padding: '24px 20px 0'
   },
   testimonialContainer: {
     display: 'flex',
@@ -1185,13 +1399,14 @@ const styles = {
     display: 'block'
   },
   cityDropdown: {
-    padding: '10px 14px',
-    borderRadius: 8,
-    border: '1px solid #ddd',
+    padding: '12px 14px',
+    borderRadius: designTokens.radius.md,
+    border: `1px solid ${designTokens.colors.border}`,
     fontSize: 14,
     width: '100%',
     marginBottom: 12,
-    backgroundColor: 'white',
+    backgroundColor: designTokens.colors.white,
+    color: designTokens.colors.text,
     cursor: 'pointer',
     boxSizing: 'border-box'
   },
@@ -1260,33 +1475,33 @@ const styles = {
     position: 'absolute',
     top: 12,
     right: 12,
-    backgroundColor: '#10b981',
+    backgroundColor: designTokens.colors.success,
     color: 'white',
     padding: '6px 12px',
-    borderRadius: 20,
+    borderRadius: designTokens.radius.full,
     fontSize: 11,
-    fontWeight: 'bold',
+    fontWeight: 800,
     display: 'flex',
     alignItems: 'center',
     gap: 4,
-    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
-    letterSpacing: '0.5px'
+    boxShadow: '0 8px 20px rgba(6, 118, 71, 0.24)',
+    letterSpacing: 0
   },
   unavailableBadge: {
     position: 'absolute',
     top: 12,
     right: 12,
-    backgroundColor: '#ef4444',
+    backgroundColor: designTokens.colors.error,
     color: 'white',
     padding: '6px 12px',
-    borderRadius: 20,
+    borderRadius: designTokens.radius.full,
     fontSize: 11,
-    fontWeight: 'bold',
+    fontWeight: 800,
     display: 'flex',
     alignItems: 'center',
     gap: 4,
-    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
-    letterSpacing: '0.5px'
+    boxShadow: '0 8px 20px rgba(180, 35, 24, 0.24)',
+    letterSpacing: 0
   },
   clearDatesButton: {
     padding: '10px 16px',
@@ -1302,9 +1517,9 @@ const styles = {
   toggleCalendarButton: {
     padding: '12px 18px',
     borderRadius: 12,
-    border: '1.5px solid #ff385c',
+    border: `1px solid ${designTokens.colors.primary}`,
     backgroundColor: 'white',
-    color: '#ff385c',
+    color: designTokens.colors.primary,
     cursor: 'pointer',
     fontSize: 14,
     fontWeight: 600,
@@ -1314,7 +1529,7 @@ const styles = {
     gap: 8,
     marginTop: 10,
     transition: 'all 0.2s',
-    boxShadow: '0 2px 8px rgba(255, 56, 92, 0.1)'
+    boxShadow: '0 8px 18px rgba(180, 35, 24, 0.12)'
   },
   locationButton: {
     padding: '14px 20px',
@@ -1335,12 +1550,12 @@ const styles = {
     minHeight: 48
   },
   mapContainer: {
-    height: '400px',
+    height: '420px',
     width: '100%',
-    borderRadius: 12,
+    borderRadius: designTokens.radius.lg,
     overflow: 'hidden',
     marginBottom: 20,
-    border: '1px solid #ddd'
+    border: `1px solid ${designTokens.colors.border}`
   },
   // Loader styles
   loaderContainer: {
@@ -1355,7 +1570,7 @@ const styles = {
     width: 50,
     height: 50,
     border: '4px solid #f3f4f6',
-    borderTop: '4px solid #ff385c',
+    borderTop: `4px solid ${designTokens.colors.primary}`,
     borderRadius: '50%',
     animation: 'spin 1s linear infinite'
   },
@@ -1374,17 +1589,19 @@ const styles = {
     display: 'flex',
     gap: 8,
     marginBottom: 20,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: designTokens.colors.white,
     padding: 8,
-    borderRadius: 12
+    borderRadius: designTokens.radius.lg,
+    border: `1px solid ${designTokens.colors.borderLight}`,
+    boxShadow: designTokens.shadow.sm
   },
   viewToggleButton: {
     flex: 1,
     padding: '10px 15px',
-    borderRadius: 8,
+    borderRadius: designTokens.radius.md,
     border: 'none',
-    backgroundColor: 'white',
-    color: '#666',
+    backgroundColor: 'transparent',
+    color: designTokens.colors.textMuted,
     cursor: 'pointer',
     fontSize: 14,
     fontWeight: 500,
@@ -1395,8 +1612,9 @@ const styles = {
     transition: 'all 0.2s'
   },
   viewToggleButtonActive: {
-    backgroundColor: '#ff385c',
-    color: 'white'
+    backgroundColor: designTokens.colors.dark,
+    color: designTokens.colors.white,
+    boxShadow: designTokens.shadow.sm
   }
 };
 
@@ -1472,6 +1690,17 @@ const fetchAndCheckAvailability = async (icalUrl, checkInDate, checkOutDate) => 
     return 'unknown';
   }
 };
+
+function BrandLogo({ compact = false }) {
+  return (
+    <>
+      <span style={styles.logoMark} aria-hidden="true">
+        <FiHome size={20} />
+      </span>
+      {!compact && <span style={styles.logoText}>Homavia</span>}
+    </>
+  );
+}
 
 /* ------------------------------
    Homestay Listing
@@ -1746,12 +1975,44 @@ function HomestayListing({ homestays }) {
         )}
       </Helmet>
 
+      <section style={styles.heroShell} className="home-hero">
+        <img
+          src={heroImage}
+          alt="Private pool villa homestay with garden lighting"
+          style={styles.heroImage}
+        />
+        <div style={styles.heroOverlay} />
+        <div style={styles.heroContent} className="home-hero-content">
+          <p style={styles.heroEyebrow}>
+            <FiCheck size={14} /> Verified stays across India
+          </p>
+          <h1 style={styles.heroTitle}>Curated homestays for effortless travel</h1>
+          <p style={styles.heroSubtitle}>
+            Compare trusted properties, clear pricing, live location filters, and direct host contact in one polished booking experience.
+          </p>
+          <div style={styles.heroStats} className="home-hero-stats">
+            <div style={styles.heroStat}>
+              <p style={styles.heroStatValue}>{homestays.length || sortedHomestays.length}+</p>
+              <p style={styles.heroStatLabel}>listed stays</p>
+            </div>
+            <div style={styles.heroStat}>
+              <p style={styles.heroStatValue}>{ALL_CITIES.length}</p>
+              <p style={styles.heroStatLabel}>active destinations</p>
+            </div>
+            <div style={styles.heroStat}>
+              <p style={styles.heroStatValue}>Direct</p>
+              <p style={styles.heroStatLabel}>host contact</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Availability Calendar Section - Completely hidden, moved to advanced filters */}
       {false && showFilters && showAdvancedFilters && (
         <div style={styles.datePickerContainer}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-            <FiCalendar size={20} color="#ff385c" />
-          <h3 style={{ fontSize: 17, fontWeight: 'bold', margin: 0, letterSpacing: '-0.3px' }}>
+            <FiCalendar size={20} color="#B42318" />
+          <h3 style={{ fontSize: 17, fontWeight: 'bold', margin: 0, letterSpacing: 0 }}>
             Check Availability
           </h3>
         </div>
@@ -1774,7 +2035,7 @@ function HomestayListing({ homestays }) {
               width: 16, 
               height: 16, 
               border: '2px solid #e0e0e0', 
-              borderTop: '2px solid #ff385c',
+              borderTop: '2px solid #B42318',
               borderRadius: '50%',
               animation: 'spin 1s linear infinite'
             }}></div>
@@ -1835,7 +2096,7 @@ function HomestayListing({ homestays }) {
             marginBottom: showCalendar ? 16 : 0
           }}>
             <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 6 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: '#666', textTransform: 'uppercase', letterSpacing: 0, display: 'block', marginBottom: 6 }}>
                 Check-in
               </label>
               <div 
@@ -1843,7 +2104,7 @@ function HomestayListing({ homestays }) {
                 style={{
                   padding: '10px 12px',
                   backgroundColor: checkInDate ? '#fff' : '#f8f8f8',
-                  border: checkInDate ? '2px solid #ff385c' : '1px solid #e0e0e0',
+                  border: checkInDate ? '2px solid #B42318' : '1px solid #e0e0e0',
                   borderRadius: 8,
                   fontSize: 13,
                   fontWeight: 600,
@@ -1856,7 +2117,7 @@ function HomestayListing({ homestays }) {
                   transition: 'all 0.2s'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = '#ff385c';
+                  e.currentTarget.style.borderColor = '#B42318';
                 }}
                 onMouseLeave={(e) => {
                   if (!checkInDate) e.currentTarget.style.borderColor = '#e0e0e0';
@@ -1869,11 +2130,11 @@ function HomestayListing({ homestays }) {
                     year: 'numeric'
                   }) : 'Select date'}
                 </span>
-                <FiCalendar size={16} color="#ff385c" />
+                <FiCalendar size={16} color="#B42318" />
               </div>
             </div>
             <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 6 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: '#666', textTransform: 'uppercase', letterSpacing: 0, display: 'block', marginBottom: 6 }}>
                 Check-out
               </label>
               <div 
@@ -1881,7 +2142,7 @@ function HomestayListing({ homestays }) {
                 style={{
                   padding: '10px 12px',
                   backgroundColor: checkOutDate ? '#fff' : '#f8f8f8',
-                  border: checkOutDate ? '2px solid #ff385c' : '1px solid #e0e0e0',
+                  border: checkOutDate ? '2px solid #B42318' : '1px solid #e0e0e0',
                   borderRadius: 8,
                   fontSize: 13,
                   fontWeight: 600,
@@ -1894,7 +2155,7 @@ function HomestayListing({ homestays }) {
                   transition: 'all 0.2s'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = '#ff385c';
+                  e.currentTarget.style.borderColor = '#B42318';
                 }}
                 onMouseLeave={(e) => {
                   if (!checkOutDate) e.currentTarget.style.borderColor = '#e0e0e0';
@@ -1907,7 +2168,7 @@ function HomestayListing({ homestays }) {
                     year: 'numeric'
                   }) : 'Select date'}
                 </span>
-                <FiCalendar size={16} color="#ff385c" />
+                <FiCalendar size={16} color="#B42318" />
               </div>
             </div>
           </div>
@@ -2005,7 +2266,7 @@ function HomestayListing({ homestays }) {
               white-space: nowrap;
             }
             .desktop-nav a:hover {
-              color: #ff385c;
+              color: #B42318;
             }
             .hamburger-button {
               display: none !important;
@@ -2158,31 +2419,31 @@ function HomestayListing({ homestays }) {
           }
 
           .professional-calendar .react-calendar__tile--active {
-            background: #ff385c !important;
+            background: #B42318 !important;
             color: white !important;
             font-weight: 600;
-            box-shadow: 0 4px 12px rgba(255, 56, 92, 0.3);
+            box-shadow: 0 4px 12px rgba(180, 35, 24, 0.3);
           }
 
           .professional-calendar .react-calendar__tile--active:hover {
-            background: #e31c5f !important;
+            background: #8F1D16 !important;
           }
 
           .professional-calendar .react-calendar__tile--range {
-            background: #ffe0e6 !important;
+            background: #FEE4E2 !important;
             color: #222 !important;
           }
 
           .professional-calendar .react-calendar__tile--rangeStart,
           .professional-calendar .react-calendar__tile--rangeEnd {
-            background: #ff385c !important;
+            background: #B42318 !important;
             color: white !important;
             font-weight: 600;
           }
 
           .professional-calendar .react-calendar__tile--rangeStart:hover,
           .professional-calendar .react-calendar__tile--rangeEnd:hover {
-            background: #e31c5f !important;
+            background: #8F1D16 !important;
           }
 
           .professional-calendar .react-calendar__tile:disabled {
@@ -2197,7 +2458,7 @@ function HomestayListing({ homestays }) {
         </div>
       )}
 
-      <div style={styles.searchContainer}>
+      <div style={styles.searchContainer} className="home-search">
         <input
           type="text"
           placeholder="Search homestays by name, location..."
@@ -2210,11 +2471,11 @@ function HomestayListing({ homestays }) {
           onClick={() => setShowFilters(true)}
           onMouseEnter={(e) => {
             e.target.style.transform = 'translateY(-2px)';
-            e.target.style.boxShadow = '0 6px 20px rgba(255, 56, 92, 0.4)';
+            e.target.style.boxShadow = '0 14px 28px rgba(180, 35, 24, 0.28)';
           }}
           onMouseLeave={(e) => {
             e.target.style.transform = 'translateY(0)';
-            e.target.style.boxShadow = '0 4px 12px rgba(255, 56, 92, 0.3)';
+            e.target.style.boxShadow = '0 12px 24px rgba(180, 35, 24, 0.22)';
           }}
         >
           <FiSearch /> Search
@@ -2376,7 +2637,7 @@ function HomestayListing({ homestays }) {
                 </p>
                 <div style={styles.filterFooterActions}>
                   <button
-                    style={{...styles.summaryToggleBtn, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'}}
+                    style={{...styles.summaryToggleBtn, background: designTokens.colors.success}}
                     onClick={() => setShowFilters(false)}
                   >
                     <FiCheck size={16} /> Apply Filters
@@ -2417,13 +2678,13 @@ function HomestayListing({ homestays }) {
           <div style={{ 
             marginBottom: 16, 
             padding: 16, 
-            backgroundColor: '#fff',
-            borderRadius: 12,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-            border: '1px solid #ebebeb'
+            backgroundColor: designTokens.colors.white,
+            borderRadius: designTokens.radius.lg,
+            boxShadow: designTokens.shadow.sm,
+            border: `1px solid ${designTokens.colors.borderLight}`
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <FiSearch size={18} color="#ff385c" />
+              <FiSearch size={18} color={designTokens.colors.primary} />
               <h4 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>Search Location on Map</h4>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -2436,20 +2697,20 @@ function HomestayListing({ homestays }) {
                 style={{
                   flex: 1,
                   padding: '12px 16px',
-                  border: '1px solid #ddd',
+                  border: `1px solid ${designTokens.colors.border}`,
                   borderRadius: 8,
                   fontSize: 15,
                   outline: 'none',
                   transition: 'border-color 0.2s'
                 }}
-                onFocus={(e) => e.target.style.borderColor = '#ff385c'}
-                onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                onFocus={(e) => e.target.style.borderColor = designTokens.colors.primary}
+                onBlur={(e) => e.target.style.borderColor = designTokens.colors.border}
               />
               <button
                 onClick={handleMapSearch}
                 style={{
                   padding: '12px 24px',
-                  backgroundColor: '#ff385c',
+                  backgroundColor: designTokens.colors.primary,
                   color: 'white',
                   border: 'none',
                   borderRadius: 8,
@@ -2463,8 +2724,8 @@ function HomestayListing({ homestays }) {
                   minHeight: 48,
                   whiteSpace: 'nowrap'
                 }}
-                onMouseEnter={(e) => e.target.style.backgroundColor = '#e31c5f'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = '#ff385c'}
+                onMouseEnter={(e) => e.target.style.backgroundColor = designTokens.colors.primaryHover}
+                onMouseLeave={(e) => e.target.style.backgroundColor = designTokens.colors.primary}
               >
                 <FiSearch size={16} />
                 Search
@@ -2494,7 +2755,7 @@ function HomestayListing({ homestays }) {
                   }}
                   onMouseEnter={(e) => {
                     e.target.style.backgroundColor = '#f8f8f8';
-                    e.target.style.borderColor = '#ff385c';
+                    e.target.style.borderColor = designTokens.colors.primary;
                   }}
                   onMouseLeave={(e) => {
                     e.target.style.backgroundColor = '#fff';
@@ -2506,9 +2767,6 @@ function HomestayListing({ homestays }) {
                 </button>
               )}
             </div>
-            <small style={{ fontSize: 12, color: '#666', marginTop: 8, display: 'block' }}>
-              💡 Search for any location to navigate the map. Press Enter or click Search.
-            </small>
           </div>
 
           <div style={styles.mapContainer}>
@@ -2546,12 +2804,12 @@ function HomestayListing({ homestays }) {
                         <p style={{ margin: '0 0 4px 0', fontSize: 12, color: '#666' }}>
                           {homestay.area}, {homestay.city}
                         </p>
-                        <p style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 'bold', color: '#ff385c' }}>
+                        <p style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 'bold', color: designTokens.colors.primary }}>
                           ₹{homestay.price} / {PRICE_TYPES.find(pt => pt.id === homestay.priceType)?.suffix || 'night'}
                         </p>
                         {availability === 'available' && (
                           <span style={{ 
-                            backgroundColor: '#4CAF50', 
+                            backgroundColor: designTokens.colors.success,
                             color: 'white', 
                             padding: '2px 6px', 
                             borderRadius: 4, 
@@ -2563,7 +2821,7 @@ function HomestayListing({ homestays }) {
                         )}
                         {availability === 'unavailable' && (
                           <span style={{ 
-                            backgroundColor: '#ff5252', 
+                            backgroundColor: designTokens.colors.error,
                             color: 'white', 
                             padding: '2px 6px', 
                             borderRadius: 4, 
@@ -2579,7 +2837,7 @@ function HomestayListing({ homestays }) {
                             display: 'block',
                             marginTop: 8,
                             padding: '6px 12px',
-                            backgroundColor: '#ff385c',
+                            backgroundColor: designTokens.colors.primary,
                             color: 'white',
                             textAlign: 'center',
                             borderRadius: 6,
@@ -2603,9 +2861,18 @@ function HomestayListing({ homestays }) {
       {sortedHomestays.length === 0 ? (
         <div style={styles.loaderContainer}>
           <div style={{
-            fontSize: 48,
-            marginBottom: 16
-          }}>🏠</div>
+            width: 56,
+            height: 56,
+            borderRadius: 16,
+            marginBottom: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: designTokens.colors.white,
+            color: designTokens.colors.primary,
+            border: `1px solid ${designTokens.colors.borderLight}`,
+            boxShadow: designTokens.shadow.sm
+          }}><FiHome size={26} /></div>
           <h3 style={{
             fontSize: 20,
             fontWeight: 600,
@@ -2634,21 +2901,7 @@ function HomestayListing({ homestays }) {
               <li 
                 key={homestay.id} 
                 style={styles.homestayItem}
-                className="homestay-item-hover"
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-4px)';
-                  e.currentTarget.style.boxShadow = '0 12px 28px rgba(0,0,0,0.12)';
-                  e.currentTarget.style.borderColor = '#ff385c';
-                  const img = e.currentTarget.querySelector('img');
-                  if (img) img.style.transform = 'scale(1.05)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)';
-                  e.currentTarget.style.borderColor = 'transparent';
-                  const img = e.currentTarget.querySelector('img');
-                  if (img) img.style.transform = 'scale(1)';
-                }}
+                className="homestay-item-hover homestay-card-hover"
               >
                 <Link to={`/homestays/${createSlug(homestay.name, homestay.id, homestay.city)}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                   <div style={{ position: 'relative' }}>
@@ -2662,19 +2915,21 @@ function HomestayListing({ homestays }) {
                     {homestay.premium && (
                       <div style={{
                         position: 'absolute',
-                        top: 10,
-                        left: 10,
-                        backgroundColor: '#ffd700',
-                        color: '#333',
-                        padding: '3px 8px',
-                        borderRadius: 4,
+                        top: 12,
+                        left: 12,
+                        backgroundColor: designTokens.colors.goldLight,
+                        color: '#7A4E0A',
+                        padding: '6px 10px',
+                        borderRadius: designTokens.radius.full,
                         fontSize: 10,
-                        fontWeight: 'bold',
+                        fontWeight: 800,
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 3
+                        gap: 4,
+                        boxShadow: '0 8px 20px rgba(16, 24, 40, 0.16)',
+                        letterSpacing: 0
                       }}>
-                        <FiStar fill="#333" /> PREMIUM
+                        <FiStar fill="#7A4E0A" /> PREMIUM
                       </div>
                     )}
                     {checkInDate && checkOutDate && availability === 'available' && (
@@ -2692,7 +2947,7 @@ function HomestayListing({ homestays }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <h3 style={styles.title}>{homestay.name}</h3>
                       <div style={styles.rating}>
-                        <FiStar fill="#ff385c" color="#ff385c" />
+                        <FiStar fill={designTokens.colors.gold} color={designTokens.colors.gold} />
                         {homestay.rating || "New"}
                       </div>
                     </div>
@@ -2703,7 +2958,7 @@ function HomestayListing({ homestays }) {
                       ₹{homestay.price} / {PRICE_TYPES.find(pt => pt.id === homestay.priceType)?.suffix || 'night'}
                     </p>
                     {homestay.additionalPrices && Object.keys(homestay.additionalPrices).length > 0 && (
-                      <p style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                      <p style={{ fontSize: 12, color: designTokens.colors.textMuted, marginTop: 4 }}>
                         + {Object.keys(homestay.additionalPrices).length} more pricing option{Object.keys(homestay.additionalPrices).length > 1 ? 's' : ''}
                       </p>
                     )}
@@ -2711,11 +2966,11 @@ function HomestayListing({ homestays }) {
                       {homestay.coupleFriendly && (
                         <span style={{
                           backgroundColor: '#e8f5e8',
-                          color: '#2e7d32',
-                          padding: '2px 8px',
-                          borderRadius: 12,
+                          color: designTokens.colors.success,
+                          padding: '4px 9px',
+                          borderRadius: designTokens.radius.full,
                           fontSize: 12,
-                          fontWeight: 500
+                          fontWeight: 700
                         }}>
                           Couple Friendly
                         </span>
@@ -2723,11 +2978,11 @@ function HomestayListing({ homestays }) {
                       {homestay.hourly && (
                         <span style={{
                           backgroundColor: '#e3f2fd',
-                          color: '#1565c0',
-                          padding: '2px 8px',
-                          borderRadius: 12,
+                          color: designTokens.colors.accent,
+                          padding: '4px 9px',
+                          borderRadius: designTokens.radius.full,
                           fontSize: 12,
-                          fontWeight: 500
+                          fontWeight: 700
                         }}>
                           Hourly Stays
                         </span>
@@ -3237,7 +3492,7 @@ function AddHomestayForm() {
                   style={{ 
                     ...styles.locationButton, 
                     flex: 1,
-                    backgroundColor: showMapPicker ? '#ff385c' : '#fff',
+                    backgroundColor: showMapPicker ? '#B42318' : '#fff',
                     color: showMapPicker ? '#fff' : '#222',
                     border: showMapPicker ? 'none' : '1px solid #ddd'
                   }}
@@ -3253,7 +3508,7 @@ function AddHomestayForm() {
                 </button>
               </div>
               {locationError && (
-                <p style={{ color: '#ff5252', marginTop: 8, fontSize: 13 }}>
+                <p style={{ color: '#B42318', marginTop: 8, fontSize: 13 }}>
                   {locationError}
                 </p>
               )}
@@ -3280,7 +3535,7 @@ function AddHomestayForm() {
               )}
               
               {showMapPicker && (
-                <div style={{ marginTop: 12, border: '2px solid #ff385c', borderRadius: 12, overflow: 'hidden' }}>
+                <div style={{ marginTop: 12, border: '2px solid #B42318', borderRadius: 12, overflow: 'hidden' }}>
                   {/* Location Search Bar */}
                   <div style={{ padding: 12, backgroundColor: '#fff', borderBottom: '1px solid #e0e0e0' }}>
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -3308,7 +3563,7 @@ function AddHomestayForm() {
                           fontSize: 14,
                           fontWeight: 600,
                           color: '#fff',
-                          backgroundColor: locationLoading || !locationSearchQuery.trim() ? '#ccc' : '#ff385c',
+                          backgroundColor: locationLoading || !locationSearchQuery.trim() ? '#ccc' : '#B42318',
                           border: 'none',
                           borderRadius: 8,
                           cursor: locationLoading || !locationSearchQuery.trim() ? 'not-allowed' : 'pointer',
@@ -4005,7 +4260,7 @@ function EditHomestayForm() {
                   style={{ 
                     ...styles.locationButton, 
                     flex: 1,
-                    backgroundColor: showMapPicker ? '#ff385c' : '#fff',
+                    backgroundColor: showMapPicker ? '#B42318' : '#fff',
                     color: showMapPicker ? '#fff' : '#222',
                     border: showMapPicker ? 'none' : '1px solid #ddd'
                   }}
@@ -4021,7 +4276,7 @@ function EditHomestayForm() {
                 </button>
               </div>
               {locationError && (
-                <p style={{ color: '#ff5252', marginTop: 8, fontSize: 13 }}>
+                <p style={{ color: '#B42318', marginTop: 8, fontSize: 13 }}>
                   {locationError}
                 </p>
               )}
@@ -4048,7 +4303,7 @@ function EditHomestayForm() {
               )}
               
               {showMapPicker && (
-                <div style={{ marginTop: 12, border: '2px solid #ff385c', borderRadius: 12, overflow: 'hidden' }}>
+                <div style={{ marginTop: 12, border: '2px solid #B42318', borderRadius: 12, overflow: 'hidden' }}>
                   {/* Location Search Bar */}
                   <div style={{ padding: 12, backgroundColor: '#fff', borderBottom: '1px solid #e0e0e0' }}>
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -4076,7 +4331,7 @@ function EditHomestayForm() {
                           fontSize: 14,
                           fontWeight: 600,
                           color: '#fff',
-                          backgroundColor: locationLoading || !locationSearchQuery.trim() ? '#ccc' : '#ff385c',
+                          backgroundColor: locationLoading || !locationSearchQuery.trim() ? '#ccc' : '#B42318',
                           border: 'none',
                           borderRadius: 8,
                           cursor: locationLoading || !locationSearchQuery.trim() ? 'not-allowed' : 'pointer',
@@ -4238,6 +4493,7 @@ function HomestayDetail() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [bookedDates, setBookedDates] = useState([]);
   const navigate = useNavigate();
+  const isDesktop = useIsDesktop(960);
 
   useEffect(() => {
     const fetchHomestay = async () => {
@@ -4292,6 +4548,7 @@ function HomestayDetail() {
 
   // Generate SEO-friendly description
   const seoDescription = `Book ${homestay.name} in ${homestay.area}, ${homestay.city}. ${homestay.roomType} with ${homestay.maxGuests} guests capacity. ₹${homestay.price}/${homestay.priceType === 'perNight' ? 'night' : homestay.priceType === 'perHour' ? 'hour' : 'day'}. ${homestay.coupleFriendly ? 'Couple-friendly. ' : ''}${homestay.amenities?.length ? `Amenities: ${homestay.amenities.slice(0, 3).join(', ')}. ` : ''}Book now on Homavia.`;
+  const calendarPortalName = getCalendarPortalName(homestay.icalUrl);
   
   // Structured data for Google
   const structuredData = {
@@ -4326,6 +4583,12 @@ function HomestayDetail() {
 
   const pageUrl = `https://homavia.in/homestays/${createSlug(homestay.name, homestay.id, homestay.city)}`;
   const imageUrl = homestay.imageUrl || 'https://homavia.in/favicon.jpg';
+  const bookingCardStyle = {
+    ...styles.bookingCard,
+    ...(isDesktop
+      ? { order: 'initial', position: 'sticky', top: 96 }
+      : { order: -1, position: 'static' })
+  };
 
   return (
     <div style={styles.detailContainer} className="detail-page">
@@ -4431,12 +4694,15 @@ function HomestayDetail() {
           <FiMapPin /> {homestay.area}, {homestay.city} • {homestay.roomType || 'Private Room'}
         </div>
         <div style={styles.rating}>
-          <FiStar fill="#ff385c" color="#ff385c" /> {homestay.rating || 'New'}
+          <FiStar fill={designTokens.colors.gold} color={designTokens.colors.gold} /> {homestay.rating || 'New'}
         </div>
       </div>
 
-      <div className="detail-grid">
-        <div className="detail-main">
+      <div
+        className="detail-grid"
+        style={isDesktop ? styles.detailGridDesktop : styles.detailGridMobile}
+      >
+        <div className="detail-main" style={styles.detailMain}>
           <img
             src={homestay.imageUrl}
             alt={`${homestay.name} - Premium ${homestay.roomType} in ${homestay.area}, ${homestay.city}`}
@@ -4498,13 +4764,44 @@ function HomestayDetail() {
           </div>
         </div>
         
-        <div className="detail-sidebar" style={styles.bookingCard}>
+        <div className="detail-sidebar" style={bookingCardStyle}>
           <div style={styles.priceDetail}>
             ₹{homestay.price} 
             <span style={{ fontWeight: 'normal', fontSize: 16 }}>
               / {PRICE_TYPES.find(pt => pt.id === homestay.priceType)?.suffix || 'night'}
             </span>
           </div>
+
+          {homestay.icalUrl && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              padding: '12px 0',
+              marginBottom: 16,
+              borderTop: `1px solid ${designTokens.colors.borderLight}`,
+              borderBottom: `1px solid ${designTokens.colors.borderLight}`
+            }}>
+              <span style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                color: designTokens.colors.textMuted,
+                fontSize: 13,
+                fontWeight: 600
+              }}>
+                <FiCalendar size={15} /> Calendar source
+              </span>
+              <span style={{
+                color: designTokens.colors.dark,
+                fontSize: 13,
+                fontWeight: 800
+              }}>
+                {calendarPortalName}
+              </span>
+            </div>
+          )}
 
           {homestay.additionalPrices && Object.keys(homestay.additionalPrices).length > 0 && (
             <div style={styles.additionalPricing}>
@@ -4724,8 +5021,8 @@ function MyListings() {
                   <button
                     style={{
                       ...styles.filterButton,
-                      borderColor: "#ff385c",
-                      color: "#ff385c",
+                      borderColor: "#B42318",
+                      color: "#B42318",
                     }}
                     onClick={() => navigate(`/homestays/${createSlug(h.name, h.id, h.city)}`)}
                   >
@@ -4842,7 +5139,7 @@ function AnalyticsDashboard() {
   const statNumberStyle = {
     fontSize: 36,
     fontWeight: 'bold',
-    color: '#ff385c',
+    color: '#B42318',
     margin: '12px 0'
   };
 
@@ -4850,7 +5147,7 @@ function AnalyticsDashboard() {
     fontSize: 14,
     color: '#666',
     textTransform: 'uppercase',
-    letterSpacing: '0.5px'
+    letterSpacing: 0
   };
 
   return (
@@ -4862,10 +5159,10 @@ function AnalyticsDashboard() {
             key={range}
             style={{
               padding: '10px 20px',
-              border: timeRange === range ? '2px solid #ff385c' : '1px solid #ddd',
+              border: timeRange === range ? '2px solid #B42318' : '1px solid #ddd',
               borderRadius: 8,
               backgroundColor: timeRange === range ? '#fff0f3' : '#fff',
-              color: timeRange === range ? '#ff385c' : '#666',
+              color: timeRange === range ? '#B42318' : '#666',
               fontWeight: timeRange === range ? 'bold' : 'normal',
               cursor: 'pointer',
               fontSize: 14,
@@ -5124,9 +5421,9 @@ function AdminTools() {
           style={{
             padding: '12px 24px',
             border: 'none',
-            borderBottom: activeTab === 'manage' ? '3px solid #ff385c' : '3px solid transparent',
+            borderBottom: activeTab === 'manage' ? '3px solid #B42318' : '3px solid transparent',
             backgroundColor: 'transparent',
-            color: activeTab === 'manage' ? '#ff385c' : '#666',
+            color: activeTab === 'manage' ? '#B42318' : '#666',
             fontWeight: activeTab === 'manage' ? 'bold' : 'normal',
             fontSize: 16,
             cursor: 'pointer',
@@ -5140,9 +5437,9 @@ function AdminTools() {
           style={{
             padding: '12px 24px',
             border: 'none',
-            borderBottom: activeTab === 'analytics' ? '3px solid #ff385c' : '3px solid transparent',
+            borderBottom: activeTab === 'analytics' ? '3px solid #B42318' : '3px solid transparent',
             backgroundColor: 'transparent',
-            color: activeTab === 'analytics' ? '#ff385c' : '#666',
+            color: activeTab === 'analytics' ? '#B42318' : '#666',
             fontWeight: activeTab === 'analytics' ? 'bold' : 'normal',
             fontSize: 16,
             cursor: 'pointer',
@@ -5156,9 +5453,9 @@ function AdminTools() {
           style={{
             padding: '12px 24px',
             border: 'none',
-            borderBottom: activeTab === 'cleanup' ? '3px solid #ff385c' : '3px solid transparent',
+            borderBottom: activeTab === 'cleanup' ? '3px solid #B42318' : '3px solid transparent',
             backgroundColor: 'transparent',
-            color: activeTab === 'cleanup' ? '#ff385c' : '#666',
+            color: activeTab === 'cleanup' ? '#B42318' : '#666',
             fontWeight: activeTab === 'cleanup' ? 'bold' : 'normal',
             fontSize: 16,
             cursor: 'pointer',
@@ -5198,6 +5495,7 @@ function AdminTools() {
                 const created = h.createdAt instanceof Timestamp
                   ? h.createdAt.toDate().toLocaleDateString()
                   : (h.createdAt || "—");
+                const calendarPortalName = getCalendarPortalName(h.icalUrl);
                 return (
                   <li key={h.id} style={styles.homestayItem}>
                     <div style={{ padding: 12 }}>
@@ -5216,6 +5514,21 @@ function AdminTools() {
                           </div>
                           <div style={{ fontSize: 12, color: '#999' }}>
                             Host: {h.createdByName || "Unknown"} • Created: {String(created)}
+                          </div>
+                          <div style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            marginTop: 6,
+                            padding: '4px 8px',
+                            borderRadius: designTokens.radius.full,
+                            backgroundColor: h.icalUrl ? designTokens.colors.primaryLight : designTokens.colors.surface,
+                            color: h.icalUrl ? designTokens.colors.primary : designTokens.colors.textMuted,
+                            fontSize: 12,
+                            fontWeight: 700
+                          }}>
+                            <FiCalendar size={12} />
+                            {calendarPortalName}
                           </div>
                           <div style={{ fontSize: 12, color: '#0284c7', marginTop: 4 }}>
                             ₹{h.price} / {PRICE_TYPES.find(pt => pt.id === h.priceType)?.suffix || 'night'}
@@ -5399,19 +5712,19 @@ function AboutPage() {
         <h2 style={{ fontSize: 20, fontWeight: 'bold', marginTop: 30, marginBottom: 15 }}>Our Destinations</h2>
 
         <div style={styles.featureList}>
-          <div style={styles.featureCard}>
+          <div style={styles.featureCard} className="feature-card-hover">
             <div style={styles.featureIcon}><FiMapPin /></div>
             <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Guwahati</h3>
             <p>The gateway to Northeast India, offering a blend of urban convenience and natural beauty.</p>
           </div>
 
-          <div style={styles.featureCard}>
+          <div style={styles.featureCard} className="feature-card-hover">
             <div style={styles.featureIcon}><FiHome /></div>
             <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Shillong</h3>
             <p>Known as the "Scotland of the East", this picturesque hill station offers cool climate and stunning landscapes.</p>
           </div>
 
-          <div style={styles.featureCard}>
+          <div style={styles.featureCard} className="feature-card-hover">
             <div style={styles.featureIcon}><FiStar /></div>
             <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Goa</h3>
             <p>Famous for its beaches, Portuguese heritage, and vibrant culture.</p>
@@ -5574,19 +5887,19 @@ function PremiumPage() {
         </p>
 
         <div style={styles.featureList}>
-          <div style={styles.featureCard}>
+          <div style={styles.featureCard} className="feature-card-hover">
             <div style={styles.featureIcon}><FiStar /></div>
             <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Featured Listings</h3>
             <p>Your property appears at the top of search results with a premium badge.</p>
           </div>
 
-          <div style={styles.featureCard}>
+          <div style={styles.featureCard} className="feature-card-hover">
             <div style={styles.featureIcon}><FiSearch /></div>
             <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>3x More Visibility</h3>
             <p>Get up to 3 times more views compared to regular listings.</p>
           </div>
 
-          <div style={styles.featureCard}>
+          <div style={styles.featureCard} className="feature-card-hover">
             <div style={styles.featureIcon}><FiCheck /></div>
             <h3 style={{ fontWeight: 'bold', marginBottom: 10 }}>Verified Badge</h3>
             <p>Gain trust with our verified badge that shows you're a premium host.</p>
@@ -5615,39 +5928,1041 @@ function PremiumPage() {
 }
 
 /* ------------------------------
+   Bike Rental Page
+------------------------------ */
+function BikeRentalPage() {
+  const [selectedCity, setSelectedCity] = useState("All");
+  const [selectedType, setSelectedType] = useState("All");
+  const [bikes, setBikes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [user, setUser] = useState(null);
+
+  const BIKE_TYPES = ["Scooter", "Sport Bike", "Cruiser", "Electric", "Standard"];
+  const FUEL_TYPES = ["Petrol", "Electric", "Diesel"];
+  const FEATURE_OPTIONS = ["Helmet Included", "Insurance", "Unlimited KMs", "Saddle Bags", "GPS Tracker", "Charging Cable", "Phone Mount", "Rain Gear"];
+
+  const emptyForm = {
+    name: '', type: 'Scooter', city: 'Goa', price: '',
+    fuel: 'Petrol', cc: '', seats: 2, available: true,
+    features: ["Helmet Included", "Insurance"],
+    contactNumber: '918638572663'
+  };
+  const [form, setForm] = useState(emptyForm);
+
+  // Auth listener
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged(setUser);
+    return () => unsub();
+  }, []);
+
+  // Fetch bikes from Firestore
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, "bikes"),
+      (snapshot) => {
+        const all = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        all.sort((a, b) => {
+          const aTime = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
+          const bTime = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
+          return bTime - aTime;
+        });
+        setBikes(all);
+        setLoading(false);
+      },
+      (err) => { console.error("Error fetching bikes:", err); setLoading(false); }
+    );
+    return () => unsub();
+  }, []);
+
+  const filteredBikes = bikes.filter(bike => {
+    if (selectedCity !== "All" && bike.city !== selectedCity) return false;
+    if (selectedType !== "All" && bike.type !== selectedType) return false;
+    return true;
+  });
+
+  const handleWhatsAppEnquiry = (bike) => {
+    const phone = bike.contactNumber || '918638572663';
+    const message = `Hi! I'm interested in renting the ${bike.name} in ${bike.city}. Price: ₹${bike.price}/day. Please share availability details.`;
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleFeatureToggle = (feature) => {
+    setForm(prev => ({
+      ...prev,
+      features: prev.features.includes(feature)
+        ? prev.features.filter(f => f !== feature)
+        : [...prev.features, feature]
+    }));
+  };
+
+  const uploadImage = async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+      method: "POST", body: formData
+    });
+    const data = await res.json();
+    return data.secure_url;
+  };
+
+  const handleAddBike = async (e) => {
+    e.preventDefault();
+    if (!form.name || !form.price || !form.cc) {
+      alert("Please fill in all required fields (Name, Price, CC).");
+      return;
+    }
+    if (!imageFile) {
+      alert("Please upload a bike image.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const imageUrl = await uploadImage(imageFile);
+      await addDoc(collection(db, "bikes"), {
+        name: form.name,
+        type: form.type,
+        city: form.city,
+        price: Number(form.price),
+        fuel: form.fuel,
+        cc: form.cc,
+        seats: Number(form.seats),
+        available: form.available,
+        features: form.features,
+        contactNumber: form.contactNumber || '918638572663',
+        image: imageUrl,
+        rating: 0,
+        createdAt: serverTimestamp(),
+        addedBy: user?.email || 'anonymous'
+      });
+      setForm(emptyForm);
+      setImageFile(null);
+      setImagePreview(null);
+      setShowAddForm(false);
+      alert("Bike added successfully!");
+    } catch (err) {
+      console.error("Error adding bike:", err);
+      alert("Failed to add bike. Please try again.");
+    }
+    setSubmitting(false);
+  };
+
+  const handleDeleteBike = async (bikeId, bikeName) => {
+    if (!window.confirm(`Are you sure you want to delete "${bikeName}"?`)) return;
+    try {
+      await deleteDoc(doc(db, "bikes", bikeId));
+    } catch (err) {
+      console.error("Error deleting bike:", err);
+      alert("Failed to delete bike.");
+    }
+  };
+
+  const handleToggleAvailability = async (bikeId, currentStatus) => {
+    try {
+      await updateDoc(doc(db, "bikes", bikeId), { available: !currentStatus });
+    } catch (err) {
+      console.error("Error updating availability:", err);
+    }
+  };
+
+  const inputStyle = {
+    width: '100%', padding: '12px 14px', borderRadius: 10,
+    border: '1px solid #e0e0e0', fontSize: 14, fontWeight: 500,
+    backgroundColor: '#fff', boxSizing: 'border-box', outline: 'none',
+    transition: 'border-color 0.2s'
+  };
+  const labelStyle = {
+    display: 'block', fontSize: 13, fontWeight: 600, color: '#374151',
+    marginBottom: 6, letterSpacing: 0
+  };
+
+  return (
+    <div>
+      <Helmet>
+        <title>Rent Bikes & Scooters | Homavia - Goa, Guwahati, Shillong</title>
+        <meta name="description" content="Rent bikes, scooters & motorcycles in Goa, Guwahati & Shillong. Affordable daily rentals with helmets & insurance included. Book via WhatsApp." />
+      </Helmet>
+
+      {/* Hero Section */}
+      <div style={{
+        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+        borderRadius: 20, padding: '40px 24px', marginBottom: 28,
+        textAlign: 'center', position: 'relative', overflow: 'hidden'
+      }}>
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🏍️</div>
+          <h1 style={{ color: '#fff', fontSize: 28, fontWeight: 800, marginBottom: 8, letterSpacing: 0 }}>
+            Rent a Bike
+          </h1>
+          <p style={{ color: '#94a3b8', fontSize: 15, maxWidth: 500, margin: '0 auto', lineHeight: 1.6 }}>
+            Explore cities on two wheels. Affordable bike & scooter rentals with helmet, insurance & unlimited kilometers.
+          </p>
+        </div>
+        <div style={{ position: 'absolute', top: -50, right: -50, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,56,92,0.1)' }} />
+        <div style={{ position: 'absolute', bottom: -30, left: -30, width: 150, height: 150, borderRadius: '50%', background: 'rgba(255,56,92,0.08)' }} />
+      </div>
+
+      {/* Add Bike Button (admin/logged-in users) */}
+      {user && (
+        <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            style={{
+              padding: '10px 20px', borderRadius: 12, border: 'none',
+              background: showAddForm ? '#6b7280' : 'linear-gradient(135deg, #B42318 0%, #D92D20 100%)',
+              color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 8,
+              boxShadow: '0 4px 12px rgba(255,56,92,0.3)', transition: 'all 0.2s'
+            }}
+          >
+            {showAddForm ? <><FiX size={16} /> Cancel</> : <><FiHome size={16} /> Add Bike</>}
+          </button>
+        </div>
+      )}
+
+      {/* Add Bike Form */}
+      {showAddForm && user && (
+        <form onSubmit={handleAddBike} style={{
+          backgroundColor: '#fff', borderRadius: 16, padding: 24,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.08)', border: '1px solid #f3f4f6',
+          marginBottom: 28, animation: 'fadeIn 0.3s ease'
+        }}>
+          <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20, color: '#1f2937' }}>
+            🏍️ Add New Bike
+          </h3>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+            <div>
+              <label style={labelStyle}>Bike Name *</label>
+              <input style={inputStyle} placeholder="e.g. Honda Activa 6G" value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            </div>
+            <div>
+              <label style={labelStyle}>Type *</label>
+              <select style={inputStyle} value={form.type}
+                onChange={(e) => setForm({ ...form, type: e.target.value })}>
+                {BIKE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>City *</label>
+              <select style={inputStyle} value={form.city}
+                onChange={(e) => setForm({ ...form, city: e.target.value })}>
+                {ALL_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Price per Day (₹) *</label>
+              <input style={inputStyle} type="number" placeholder="e.g. 400" value={form.price}
+                onChange={(e) => setForm({ ...form, price: e.target.value })} required min="0" />
+            </div>
+            <div>
+              <label style={labelStyle}>Fuel Type *</label>
+              <select style={inputStyle} value={form.fuel}
+                onChange={(e) => setForm({ ...form, fuel: e.target.value })}>
+                {FUEL_TYPES.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Engine CC *</label>
+              <input style={inputStyle} placeholder="e.g. 110cc" value={form.cc}
+                onChange={(e) => setForm({ ...form, cc: e.target.value })} required />
+            </div>
+            <div>
+              <label style={labelStyle}>Seats</label>
+              <input style={inputStyle} type="number" value={form.seats} min="1" max="3"
+                onChange={(e) => setForm({ ...form, seats: e.target.value })} />
+            </div>
+            <div>
+              <label style={labelStyle}>WhatsApp Number</label>
+              <input style={inputStyle} placeholder="e.g. 918638572663" value={form.contactNumber}
+                onChange={(e) => setForm({ ...form, contactNumber: e.target.value })} />
+            </div>
+          </div>
+
+          {/* Features */}
+          <div style={{ marginTop: 20 }}>
+            <label style={labelStyle}>Features Included</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+              {FEATURE_OPTIONS.map(f => (
+                <button key={f} type="button" onClick={() => handleFeatureToggle(f)}
+                  style={{
+                    padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 500,
+                    border: form.features.includes(f) ? '2px solid #10b981' : '1px solid #e0e0e0',
+                    backgroundColor: form.features.includes(f) ? '#d1fae5' : '#fff',
+                    color: form.features.includes(f) ? '#065f46' : '#6b7280',
+                    cursor: 'pointer', transition: 'all 0.2s'
+                  }}>
+                  {form.features.includes(f) ? <><FiCheck size={12} /> </> : null}{f}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Image Upload */}
+          <div style={{ marginTop: 20 }}>
+            <label style={labelStyle}>Bike Image *</label>
+            <input type="file" accept="image/*" onChange={handleImageChange}
+              style={{ ...inputStyle, padding: '10px 12px' }} />
+            {imagePreview && (
+              <img src={imagePreview} alt="Preview" style={{
+                width: 200, height: 140, objectFit: 'cover', borderRadius: 12,
+                marginTop: 12, border: '2px solid #f3f4f6'
+              }} />
+            )}
+          </div>
+
+          {/* Availability */}
+          <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <input type="checkbox" id="bike-available" checked={form.available}
+              onChange={(e) => setForm({ ...form, available: e.target.checked })}
+              style={{ width: 18, height: 18, accentColor: '#10b981' }} />
+            <label htmlFor="bike-available" style={{ fontSize: 14, fontWeight: 500, color: '#374151', cursor: 'pointer' }}>
+              Currently Available for Rent
+            </label>
+          </div>
+
+          {/* Submit */}
+          <button type="submit" disabled={submitting} style={{
+            marginTop: 24, width: '100%', padding: '14px 24px', borderRadius: 12,
+            border: 'none', background: submitting ? '#d1d5db' : 'linear-gradient(135deg, #B42318 0%, #D92D20 100%)',
+            color: '#fff', fontSize: 16, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer',
+            boxShadow: '0 4px 16px rgba(255,56,92,0.3)', transition: 'all 0.2s'
+          }}>
+            {submitting ? 'Adding Bike...' : '🏍️ Add Bike'}
+          </button>
+        </form>
+      )}
+
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+        <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)}
+          style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 14, fontWeight: 500, backgroundColor: '#fff', flex: '1 1 140px', minWidth: 140, cursor: 'pointer' }}>
+          <option value="All">All Cities</option>
+          {ALL_CITIES.map(city => <option key={city} value={city}>{city}</option>)}
+        </select>
+        <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)}
+          style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 14, fontWeight: 500, backgroundColor: '#fff', flex: '1 1 140px', minWidth: 140, cursor: 'pointer' }}>
+          <option value="All">All Types</option>
+          {BIKE_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+        </select>
+      </div>
+
+      {/* Results Count */}
+      <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 16, fontWeight: 500 }}>
+        {filteredBikes.length} bike{filteredBikes.length !== 1 ? 's' : ''} available
+      </p>
+
+      {/* Loading */}
+      {loading && (
+        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <div style={{ width: 40, height: 40, border: '3px solid #e0e0e0', borderTop: '3px solid #B42318', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }}></div>
+          <p style={{ fontSize: 14, color: '#6b7280' }}>Loading bikes...</p>
+        </div>
+      )}
+
+      {/* Bike Grid */}
+      {!loading && (
+        <div className="bike-rental-grid">
+          {filteredBikes.map(bike => (
+            <div key={bike.id} style={{
+              borderRadius: 16, overflow: 'hidden', backgroundColor: '#fff',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.08)', border: '1px solid #f3f4f6',
+              transition: 'all 0.3s ease', cursor: 'pointer', position: 'relative'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-4px)';
+              e.currentTarget.style.boxShadow = '0 12px 28px rgba(0,0,0,0.12)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)';
+            }}>
+              {/* Image */}
+              <div style={{ position: 'relative' }}>
+                <img src={bike.image} alt={bike.name} loading="lazy"
+                  style={{ width: '100%', height: 200, objectFit: 'cover' }} />
+                {!bike.available && (
+                  <div style={{ position: 'absolute', top: 10, right: 10, backgroundColor: '#ef4444', color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700 }}>BOOKED</div>
+                )}
+                <div style={{ position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(0,0,0,0.7)', color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>{bike.type}</div>
+              </div>
+
+              {/* Info */}
+              <div style={{ padding: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#1f2937', lineHeight: 1.3 }}>
+                    {bike.name}
+                  </h3>
+                  {bike.rating > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 13, fontWeight: 600, color: '#f59e0b', flexShrink: 0 }}>
+                      <FiStar fill="#f59e0b" size={14} /> {bike.rating}
+                    </div>
+                  )}
+                </div>
+
+                <p style={{ fontSize: 13, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 4, margin: '0 0 8px' }}>
+                  <FiMapPin size={13} /> {bike.city}
+                </p>
+
+                {/* Specs */}
+                <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 12, color: '#374151', backgroundColor: '#f3f4f6', padding: '3px 8px', borderRadius: 6, fontWeight: 500 }}>
+                    ⛽ {bike.fuel}
+                  </span>
+                  <span style={{ fontSize: 12, color: '#374151', backgroundColor: '#f3f4f6', padding: '3px 8px', borderRadius: 6, fontWeight: 500 }}>
+                    🏎️ {bike.cc}
+                  </span>
+                  <span style={{ fontSize: 12, color: '#374151', backgroundColor: '#f3f4f6', padding: '3px 8px', borderRadius: 6, fontWeight: 500 }}>
+                    👥 {bike.seats} seats
+                  </span>
+                </div>
+
+                {/* Features */}
+                {bike.features && bike.features.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                    {bike.features.map((f, i) => (
+                      <span key={i} style={{
+                        fontSize: 11, color: '#10b981', backgroundColor: '#d1fae5',
+                        padding: '2px 8px', borderRadius: 10, fontWeight: 500
+                      }}>
+                        <FiCheck size={10} style={{ marginRight: 2 }} />{f}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Price & CTA */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ fontSize: 20, fontWeight: 800, color: '#B42318' }}>₹{bike.price}</span>
+                    <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}> / day</span>
+                  </div>
+                  <button
+                    onClick={() => handleWhatsAppEnquiry(bike)}
+                    disabled={!bike.available}
+                    style={{
+                      padding: '8px 16px', borderRadius: 10, border: 'none',
+                      backgroundColor: bike.available ? '#25d366' : '#d1d5db',
+                      color: '#fff', fontSize: 13, fontWeight: 700, cursor: bike.available ? 'pointer' : 'not-allowed',
+                      display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => { if (bike.available) e.target.style.backgroundColor = '#1da851'; }}
+                    onMouseLeave={(e) => { if (bike.available) e.target.style.backgroundColor = '#25d366'; }}
+                  >
+                    <FiMessageCircle size={14} /> {bike.available ? 'Book Now' : 'Unavailable'}
+                  </button>
+                </div>
+
+                {/* Admin controls */}
+                {user && (isAdminUser(user) || bike.addedBy === user.email) && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12, borderTop: '1px solid #f3f4f6', paddingTop: 12 }}>
+                    <button onClick={() => handleToggleAvailability(bike.id, bike.available)}
+                      style={{
+                        flex: 1, padding: '6px 10px', borderRadius: 8, border: '1px solid #e0e0e0',
+                        backgroundColor: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                        color: bike.available ? '#ef4444' : '#10b981', transition: 'all 0.2s'
+                      }}>
+                      {bike.available ? 'Mark Booked' : 'Mark Available'}
+                    </button>
+                    <button onClick={() => handleDeleteBike(bike.id, bike.name)}
+                      style={{
+                        padding: '6px 10px', borderRadius: 8, border: '1px solid #fee2e2',
+                        backgroundColor: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                        color: '#ef4444', transition: 'all 0.2s'
+                      }}>
+                      <FiX size={14} /> Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!loading && filteredBikes.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🏍️</div>
+          <h3 style={{ fontSize: 20, fontWeight: 600, color: '#1f2937', marginBottom: 8 }}>No bikes found</h3>
+          <p style={{ fontSize: 14, color: '#6b7280' }}>
+            {bikes.length === 0 ? 'No bikes added yet. Be the first to add one!' : 'Try changing your filters'}
+          </p>
+        </div>
+      )}
+
+      {/* How it works */}
+      <div style={{
+        marginTop: 40, padding: '32px 24px', backgroundColor: '#fff',
+        borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)'
+      }}>
+        <h2 style={{ fontSize: 22, fontWeight: 700, textAlign: 'center', marginBottom: 24, color: '#1f2937' }}>
+          How It Works
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 24 }}>
+          {[
+            { icon: '🔍', title: 'Choose a Bike', desc: 'Browse our collection and pick your ride' },
+            { icon: '📱', title: 'Book via WhatsApp', desc: 'Quick booking through WhatsApp chat' },
+            { icon: '🔑', title: 'Pick Up & Ride', desc: 'Collect your bike and start exploring' },
+            { icon: '✅', title: 'Return & Done', desc: 'Drop it back at the pickup point' }
+          ].map((step, i) => (
+            <div key={i} style={{ textAlign: 'center', padding: 16 }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}>{step.icon}</div>
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, color: '#1f2937' }}>{step.title}</h4>
+              <p style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, margin: 0 }}>{step.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------
+   Car Rental Page
+------------------------------ */
+function CarRentalPage() {
+  const [selectedCity, setSelectedCity] = useState("All");
+  const [selectedType, setSelectedType] = useState("All");
+  const [cars, setCars] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [user, setUser] = useState(null);
+
+  const CAR_TYPES = ["Hatchback", "Sedan", "SUV", "MUV", "Luxury", "Electric"];
+  const FUEL_TYPES = ["Petrol", "Diesel", "Electric", "CNG", "Hybrid"];
+  const TRANSMISSION_TYPES = ["Manual", "Automatic"];
+  const FEATURE_OPTIONS = ["AC", "GPS Navigation", "Bluetooth", "USB Charging", "Airbags", "Rear Camera", "Sunroof", "Roof Carrier", "Child Seat", "Toll Pass"];
+
+  const emptyForm = {
+    name: '', type: 'Hatchback', city: 'Goa', price: '',
+    fuel: 'Petrol', transmission: 'Manual', seats: 5, available: true,
+    features: ["AC", "Bluetooth", "USB Charging"],
+    contactNumber: '918638572663'
+  };
+  const [form, setForm] = useState(emptyForm);
+
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged(setUser);
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, "cars"),
+      (snapshot) => {
+        const all = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        all.sort((a, b) => {
+          const aTime = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
+          const bTime = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
+          return bTime - aTime;
+        });
+        setCars(all);
+        setLoading(false);
+      },
+      (err) => { console.error("Error fetching cars:", err); setLoading(false); }
+    );
+    return () => unsub();
+  }, []);
+
+  const filteredCars = cars.filter(car => {
+    if (selectedCity !== "All" && car.city !== selectedCity) return false;
+    if (selectedType !== "All" && car.type !== selectedType) return false;
+    return true;
+  });
+
+  const handleWhatsAppEnquiry = (car) => {
+    const phone = car.contactNumber || '918638572663';
+    const message = `Hi! I'm interested in renting the ${car.name} in ${car.city}. Price: ₹${car.price}/day. Please share availability details.`;
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleFeatureToggle = (feature) => {
+    setForm(prev => ({
+      ...prev,
+      features: prev.features.includes(feature)
+        ? prev.features.filter(f => f !== feature)
+        : [...prev.features, feature]
+    }));
+  };
+
+  const uploadImage = async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+      method: "POST", body: formData
+    });
+    const data = await res.json();
+    return data.secure_url;
+  };
+
+  const handleAddCar = async (e) => {
+    e.preventDefault();
+    if (!form.name || !form.price) {
+      alert("Please fill in all required fields (Name, Price).");
+      return;
+    }
+    if (!imageFile) {
+      alert("Please upload a car image.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const imageUrl = await uploadImage(imageFile);
+      await addDoc(collection(db, "cars"), {
+        name: form.name,
+        type: form.type,
+        city: form.city,
+        price: Number(form.price),
+        fuel: form.fuel,
+        transmission: form.transmission,
+        seats: Number(form.seats),
+        available: form.available,
+        features: form.features,
+        contactNumber: form.contactNumber || '918638572663',
+        image: imageUrl,
+        rating: 0,
+        createdAt: serverTimestamp(),
+        addedBy: user?.email || 'anonymous'
+      });
+      setForm(emptyForm);
+      setImageFile(null);
+      setImagePreview(null);
+      setShowAddForm(false);
+      alert("Car added successfully!");
+    } catch (err) {
+      console.error("Error adding car:", err);
+      alert("Failed to add car. Please try again.");
+    }
+    setSubmitting(false);
+  };
+
+  const handleDeleteCar = async (carId, carName) => {
+    if (!window.confirm(`Are you sure you want to delete "${carName}"?`)) return;
+    try {
+      await deleteDoc(doc(db, "cars", carId));
+    } catch (err) {
+      console.error("Error deleting car:", err);
+      alert("Failed to delete car.");
+    }
+  };
+
+  const handleToggleAvailability = async (carId, currentStatus) => {
+    try {
+      await updateDoc(doc(db, "cars", carId), { available: !currentStatus });
+    } catch (err) {
+      console.error("Error updating availability:", err);
+    }
+  };
+
+  const inputStyle = {
+    width: '100%', padding: '12px 14px', borderRadius: 10,
+    border: '1px solid #e0e0e0', fontSize: 14, fontWeight: 500,
+    backgroundColor: '#fff', boxSizing: 'border-box', outline: 'none',
+    transition: 'border-color 0.2s'
+  };
+  const labelStyle = {
+    display: 'block', fontSize: 13, fontWeight: 600, color: '#374151',
+    marginBottom: 6, letterSpacing: 0
+  };
+
+  return (
+    <div>
+      <Helmet>
+        <title>Rent Cars | Homavia - Goa, Guwahati, Shillong</title>
+        <meta name="description" content="Rent cars in Goa, Guwahati & Shillong. Hatchbacks, Sedans, SUVs & Luxury cars. Affordable daily rentals. Book via WhatsApp." />
+      </Helmet>
+
+      {/* Hero Section */}
+      <div style={{
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
+        borderRadius: 20, padding: '40px 24px', marginBottom: 28,
+        textAlign: 'center', position: 'relative', overflow: 'hidden'
+      }}>
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🚗</div>
+          <h1 style={{ color: '#fff', fontSize: 28, fontWeight: 800, marginBottom: 8, letterSpacing: 0 }}>
+            Rent a Car
+          </h1>
+          <p style={{ color: '#94a3b8', fontSize: 15, maxWidth: 500, margin: '0 auto', lineHeight: 1.6 }}>
+            Drive at your own pace. Self-drive & chauffeur-driven cars available with insurance & unlimited kilometers.
+          </p>
+        </div>
+        <div style={{ position: 'absolute', top: -50, right: -50, width: 200, height: 200, borderRadius: '50%', background: 'rgba(59,130,246,0.1)' }} />
+        <div style={{ position: 'absolute', bottom: -30, left: -30, width: 150, height: 150, borderRadius: '50%', background: 'rgba(59,130,246,0.08)' }} />
+      </div>
+
+      {/* Add Car Button */}
+      {user && (
+        <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'flex-end' }}>
+          <button onClick={() => setShowAddForm(!showAddForm)}
+            style={{
+              padding: '10px 20px', borderRadius: 12, border: 'none',
+              background: showAddForm ? '#6b7280' : 'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)',
+              color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 8,
+              boxShadow: '0 4px 12px rgba(59,130,246,0.3)', transition: 'all 0.2s'
+            }}>
+            {showAddForm ? <><FiX size={16} /> Cancel</> : <><FiHome size={16} /> Add Car</>}
+          </button>
+        </div>
+      )}
+
+      {/* Add Car Form */}
+      {showAddForm && user && (
+        <form onSubmit={handleAddCar} style={{
+          backgroundColor: '#fff', borderRadius: 16, padding: 24,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.08)', border: '1px solid #f3f4f6',
+          marginBottom: 28, animation: 'fadeIn 0.3s ease'
+        }}>
+          <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20, color: '#1f2937' }}>
+            🚗 Add New Car
+          </h3>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+            <div>
+              <label style={labelStyle}>Car Name *</label>
+              <input style={inputStyle} placeholder="e.g. Maruti Swift" value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            </div>
+            <div>
+              <label style={labelStyle}>Type *</label>
+              <select style={inputStyle} value={form.type}
+                onChange={(e) => setForm({ ...form, type: e.target.value })}>
+                {CAR_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>City *</label>
+              <select style={inputStyle} value={form.city}
+                onChange={(e) => setForm({ ...form, city: e.target.value })}>
+                {ALL_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Price per Day (₹) *</label>
+              <input style={inputStyle} type="number" placeholder="e.g. 1500" value={form.price}
+                onChange={(e) => setForm({ ...form, price: e.target.value })} required min="0" />
+            </div>
+            <div>
+              <label style={labelStyle}>Fuel Type *</label>
+              <select style={inputStyle} value={form.fuel}
+                onChange={(e) => setForm({ ...form, fuel: e.target.value })}>
+                {FUEL_TYPES.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Transmission *</label>
+              <select style={inputStyle} value={form.transmission}
+                onChange={(e) => setForm({ ...form, transmission: e.target.value })}>
+                {TRANSMISSION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Seats</label>
+              <input style={inputStyle} type="number" value={form.seats} min="2" max="12"
+                onChange={(e) => setForm({ ...form, seats: e.target.value })} />
+            </div>
+            <div>
+              <label style={labelStyle}>WhatsApp Number</label>
+              <input style={inputStyle} placeholder="e.g. 918638572663" value={form.contactNumber}
+                onChange={(e) => setForm({ ...form, contactNumber: e.target.value })} />
+            </div>
+          </div>
+
+          {/* Features */}
+          <div style={{ marginTop: 20 }}>
+            <label style={labelStyle}>Features Included</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+              {FEATURE_OPTIONS.map(f => (
+                <button key={f} type="button" onClick={() => handleFeatureToggle(f)}
+                  style={{
+                    padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 500,
+                    border: form.features.includes(f) ? '2px solid #3b82f6' : '1px solid #e0e0e0',
+                    backgroundColor: form.features.includes(f) ? '#dbeafe' : '#fff',
+                    color: form.features.includes(f) ? '#1e40af' : '#6b7280',
+                    cursor: 'pointer', transition: 'all 0.2s'
+                  }}>
+                  {form.features.includes(f) ? <><FiCheck size={12} /> </> : null}{f}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Image Upload */}
+          <div style={{ marginTop: 20 }}>
+            <label style={labelStyle}>Car Image *</label>
+            <input type="file" accept="image/*" onChange={handleImageChange}
+              style={{ ...inputStyle, padding: '10px 12px' }} />
+            {imagePreview && (
+              <img src={imagePreview} alt="Preview" style={{
+                width: 200, height: 140, objectFit: 'cover', borderRadius: 12,
+                marginTop: 12, border: '2px solid #f3f4f6'
+              }} />
+            )}
+          </div>
+
+          {/* Availability */}
+          <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <input type="checkbox" id="car-available" checked={form.available}
+              onChange={(e) => setForm({ ...form, available: e.target.checked })}
+              style={{ width: 18, height: 18, accentColor: '#3b82f6' }} />
+            <label htmlFor="car-available" style={{ fontSize: 14, fontWeight: 500, color: '#374151', cursor: 'pointer' }}>
+              Currently Available for Rent
+            </label>
+          </div>
+
+          {/* Submit */}
+          <button type="submit" disabled={submitting} style={{
+            marginTop: 24, width: '100%', padding: '14px 24px', borderRadius: 12,
+            border: 'none', background: submitting ? '#d1d5db' : 'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)',
+            color: '#fff', fontSize: 16, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer',
+            boxShadow: '0 4px 16px rgba(59,130,246,0.3)', transition: 'all 0.2s'
+          }}>
+            {submitting ? 'Adding Car...' : '🚗 Add Car'}
+          </button>
+        </form>
+      )}
+
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+        <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)}
+          style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 14, fontWeight: 500, backgroundColor: '#fff', flex: '1 1 140px', minWidth: 140, cursor: 'pointer' }}>
+          <option value="All">All Cities</option>
+          {ALL_CITIES.map(city => <option key={city} value={city}>{city}</option>)}
+        </select>
+        <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)}
+          style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 14, fontWeight: 500, backgroundColor: '#fff', flex: '1 1 140px', minWidth: 140, cursor: 'pointer' }}>
+          <option value="All">All Types</option>
+          {CAR_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+        </select>
+      </div>
+
+      {/* Results Count */}
+      <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 16, fontWeight: 500 }}>
+        {filteredCars.length} car{filteredCars.length !== 1 ? 's' : ''} available
+      </p>
+
+      {/* Loading */}
+      {loading && (
+        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <div style={{ width: 40, height: 40, border: '3px solid #e0e0e0', borderTop: '3px solid #3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }}></div>
+          <p style={{ fontSize: 14, color: '#6b7280' }}>Loading cars...</p>
+        </div>
+      )}
+
+      {/* Car Grid */}
+      {!loading && (
+        <div className="bike-rental-grid">
+          {filteredCars.map(car => (
+            <div key={car.id} style={{
+              borderRadius: 16, overflow: 'hidden', backgroundColor: '#fff',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.08)', border: '1px solid #f3f4f6',
+              transition: 'all 0.3s ease', cursor: 'pointer', position: 'relative'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-4px)';
+              e.currentTarget.style.boxShadow = '0 12px 28px rgba(0,0,0,0.12)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)';
+            }}>
+              {/* Image */}
+              <div style={{ position: 'relative' }}>
+                <img src={car.image} alt={car.name} loading="lazy"
+                  style={{ width: '100%', height: 200, objectFit: 'cover' }} />
+                {!car.available && (
+                  <div style={{ position: 'absolute', top: 10, right: 10, backgroundColor: '#ef4444', color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700 }}>BOOKED</div>
+                )}
+                <div style={{ position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(0,0,0,0.7)', color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>{car.type}</div>
+              </div>
+
+              {/* Info */}
+              <div style={{ padding: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#1f2937', lineHeight: 1.3 }}>
+                    {car.name}
+                  </h3>
+                  {car.rating > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 13, fontWeight: 600, color: '#f59e0b', flexShrink: 0 }}>
+                      <FiStar fill="#f59e0b" size={14} /> {car.rating}
+                    </div>
+                  )}
+                </div>
+
+                <p style={{ fontSize: 13, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 4, margin: '0 0 8px' }}>
+                  <FiMapPin size={13} /> {car.city}
+                </p>
+
+                {/* Specs */}
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 12, color: '#374151', backgroundColor: '#f3f4f6', padding: '3px 8px', borderRadius: 6, fontWeight: 500 }}>
+                    ⛽ {car.fuel}
+                  </span>
+                  <span style={{ fontSize: 12, color: '#374151', backgroundColor: '#f3f4f6', padding: '3px 8px', borderRadius: 6, fontWeight: 500 }}>
+                    ⚙️ {car.transmission}
+                  </span>
+                  <span style={{ fontSize: 12, color: '#374151', backgroundColor: '#f3f4f6', padding: '3px 8px', borderRadius: 6, fontWeight: 500 }}>
+                    👥 {car.seats} seats
+                  </span>
+                </div>
+
+                {/* Features */}
+                {car.features && car.features.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                    {car.features.map((f, i) => (
+                      <span key={i} style={{
+                        fontSize: 11, color: '#2563eb', backgroundColor: '#dbeafe',
+                        padding: '2px 8px', borderRadius: 10, fontWeight: 500
+                      }}>
+                        <FiCheck size={10} style={{ marginRight: 2 }} />{f}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Price & CTA */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ fontSize: 20, fontWeight: 800, color: '#3b82f6' }}>₹{car.price}</span>
+                    <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}> / day</span>
+                  </div>
+                  <button
+                    onClick={() => handleWhatsAppEnquiry(car)}
+                    disabled={!car.available}
+                    style={{
+                      padding: '8px 16px', borderRadius: 10, border: 'none',
+                      backgroundColor: car.available ? '#25d366' : '#d1d5db',
+                      color: '#fff', fontSize: 13, fontWeight: 700, cursor: car.available ? 'pointer' : 'not-allowed',
+                      display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => { if (car.available) e.target.style.backgroundColor = '#1da851'; }}
+                    onMouseLeave={(e) => { if (car.available) e.target.style.backgroundColor = '#25d366'; }}
+                  >
+                    <FiMessageCircle size={14} /> {car.available ? 'Book Now' : 'Unavailable'}
+                  </button>
+                </div>
+
+                {/* Admin controls */}
+                {user && (isAdminUser(user) || car.addedBy === user.email) && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12, borderTop: '1px solid #f3f4f6', paddingTop: 12 }}>
+                    <button onClick={() => handleToggleAvailability(car.id, car.available)}
+                      style={{
+                        flex: 1, padding: '6px 10px', borderRadius: 8, border: '1px solid #e0e0e0',
+                        backgroundColor: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                        color: car.available ? '#ef4444' : '#10b981', transition: 'all 0.2s'
+                      }}>
+                      {car.available ? 'Mark Booked' : 'Mark Available'}
+                    </button>
+                    <button onClick={() => handleDeleteCar(car.id, car.name)}
+                      style={{
+                        padding: '6px 10px', borderRadius: 8, border: '1px solid #fee2e2',
+                        backgroundColor: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                        color: '#ef4444', transition: 'all 0.2s'
+                      }}>
+                      <FiX size={14} /> Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!loading && filteredCars.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🚗</div>
+          <h3 style={{ fontSize: 20, fontWeight: 600, color: '#1f2937', marginBottom: 8 }}>No cars found</h3>
+          <p style={{ fontSize: 14, color: '#6b7280' }}>
+            {cars.length === 0 ? 'No cars added yet. Be the first to add one!' : 'Try changing your filters'}
+          </p>
+        </div>
+      )}
+
+      {/* How it works */}
+      <div style={{
+        marginTop: 40, padding: '32px 24px', backgroundColor: '#fff',
+        borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)'
+      }}>
+        <h2 style={{ fontSize: 22, fontWeight: 700, textAlign: 'center', marginBottom: 24, color: '#1f2937' }}>
+          How It Works
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 24 }}>
+          {[
+            { icon: '🔍', title: 'Choose a Car', desc: 'Browse our fleet and pick your ride' },
+            { icon: '📱', title: 'Book via WhatsApp', desc: 'Quick booking through WhatsApp chat' },
+            { icon: '🔑', title: 'Pick Up & Drive', desc: 'Collect your car and hit the road' },
+            { icon: '✅', title: 'Return & Done', desc: 'Drop it back at the pickup point' }
+          ].map((step, i) => (
+            <div key={i} style={{ textAlign: 'center', padding: 16 }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}>{step.icon}</div>
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, color: '#1f2937' }}>{step.title}</h4>
+              <p style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, margin: 0 }}>{step.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------
    Footer
 ------------------------------ */
 function Footer() {
   return (
     <footer style={styles.footer}>
-      <div style={styles.footerContainer}>
+      <div style={styles.footerContainer} className="footer-grid-responsive">
         <div style={styles.footerColumn}>
           <div style={styles.logoContainer}>
-            <img
-              src={logo}
-              alt="Homavia Logo"
-              style={styles.logo}
-            />
+            <BrandLogo />
           </div>
-          <p style={{ color: '#666', lineHeight: 1.6, fontSize: 14 }}>
+          <p style={{ color: '#9ca3af', lineHeight: 1.6, fontSize: 14 }}>
             Your trusted platform for authentic homestay experiences in Guwahati, Shillong, and Goa.
           </p>
         </div>
 
         <div style={styles.footerColumn}>
           <h4 style={styles.footerTitle}>Quick Links</h4>
-          <Link to="/" style={styles.footerLink}><FiHome /> Home</Link>
-          <Link to="/about" style={styles.footerLink}><FiInfo /> About Us</Link>
-          <Link to="/contact" style={styles.footerLink}><FiPhone /> Contact</Link>
-          <Link to="/premium" style={styles.footerLink}><FiStar /> Premium</Link>
-          <Link to="/add-homestay" style={styles.footerLink}><FiHome /> List Your Homestay</Link>
-          <Link to="/my-listings" style={styles.footerLink}><FiUser /> My Listings</Link>
+          <Link to="/" style={styles.footerLink} className="footer-link-hover"><FiHome /> Home</Link>
+          <Link to="/about" style={styles.footerLink} className="footer-link-hover"><FiInfo /> About Us</Link>
+          <Link to="/contact" style={styles.footerLink} className="footer-link-hover"><FiPhone /> Contact</Link>
+          <Link to="/premium" style={styles.footerLink} className="footer-link-hover"><FiStar /> Premium</Link>
+          <Link to="/bike-rental" style={styles.footerLink} className="footer-link-hover"><FiNavigation /> Bike Rental</Link>
+          <Link to="/car-rental" style={styles.footerLink} className="footer-link-hover"><FiNavigation /> Car Rental</Link>
+          <Link to="/add-homestay" style={styles.footerLink} className="footer-link-hover"><FiHome /> List Your Homestay</Link>
         </div>
 
         <div style={styles.footerColumn}>
           <h4 style={styles.footerTitle}>Contact Us</h4>
-          <a href="mailto:support@homavia.com" style={styles.footerLink}><FiMail /> support@homavia.com</a>
-          <a href="tel:+918638572663" style={styles.footerLink}><FiPhone /> +91 8638572663</a>
+          <a href="mailto:support@homavia.com" style={styles.footerLink} className="footer-link-hover"><FiMail /> support@homavia.com</a>
+          <a href="tel:+918638572663" style={styles.footerLink} className="footer-link-hover"><FiPhone /> +91 8638572663</a>
         </div>
       </div>
 
@@ -5668,6 +6983,7 @@ function MobileApp() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const isDesktop = useIsDesktop(1024);
 
   // PWA Install Prompt
   useEffect(() => {
@@ -5850,17 +7166,19 @@ function MobileApp() {
       <div style={styles.container}>
         <header style={styles.header}>
           <Link to="/" style={styles.logoContainer} onClick={closeMobileMenu}>
-            <img src={logo} alt="Homavia Logo" style={styles.logo} />
+            <BrandLogo />
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="desktop-nav" style={{ display: 'none' }}>
-            <Link to="/">Home</Link>
-            <Link to="/about">About Us</Link>
-            <Link to="/contact">Contact</Link>
-            <Link to="/premium">Premium</Link>
-            {user && <Link to="/my-listings">My Listings</Link>}
-            {user && isAdminUser(user) && <Link to="/admin">Admin</Link>}
+          <nav className="desktop-nav" style={isDesktop ? styles.desktopNav : { display: 'none' }}>
+            <Link to="/" style={styles.desktopNavLink}>Home</Link>
+            <Link to="/about" style={styles.desktopNavLink}>About Us</Link>
+            <Link to="/contact" style={styles.desktopNavLink}>Contact</Link>
+            <Link to="/premium" style={styles.desktopNavLink}>Premium</Link>
+            <Link to="/bike-rental" style={styles.desktopNavLink}>Bike Rental</Link>
+            <Link to="/car-rental" style={styles.desktopNavLink}>Car Rental</Link>
+            {user && <Link to="/my-listings" style={styles.desktopNavLink}>My Listings</Link>}
+            {user && isAdminUser(user) && <Link to="/admin" style={styles.desktopNavLink}>Admin</Link>}
             
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginLeft: 12 }}>
               {showInstallButton && (
@@ -5903,7 +7221,14 @@ function MobileApp() {
           </nav>
 
           {/* Mobile Hamburger */}
-          <button className="hamburger-button" style={styles.hamburgerButton} onClick={toggleMobileMenu}>
+          <button
+            className="hamburger-button"
+            style={{
+              ...styles.hamburgerButton,
+              display: isDesktop ? 'none' : 'block'
+            }}
+            onClick={toggleMobileMenu}
+          >
             <FiMenu />
           </button>
         </header>
@@ -5935,6 +7260,8 @@ function MobileApp() {
             <Link to="/about" style={styles.navLink} onClick={closeMobileMenu}>About Us</Link>
             <Link to="/contact" style={styles.navLink} onClick={closeMobileMenu}>Contact</Link>
             <Link to="/premium" style={styles.navLink} onClick={closeMobileMenu}>Premium</Link>
+            <Link to="/bike-rental" style={styles.navLink} onClick={closeMobileMenu}>Bike Rental</Link>
+            <Link to="/car-rental" style={styles.navLink} onClick={closeMobileMenu}>Car Rental</Link>
             {user && (
               <Link to="/my-listings" style={styles.navLink} onClick={closeMobileMenu}>
                 My Listings
@@ -5974,7 +7301,7 @@ function MobileApp() {
         </div>
 
         <main style={{ flex: 1 }}>
-          <div className="main-content" style={styles.mainContent}>
+          <div className="main-content page-fade-in" style={styles.mainContent}>
             <Routes>
               <Route path="/" element={<HomestayListing homestays={homestays} />} />
               <Route path="/add-homestay" element={<AddHomestayForm />} />
@@ -5984,6 +7311,8 @@ function MobileApp() {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/premium" element={<PremiumPage />} />
+            <Route path="/bike-rental" element={<BikeRentalPage />} />
+            <Route path="/car-rental" element={<CarRentalPage />} />
             <Route
               path="/admin"
               element={
