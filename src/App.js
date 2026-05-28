@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from "react";
-import logo from "./IMG-20250818-WA0009.jpg";
 import { initializeApp } from "firebase/app";
 import {
   getFirestore,
@@ -47,6 +46,8 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import heroImage from "./prairie-haven-51f728.jpg";
 import "./App.css";
+
+const logo = `${process.env.PUBLIC_URL || ""}/homavia-logo.jpg`;
 
 // Fix for default marker icons in Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -208,6 +209,10 @@ const DEFAULT_KEYWORDS =
   "Homavia, verified homestays India, book homestay, homestay booking India, bike rental India, car rental India, couple friendly stays";
 const DEFAULT_ROBOTS = "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
 const PRIVATE_ROBOTS = "noindex, nofollow, noarchive";
+const HOST_MANUAL_BOOKINGS_COLLECTION = "hostManualBookings";
+const HOST_MANUAL_GUESTS_COLLECTION = "hostManualGuests";
+const HOST_MANUAL_TASKS_COLLECTION = "hostManualTasks";
+const HOST_MANUAL_PLATFORMS = MANUAL_BLOCK_SOURCE_OPTIONS.map(option => option.name);
 
 /* ------------------------------
    Helper Functions
@@ -572,11 +577,6 @@ const getCalendarLinkSourceOption = (sourceId = 'external') => (
   CALENDAR_LINK_SOURCE_OPTIONS.find(option => option.id === 'external') ||
   CALENDAR_LINK_SOURCE_OPTIONS[0]
 );
-
-const normalizeCalendarLinkUrl = (url) => {
-  if (!url) return '';
-  return normalizeCalendarUrlForFetch(url).replace(/^https:\/\/api\.allorigins\.win\/raw\?url=/, '');
-};
 
 const normalizeListingCalendarLinks = (calendarLinks = [], legacyIcalUrl = '') => {
   const rawLinks = Array.isArray(calendarLinks) ? [...calendarLinks] : [];
@@ -4241,20 +4241,6 @@ function AddHomestayForm() {
     }
   };
 
-  const normalizeIcalUrl = (url) => {
-    if (!url) return "";
-    try {
-      const u = new URL(url);
-      if (u.protocol === "webcal:") {
-        u.protocol = "https:";
-        return u.toString();
-      }
-      return url;
-    } catch {
-      return url;
-    }
-  };
-
   const hasInvalidCalendarLinks = () => (
     getEditableCalendarLinks(form).some(link => link.url && !isValidIcalUrl(link.url))
   );
@@ -5039,20 +5025,6 @@ function EditHomestayForm() {
       return isWebCal || isHttp;
     } catch {
       return false;
-    }
-  };
-
-  const normalizeIcalUrl = (url) => {
-    if (!url) return "";
-    try {
-      const u = new URL(url);
-      if (u.protocol === "webcal:") {
-        u.protocol = "https:";
-        return u.toString();
-      }
-      return url;
-    } catch {
-      return url;
     }
   };
 
@@ -6030,6 +6002,580 @@ function HomestayDetail() {
 }
 
 /* ------------------------------
+   Manual Host CRM Panel
+------------------------------ */
+function HostManualCrmPanel({ listings, user }) {
+  const [monthValue, setMonthValue] = useState(getMonthValue());
+  const [activeTab, setActiveTab] = useState("bookings");
+  const [bookings, setBookings] = useState([]);
+  const [guests, setGuests] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saveError, setSaveError] = useState("");
+  const firstListingId = listings[0]?.id || "";
+  const [bookingForm, setBookingForm] = useState({
+    listingId: firstListingId,
+    platform: "Homavia / Direct booking",
+    checkIn: "",
+    checkOut: "",
+    amount: "",
+    guestName: "",
+    paymentStatus: "Paid",
+    notes: ""
+  });
+  const [guestForm, setGuestForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    notes: ""
+  });
+  const [taskForm, setTaskForm] = useState({
+    listingId: firstListingId,
+    title: "",
+    owner: "Host",
+    dueDate: "",
+    priority: "Medium",
+    status: "Open"
+  });
+
+  useEffect(() => {
+    if (!firstListingId) return;
+
+    setBookingForm(current => current.listingId ? current : { ...current, listingId: firstListingId });
+    setTaskForm(current => current.listingId ? current : { ...current, listingId: firstListingId });
+  }, [firstListingId]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    setLoading(true);
+    const cleanups = [];
+    const subscribeToCollection = (collectionName, setter) => {
+      const qRef = query(collection(db, collectionName), where("createdBy", "==", user.uid));
+      const unsub = onSnapshot(
+        qRef,
+        (snapshot) => {
+          const docs = snapshot.docs
+            .map((entry) => ({ id: entry.id, ...entry.data() }))
+            .sort((a, b) => {
+              const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds || 0;
+              const bTime = b.createdAt?.toMillis?.() || b.createdAt?.seconds || 0;
+              return bTime - aTime;
+            });
+          setter(docs);
+          setLoading(false);
+        },
+        (error) => {
+          console.error(`Failed to read ${collectionName}:`, error);
+          setSaveError("Could not read manual CRM data from Firebase.");
+          setLoading(false);
+        }
+      );
+
+      cleanups.push(unsub);
+    };
+
+    subscribeToCollection(HOST_MANUAL_BOOKINGS_COLLECTION, setBookings);
+    subscribeToCollection(HOST_MANUAL_GUESTS_COLLECTION, setGuests);
+    subscribeToCollection(HOST_MANUAL_TASKS_COLLECTION, setTasks);
+
+    return () => cleanups.forEach((cleanup) => cleanup());
+  }, [user]);
+
+  const listingsById = useMemo(() => {
+    return listings.reduce((acc, listing) => {
+      acc[listing.id] = listing;
+      return acc;
+    }, {});
+  }, [listings]);
+
+  const monthBookings = useMemo(() => (
+    bookings.filter(booking => String(booking.checkIn || "").startsWith(monthValue))
+  ), [bookings, monthValue]);
+
+  const crmTotals = useMemo(() => {
+    const platformMap = {};
+    let totalRevenue = 0;
+    let totalNights = 0;
+    let pendingRevenue = 0;
+
+    monthBookings.forEach(booking => {
+      const amount = Number(booking.amount) || 0;
+      const nights = getDateKeysInStayRange(booking.checkIn, booking.checkOut).length;
+      const platform = booking.platform || "Manual booking";
+
+      totalRevenue += amount;
+      totalNights += nights;
+      if (booking.paymentStatus !== "Paid") pendingRevenue += amount;
+
+      if (!platformMap[platform]) {
+        platformMap[platform] = { platform, bookings: 0, nights: 0, revenue: 0 };
+      }
+
+      platformMap[platform].bookings += 1;
+      platformMap[platform].nights += nights;
+      platformMap[platform].revenue += amount;
+    });
+
+    return {
+      totalRevenue,
+      totalNights,
+      pendingRevenue,
+      platformTotals: Object.values(platformMap).sort((a, b) => b.revenue - a.revenue || a.platform.localeCompare(b.platform))
+    };
+  }, [monthBookings]);
+
+  const handleBookingSubmit = async (event) => {
+    event.preventDefault();
+    if (!user || !bookingForm.listingId) return;
+
+    const stayNights = getDateKeysInStayRange(bookingForm.checkIn, bookingForm.checkOut).length;
+    if (!stayNights) {
+      setSaveError("Check-out must be after check-in.");
+      return;
+    }
+
+    setSaveError("");
+    try {
+      await addDoc(collection(db, HOST_MANUAL_BOOKINGS_COLLECTION), {
+        ...bookingForm,
+        listingId: bookingForm.listingId,
+        listingName: listingsById[bookingForm.listingId]?.name || "",
+        amount: Math.max(0, Math.round(Number(bookingForm.amount) || 0)),
+        nights: stayNights,
+        source: "manual",
+        createdBy: user.uid,
+        createdByName: user.displayName || user.email || "Host",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      setBookingForm(current => ({
+        ...current,
+        guestName: "",
+        amount: "",
+        notes: ""
+      }));
+    } catch (error) {
+      console.error("Failed to save manual booking:", error);
+      setSaveError("Manual booking could not be saved to Firebase.");
+    }
+  };
+
+  const handleGuestSubmit = async (event) => {
+    event.preventDefault();
+    if (!user || !guestForm.name.trim()) return;
+
+    setSaveError("");
+    try {
+      await addDoc(collection(db, HOST_MANUAL_GUESTS_COLLECTION), {
+        ...guestForm,
+        name: guestForm.name.trim(),
+        source: "manual",
+        createdBy: user.uid,
+        createdByName: user.displayName || user.email || "Host",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      setGuestForm({ name: "", phone: "", email: "", notes: "" });
+    } catch (error) {
+      console.error("Failed to save manual guest:", error);
+      setSaveError("Guest could not be saved to Firebase.");
+    }
+  };
+
+  const handleTaskSubmit = async (event) => {
+    event.preventDefault();
+    if (!user || !taskForm.title.trim()) return;
+
+    setSaveError("");
+    try {
+      await addDoc(collection(db, HOST_MANUAL_TASKS_COLLECTION), {
+        ...taskForm,
+        title: taskForm.title.trim(),
+        listingName: listingsById[taskForm.listingId]?.name || "",
+        source: "manual",
+        createdBy: user.uid,
+        createdByName: user.displayName || user.email || "Host",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      setTaskForm(current => ({ ...current, title: "", status: "Open" }));
+    } catch (error) {
+      console.error("Failed to save manual task:", error);
+      setSaveError("Task could not be saved to Firebase.");
+    }
+  };
+
+  const updateTaskStatus = async (taskId, status) => {
+    try {
+      await updateDoc(doc(db, HOST_MANUAL_TASKS_COLLECTION, taskId), {
+        status,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Failed to update task:", error);
+      setSaveError("Task status could not be updated.");
+    }
+  };
+
+  const deleteManualRecord = async (collectionName, recordId) => {
+    try {
+      await deleteDoc(doc(db, collectionName, recordId));
+    } catch (error) {
+      console.error("Failed to delete manual CRM record:", error);
+      setSaveError("Record could not be deleted from Firebase.");
+    }
+  };
+
+  return (
+    <section className="manual-crm-panel">
+      <div className="manual-crm-header">
+        <div>
+          <h2>Manual CRM & Revenue</h2>
+          <p>Saved in Firebase. Manual entries are the source of truth for host revenue, guests, and tasks.</p>
+        </div>
+        <label className="host-revenue-month">
+          <span>Month</span>
+          <input
+            type="month"
+            value={monthValue}
+            onChange={(event) => setMonthValue(event.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="manual-crm-stats">
+        <div>
+          <span>Manual Revenue</span>
+          <strong>{formatCurrency(crmTotals.totalRevenue)}</strong>
+          <small>{getMonthLabel(monthValue)}</small>
+        </div>
+        <div>
+          <span>Bookings</span>
+          <strong>{monthBookings.length}</strong>
+          <small>Manual records</small>
+        </div>
+        <div>
+          <span>Booked Nights</span>
+          <strong>{crmTotals.totalNights}</strong>
+          <small>Check-in to checkout</small>
+        </div>
+        <div>
+          <span>Open Tasks</span>
+          <strong>{tasks.filter(task => task.status !== "Done").length}</strong>
+          <small>{guests.length} saved guests</small>
+        </div>
+      </div>
+
+      {saveError && <div className="host-revenue-alert">{saveError}</div>}
+
+      <div className="manual-crm-tabs" role="tablist" aria-label="Manual CRM sections">
+        {[
+          ["bookings", "Bookings"],
+          ["guests", "Guests"],
+          ["tasks", "Tasks"]
+        ].map(([tabId, label]) => (
+          <button
+            key={tabId}
+            type="button"
+            className={activeTab === tabId ? "active" : ""}
+            onClick={() => setActiveTab(tabId)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "bookings" && (
+        <div className="manual-crm-grid">
+          <form className="manual-crm-form" onSubmit={handleBookingSubmit}>
+            <h3>Add Manual Booking</h3>
+            <label>
+              Property
+              <select
+                value={bookingForm.listingId}
+                onChange={(event) => setBookingForm({ ...bookingForm, listingId: event.target.value })}
+                required
+              >
+                {listings.map(listing => (
+                  <option key={listing.id} value={listing.id}>{listing.name || "(No name)"}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Platform
+              <select
+                value={bookingForm.platform}
+                onChange={(event) => setBookingForm({ ...bookingForm, platform: event.target.value })}
+              >
+                {HOST_MANUAL_PLATFORMS.map(platform => (
+                  <option key={platform}>{platform}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Guest Name
+              <input
+                value={bookingForm.guestName}
+                onChange={(event) => setBookingForm({ ...bookingForm, guestName: event.target.value })}
+                placeholder="Guest name"
+                required
+              />
+            </label>
+            <div className="manual-crm-form-row">
+              <label>
+                Check In
+                <input
+                  type="date"
+                  value={bookingForm.checkIn}
+                  onChange={(event) => setBookingForm({ ...bookingForm, checkIn: event.target.value })}
+                  required
+                />
+              </label>
+              <label>
+                Check Out
+                <input
+                  type="date"
+                  value={bookingForm.checkOut}
+                  onChange={(event) => setBookingForm({ ...bookingForm, checkOut: event.target.value })}
+                  required
+                />
+              </label>
+            </div>
+            <div className="manual-crm-form-row">
+              <label>
+                Total Revenue
+                <input
+                  type="number"
+                  min="0"
+                  value={bookingForm.amount}
+                  onChange={(event) => setBookingForm({ ...bookingForm, amount: event.target.value })}
+                  placeholder="0"
+                  required
+                />
+              </label>
+              <label>
+                Payment
+                <select
+                  value={bookingForm.paymentStatus}
+                  onChange={(event) => setBookingForm({ ...bookingForm, paymentStatus: event.target.value })}
+                >
+                  <option>Paid</option>
+                  <option>Partial</option>
+                  <option>Pending</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              Notes
+              <input
+                value={bookingForm.notes}
+                onChange={(event) => setBookingForm({ ...bookingForm, notes: event.target.value })}
+                placeholder="Manual note"
+              />
+            </label>
+            <button className="manual-crm-primary" type="submit">Save Booking to Firebase</button>
+          </form>
+
+          <div className="manual-crm-list">
+            <h3>{loading ? "Loading..." : "Manual Booking Ledger"}</h3>
+            {monthBookings.length === 0 ? (
+              <p className="host-revenue-empty">No manual bookings saved for this month.</p>
+            ) : monthBookings.map(booking => (
+              <div className="manual-crm-row" key={booking.id}>
+                <div>
+                  <strong>{booking.guestName || "Manual guest"}</strong>
+                  <span>{booking.listingName || listingsById[booking.listingId]?.name || "Property"} • {booking.platform}</span>
+                  <small>{booking.checkIn} to {booking.checkOut} • {booking.paymentStatus}</small>
+                </div>
+                <strong>{formatCurrency(booking.amount)}</strong>
+                <button
+                  type="button"
+                  aria-label="Delete manual booking"
+                  onClick={() => deleteManualRecord(HOST_MANUAL_BOOKINGS_COLLECTION, booking.id)}
+                >
+                  <FiX />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "guests" && (
+        <div className="manual-crm-grid">
+          <form className="manual-crm-form" onSubmit={handleGuestSubmit}>
+            <h3>Add Manual Guest</h3>
+            <label>
+              Name
+              <input
+                value={guestForm.name}
+                onChange={(event) => setGuestForm({ ...guestForm, name: event.target.value })}
+                placeholder="Guest name"
+                required
+              />
+            </label>
+            <label>
+              Phone
+              <input
+                value={guestForm.phone}
+                onChange={(event) => setGuestForm({ ...guestForm, phone: event.target.value })}
+                placeholder="+91..."
+              />
+            </label>
+            <label>
+              Email
+              <input
+                type="email"
+                value={guestForm.email}
+                onChange={(event) => setGuestForm({ ...guestForm, email: event.target.value })}
+                placeholder="guest@example.com"
+              />
+            </label>
+            <label>
+              Notes
+              <input
+                value={guestForm.notes}
+                onChange={(event) => setGuestForm({ ...guestForm, notes: event.target.value })}
+                placeholder="Preferences, ID note, follow-up"
+              />
+            </label>
+            <button className="manual-crm-primary" type="submit">Save Guest to Firebase</button>
+          </form>
+
+          <div className="manual-crm-list">
+            <h3>Saved Guests</h3>
+            {guests.length === 0 ? (
+              <p className="host-revenue-empty">No manual guest profiles saved yet.</p>
+            ) : guests.map(guest => (
+              <div className="manual-crm-row" key={guest.id}>
+                <div>
+                  <strong>{guest.name}</strong>
+                  <span>{guest.phone || "No phone"} • {guest.email || "No email"}</span>
+                  <small>{guest.notes || "No notes"}</small>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Delete manual guest"
+                  onClick={() => deleteManualRecord(HOST_MANUAL_GUESTS_COLLECTION, guest.id)}
+                >
+                  <FiX />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "tasks" && (
+        <div className="manual-crm-grid">
+          <form className="manual-crm-form" onSubmit={handleTaskSubmit}>
+            <h3>Add Manual Task</h3>
+            <label>
+              Property
+              <select
+                value={taskForm.listingId}
+                onChange={(event) => setTaskForm({ ...taskForm, listingId: event.target.value })}
+                required
+              >
+                {listings.map(listing => (
+                  <option key={listing.id} value={listing.id}>{listing.name || "(No name)"}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Task
+              <input
+                value={taskForm.title}
+                onChange={(event) => setTaskForm({ ...taskForm, title: event.target.value })}
+                placeholder="Cleaning, maintenance, ID check"
+                required
+              />
+            </label>
+            <div className="manual-crm-form-row">
+              <label>
+                Owner
+                <input
+                  value={taskForm.owner}
+                  onChange={(event) => setTaskForm({ ...taskForm, owner: event.target.value })}
+                  placeholder="Host"
+                />
+              </label>
+              <label>
+                Due Date
+                <input
+                  type="date"
+                  value={taskForm.dueDate}
+                  onChange={(event) => setTaskForm({ ...taskForm, dueDate: event.target.value })}
+                />
+              </label>
+            </div>
+            <div className="manual-crm-form-row">
+              <label>
+                Priority
+                <select
+                  value={taskForm.priority}
+                  onChange={(event) => setTaskForm({ ...taskForm, priority: event.target.value })}
+                >
+                  <option>High</option>
+                  <option>Medium</option>
+                  <option>Low</option>
+                </select>
+              </label>
+              <label>
+                Status
+                <select
+                  value={taskForm.status}
+                  onChange={(event) => setTaskForm({ ...taskForm, status: event.target.value })}
+                >
+                  <option>Open</option>
+                  <option>In progress</option>
+                  <option>Done</option>
+                </select>
+              </label>
+            </div>
+            <button className="manual-crm-primary" type="submit">Save Task to Firebase</button>
+          </form>
+
+          <div className="manual-crm-list">
+            <h3>Saved Tasks</h3>
+            {tasks.length === 0 ? (
+              <p className="host-revenue-empty">No manual tasks saved yet.</p>
+            ) : tasks.map(task => (
+              <div className="manual-crm-row" key={task.id}>
+                <div>
+                  <strong>{task.title}</strong>
+                  <span>{task.listingName || listingsById[task.listingId]?.name || "Property"} • {task.owner}</span>
+                  <small>{task.priority} priority • Due {task.dueDate || "Not set"}</small>
+                </div>
+                <select
+                  value={task.status || "Open"}
+                  onChange={(event) => updateTaskStatus(task.id, event.target.value)}
+                >
+                  <option>Open</option>
+                  <option>In progress</option>
+                  <option>Done</option>
+                </select>
+                <button
+                  type="button"
+                  aria-label="Delete manual task"
+                  onClick={() => deleteManualRecord(HOST_MANUAL_TASKS_COLLECTION, task.id)}
+                >
+                  <FiX />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ------------------------------
    Host Revenue Panel
 ------------------------------ */
 function HostRevenuePanel({ listings }) {
@@ -6151,8 +6697,8 @@ function HostRevenuePanel({ listings }) {
     <section className="host-revenue-panel">
       <div className="host-revenue-header">
         <div>
-          <h2>Monthly Revenue</h2>
-          <p>Estimated from calendar and portal blocked booking dates, units, and platform-wise prices.</p>
+          <h2>Calendar Revenue Estimate</h2>
+          <p>Optional estimate from calendar and portal blocked dates. Manual CRM revenue is saved separately as the source of truth.</p>
         </div>
         <label className="host-revenue-month">
           <span>Month</span>
@@ -6216,7 +6762,7 @@ function HostRevenuePanel({ listings }) {
             Listing Revenue
           </div>
           {revenue.listingTotals.length === 0 ? (
-            <p className="host-revenue-empty">Add portal blocked dates or connect a calendar to calculate monthly revenue.</p>
+            <p className="host-revenue-empty">Add portal blocked dates or connect a calendar to calculate optional estimates.</p>
           ) : (
             revenue.listingTotals.map(listing => (
               <div key={listing.listingId} className="host-revenue-listing-row">
@@ -6314,6 +6860,7 @@ function MyListings() {
         </div>
       ) : (
         <>
+          <HostManualCrmPanel listings={myHomestays} user={user} />
           <HostRevenuePanel listings={myHomestays} />
 
           <ul style={styles.homestayList} className="homestay-list-grid">
