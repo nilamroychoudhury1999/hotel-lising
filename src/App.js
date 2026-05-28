@@ -2673,7 +2673,6 @@ function BrandLogo({ compact = false }) {
   return (
     <>
       <img src={logo} alt="Homavia" style={styles.logo} />
-      {!compact && <span style={styles.logoText}>Homavia</span>}
     </>
   );
 }
