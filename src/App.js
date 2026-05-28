@@ -451,6 +451,10 @@ const getListingUnitCount = (listing) => {
   return normalizeUnitCount(listing?.unitCount || listing?.units || 1);
 };
 
+const getManualBlockUnitCount = (entry) => {
+  return normalizeUnitCount(entry?.units || entry?.roomCount || entry?.rooms || 1);
+};
+
 const getMonthValue = (date = new Date()) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -630,10 +634,12 @@ const normalizeManualBlockedDates = (manualBlockedDates = []) => {
       seen.add(uniqueKey);
 
       const note = typeof entry === 'string' ? '' : toPlainText(entry?.note || '');
+      const units = typeof entry === 'string' ? 1 : getManualBlockUnitCount(entry);
       return {
         date: dateKey,
         sourceId: sourceOption.id,
         source: sourceOption.name,
+        units,
         note
       };
     })
@@ -650,11 +656,12 @@ const getManualBlockedCalendarDates = (manualBlockedDates = []) => {
 
     const existing = dateMap.get(entry.date);
     const summary = entry.note || entry.source;
+    const units = getManualBlockUnitCount(entry);
 
     if (existing) {
       if (!existing.sources.includes(entry.source)) existing.sources.push(entry.source);
-      existing.sourceCounts[entry.source] = (existing.sourceCounts[entry.source] || 0) + 1;
-      existing.totalBookings += 1;
+      existing.sourceCounts[entry.source] = (existing.sourceCounts[entry.source] || 0) + units;
+      existing.totalBookings += units;
       if (summary && !existing.summaries.includes(summary)) existing.summaries.push(summary);
     } else {
       dateMap.set(entry.date, {
@@ -662,8 +669,8 @@ const getManualBlockedCalendarDates = (manualBlockedDates = []) => {
         date,
         source: entry.source,
         sources: [entry.source],
-        sourceCounts: { [entry.source]: 1 },
-        totalBookings: 1,
+        sourceCounts: { [entry.source]: units },
+        totalBookings: units,
         summary,
         summaries: summary ? [summary] : [],
         manual: true
@@ -741,9 +748,16 @@ const getDateKeysInStayRange = (checkInDate, checkOutDate) => {
   return keys;
 };
 
-const hasManualBlockOverlap = (manualBlockedDates, checkInDate, checkOutDate) => {
-  const blockedKeys = new Set(normalizeManualBlockedDates(manualBlockedDates).map(entry => entry.date));
-  return getDateKeysInStayRange(checkInDate, checkOutDate).some(dateKey => blockedKeys.has(dateKey));
+const hasManualBlockOverlap = (manualBlockedDates, checkInDate, checkOutDate, totalUnits = 1) => {
+  const unitCapacity = normalizeUnitCount(totalUnits);
+  const blockedUnitsByDate = normalizeManualBlockedDates(manualBlockedDates).reduce((acc, entry) => {
+    acc[entry.date] = (acc[entry.date] || 0) + getManualBlockUnitCount(entry);
+    return acc;
+  }, {});
+
+  return getDateKeysInStayRange(checkInDate, checkOutDate).some(dateKey => (
+    (blockedUnitsByDate[dateKey] || 0) >= unitCapacity
+  ));
 };
 
 const getListingBlockedDates = async (listing) => {
@@ -2254,7 +2268,7 @@ const fetchAndCheckAvailability = async (listingOrIcalUrl, checkInDate, checkOut
     ? normalizeListingCalendarLinks(listing.calendarLinks, listing.icalUrl)
     : normalizeListingCalendarLinks([], listingOrIcalUrl);
 
-  if (hasManualBlockOverlap(listingManualBlocks, checkInDate, checkOutDate)) {
+  if (hasManualBlockOverlap(listingManualBlocks, checkInDate, checkOutDate, listing ? getListingUnitCount(listing) : 1)) {
     return 'unavailable';
   }
 
@@ -2453,10 +2467,13 @@ function CalendarLinksFields({ form, setForm }) {
 function ManualBlockedDatesFields({ form, setForm }) {
   const [selectedSourceId, setSelectedSourceId] = useState('homavia');
   const [blockNote, setBlockNote] = useState('');
+  const [blockUnitCount, setBlockUnitCount] = useState(1);
+  const totalListingUnits = normalizeUnitCount(form.unitCount);
   const manualBlocks = useMemo(
     () => normalizeManualBlockedDates(form.manualBlockedDates),
     [form.manualBlockedDates]
   );
+  const totalBlockedUnits = manualBlocks.reduce((sum, block) => sum + getManualBlockUnitCount(block), 0);
   const blockMap = useMemo(() => {
     return manualBlocks.reduce((acc, block) => {
       if (!acc[block.date]) acc[block.date] = [];
@@ -2484,12 +2501,14 @@ function ManualBlockedDatesFields({ form, setForm }) {
     }
 
     const sourceOption = getManualBlockSourceOption(selectedSourceId);
+    const units = Math.min(normalizeUnitCount(blockUnitCount), totalListingUnits);
     updateManualBlocks([
       ...manualBlocks,
       {
         date: dateKey,
         sourceId: sourceOption.id,
         source: sourceOption.name,
+        units,
         note: blockNote.trim()
       }
     ]);
@@ -2525,6 +2544,17 @@ function ManualBlockedDatesFields({ form, setForm }) {
               placeholder="Direct booking, maintenance, owner stay..."
             />
           </div>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Rooms to Block</label>
+            <input
+              style={styles.input}
+              type="number"
+              min="1"
+              max={totalListingUnits}
+              value={blockUnitCount}
+              onChange={(e) => setBlockUnitCount(e.target.value)}
+            />
+          </div>
         </div>
 
         <div className="manual-block-calendar-shell">
@@ -2556,8 +2586,8 @@ function ManualBlockedDatesFields({ form, setForm }) {
 
         <div className="manual-block-footer">
           <div>
-            <strong>{manualBlocks.length}</strong>
-            <span>{manualBlocks.length === 1 ? ' portal blocked date' : ' portal blocked dates'}</span>
+            <strong>{totalBlockedUnits}</strong>
+            <span>{totalBlockedUnits === 1 ? ' room blocked' : ' rooms blocked'} across {manualBlocks.length} date source{manualBlocks.length === 1 ? '' : 's'}</span>
           </div>
           {manualBlocks.length > 0 && (
             <button type="button" className="manual-block-clear" onClick={() => updateManualBlocks([])}>
@@ -2576,7 +2606,10 @@ function ManualBlockedDatesFields({ form, setForm }) {
                     month: 'short',
                     year: 'numeric'
                   })}</strong>
-                  <span>{block.source}{block.note ? ` - ${block.note}` : ''}</span>
+                  <span>
+                    {block.source} • {getManualBlockUnitCount(block)} {getManualBlockUnitCount(block) === 1 ? 'room' : 'rooms'}
+                    {block.note ? ` - ${block.note}` : ''}
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -5964,6 +5997,7 @@ function HostManualCrmPanel({ listings, user }) {
   const [calendarListingId, setCalendarListingId] = useState(firstListingId);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [calendarSourceId, setCalendarSourceId] = useState("homavia");
+  const [calendarBlockUnits, setCalendarBlockUnits] = useState(1);
   const [calendarNote, setCalendarNote] = useState("Manual CRM block");
   const [calendarSaving, setCalendarSaving] = useState(false);
 
@@ -6070,6 +6104,27 @@ function HostManualCrmPanel({ listings, user }) {
   const selectedCalendarDateKey = normalizeManualBlockDateKey(calendarDate);
   const selectedDateBlocks = calendarBlocksByDate[selectedCalendarDateKey] || [];
   const calendarBlockCount = calendarBlocks.length;
+  const calendarBlockedRoomHolds = calendarBlocks.reduce((sum, block) => sum + getManualBlockUnitCount(block), 0);
+  const selectedCalendarTotalRooms = getListingUnitCount(selectedCalendarListing);
+  const selectedDateBlockedRooms = Math.min(
+    selectedCalendarTotalRooms,
+    selectedDateBlocks.reduce((sum, block) => sum + getManualBlockUnitCount(block), 0)
+  );
+  const selectedDateAvailableRooms = Math.max(selectedCalendarTotalRooms - selectedDateBlockedRooms, 0);
+  const selectedSourceOption = getManualBlockSourceOption(calendarSourceId);
+  const selectedSourceBlockedRooms = selectedDateBlocks
+    .filter(block => block.sourceId === selectedSourceOption.id)
+    .reduce((sum, block) => sum + getManualBlockUnitCount(block), 0);
+  const selectedDateAvailableForSource = Math.max(
+    selectedCalendarTotalRooms - (selectedDateBlockedRooms - selectedSourceBlockedRooms),
+    0
+  );
+  const calendarBlockUnitLimit = Math.max(1, selectedDateAvailableForSource);
+  const requestedCalendarBlockUnits = Math.min(normalizeUnitCount(calendarBlockUnits), calendarBlockUnitLimit);
+
+  useEffect(() => {
+    setCalendarBlockUnits(current => Math.min(normalizeUnitCount(current), calendarBlockUnitLimit));
+  }, [calendarBlockUnitLimit]);
 
   const handleBookingSubmit = async (event) => {
     event.preventDefault();
@@ -6187,14 +6242,15 @@ function HostManualCrmPanel({ listings, user }) {
 
   const blockSelectedCalendarDate = async () => {
     if (!selectedCalendarDateKey) return;
+    if (selectedDateAvailableForSource === 0) return;
 
-    const sourceOption = getManualBlockSourceOption(calendarSourceId);
     const nextBlocks = [
-      ...calendarBlocks.filter(block => !(block.date === selectedCalendarDateKey && block.sourceId === sourceOption.id)),
+      ...calendarBlocks.filter(block => !(block.date === selectedCalendarDateKey && block.sourceId === selectedSourceOption.id)),
       {
         date: selectedCalendarDateKey,
-        sourceId: sourceOption.id,
-        source: sourceOption.name,
+        sourceId: selectedSourceOption.id,
+        source: selectedSourceOption.name,
+        units: requestedCalendarBlockUnits,
         note: calendarNote.trim() || (selectedCalendarListing?.hourly ? "Hourly stay hold" : "Manual CRM block")
       }
     ];
@@ -6221,7 +6277,7 @@ function HostManualCrmPanel({ listings, user }) {
       <div className="manual-crm-header">
         <div>
           <h2>Manual CRM & Revenue</h2>
-          <p> Manual entries are the source of truth for host revenue, guests, and tasks.</p>
+          <p>Manual entries are the source of truth for host revenue, guests, tasks, and property calendar blocks.</p>
         </div>
         <label className="host-revenue-month">
           <span>Month</span>
@@ -6420,6 +6476,16 @@ function HostManualCrmPanel({ listings, user }) {
               </select>
             </label>
             <label>
+              Rooms to Block
+              <input
+                type="number"
+                min="1"
+                max={calendarBlockUnitLimit}
+                value={calendarBlockUnits}
+                onChange={(event) => setCalendarBlockUnits(event.target.value)}
+              />
+            </label>
+            <label>
               Note
               <input
                 value={calendarNote}
@@ -6431,17 +6497,31 @@ function HostManualCrmPanel({ listings, user }) {
               <span>Selected Date</span>
               <strong>{selectedCalendarDateKey || "Choose a date"}</strong>
               <small>
-                {selectedDateBlocks.length
-                  ? `${selectedDateBlocks.length} manual block${selectedDateBlocks.length > 1 ? "s" : ""} on this date`
-                  : "Date is open in the manual CRM calendar"}
+                {selectedDateBlockedRooms
+                  ? `${selectedDateBlockedRooms} of ${selectedCalendarTotalRooms} room${selectedCalendarTotalRooms === 1 ? "" : "s"} blocked on this date`
+                  : `All ${selectedCalendarTotalRooms} room${selectedCalendarTotalRooms === 1 ? "" : "s"} available`}
               </small>
+            </div>
+            <div className="manual-calendar-availability">
+              <div>
+                <span>Total Rooms</span>
+                <strong>{selectedCalendarTotalRooms}</strong>
+              </div>
+              <div>
+                <span>Blocked</span>
+                <strong>{selectedDateBlockedRooms}</strong>
+              </div>
+              <div>
+                <span>Available</span>
+                <strong>{selectedDateAvailableRooms}</strong>
+              </div>
             </div>
             <div className="manual-calendar-actions">
               <button
                 className="manual-crm-primary"
                 type="button"
                 onClick={blockSelectedCalendarDate}
-                disabled={calendarSaving || !selectedCalendarDateKey}
+                disabled={calendarSaving || !selectedCalendarDateKey || selectedDateAvailableForSource === 0}
               >
                 {calendarSaving ? "Saving..." : "Block Date"}
               </button>
@@ -6465,6 +6545,7 @@ function HostManualCrmPanel({ listings, user }) {
                 <h3>{selectedCalendarListing?.name || "Property calendar"}</h3>
                 <p>
                   {calendarBlockCount} manual blocked date{calendarBlockCount === 1 ? "" : "s"}
+                  {calendarBlockedRoomHolds ? ` • ${calendarBlockedRoomHolds} room hold${calendarBlockedRoomHolds === 1 ? "" : "s"}` : ""}
                   {selectedCalendarListing?.hourly ? " • Hourly stay supported" : ""}
                 </p>
               </div>
@@ -6492,7 +6573,7 @@ function HostManualCrmPanel({ listings, user }) {
                 <div className="manual-crm-row" key={`${block.date}-${block.sourceId}`}>
                   <div>
                     <strong>{block.date}</strong>
-                    <span>{block.source}</span>
+                    <span>{block.source} • {getManualBlockUnitCount(block)} {getManualBlockUnitCount(block) === 1 ? "room" : "rooms"}</span>
                     <small>{block.note || "Manual calendar block"}</small>
                   </div>
                   <button
@@ -6641,7 +6722,7 @@ function HostManualCrmPanel({ listings, user }) {
                 </select>
               </label>
             </div>
-            <button className="manual-crm-primary" type="submit">Save Task to</button>
+            <button className="manual-crm-primary" type="submit">Save Task</button>
           </form>
 
           <div className="manual-crm-list">

@@ -627,6 +627,12 @@ form {
   gap: 16px;
   align-items: start;
 }
+.manual-crm-calendar-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.7fr) minmax(0, 1.3fr);
+  gap: 16px;
+  align-items: start;
+}
 .manual-crm-form,
 .manual-crm-list {
   min-width: 0;
@@ -679,6 +685,115 @@ form {
   color: #fff;
   cursor: pointer;
   font-weight: 800;
+}
+.manual-crm-primary:disabled,
+.manual-calendar-unblock:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.manual-crm-calendar-board {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  background: #fff;
+}
+.manual-crm-calendar-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.manual-crm-calendar-summary h3 {
+  margin: 0 0 4px;
+  color: var(--color-dark);
+  font-size: 16px;
+}
+.manual-crm-calendar-summary p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+.manual-crm-calendar {
+  width: 100%;
+  border: 1px solid var(--color-border-light) !important;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.manual-crm-calendar-controls {
+  position: sticky;
+  top: 92px;
+}
+.manual-calendar-selected {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #d1e9ff;
+  border-radius: 8px;
+  background: #eff8ff;
+}
+.manual-calendar-selected span,
+.manual-calendar-selected small {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+.manual-calendar-selected strong {
+  color: var(--color-dark);
+}
+.manual-calendar-availability {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.manual-calendar-availability > div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+.manual-calendar-availability span {
+  display: block;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.manual-calendar-availability strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-dark);
+  font-size: 20px;
+  line-height: 1.1;
+}
+.manual-calendar-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.manual-calendar-unblock {
+  min-height: 44px;
+  border: 1px solid #fecdca;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--color-primary);
+  cursor: pointer;
+  font-weight: 800;
+}
+.manual-calendar-help {
+  margin: 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.manual-calendar-list {
+  padding: 0;
+  border: 0;
 }
 .manual-crm-list {
   display: grid;
@@ -887,8 +1002,12 @@ form {
   }
 }
 @media (max-width: 900px) {
-  .manual-crm-grid {
+  .manual-crm-grid,
+  .manual-crm-calendar-grid {
     grid-template-columns: 1fr;
+  }
+  .manual-crm-calendar-controls {
+    position: static;
   }
   .manual-crm-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -919,11 +1038,17 @@ form {
   }
   .manual-crm-tabs {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .manual-crm-tabs button {
     width: 100%;
     padding: 0 8px;
+  }
+  .manual-calendar-actions {
+    grid-template-columns: 1fr;
+  }
+  .manual-calendar-availability {
+    grid-template-columns: 1fr;
   }
   .host-revenue-panel {
     padding: 16px;
