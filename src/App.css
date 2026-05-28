@@ -322,6 +322,67 @@ button:active { transform: scale(0.98); }
 .react-calendar__navigation button { font-size: 18px !important; font-weight: 600 !important; color: #1f2937 !important; }
 .react-calendar__navigation button:hover:enabled { background-color: #f3f4f6 !important; border-radius: 8px !important; }
 .react-calendar__month-view__weekdays { font-size: 12px !important; font-weight: 700 !important; color: #6b7280 !important; text-transform: uppercase !important; }
+.react-calendar__tile.booked-date {
+  background: #fff1f0 !important;
+  color: #b42318 !important;
+  border: 1px solid #fecdca !important;
+  min-height: 54px;
+}
+.react-calendar__tile.booked-date:hover {
+  background: #fee4e2 !important;
+  color: #8f1d16 !important;
+}
+.react-calendar__tile.available-date {
+  min-height: 54px;
+}
+.calendar-platform-pill {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 4px auto 0;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: #b42318;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.blocked-source-summary {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  background: #ffffff;
+}
+.blocked-source-title {
+  margin-bottom: 8px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.blocked-source-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 0;
+  color: var(--color-text);
+  font-size: 13px;
+  border-top: 1px solid var(--color-border-light);
+}
+.blocked-source-row:first-of-type {
+  border-top: none;
+}
+.blocked-source-row strong {
+  color: var(--color-primary);
+  font-size: 12px;
+  white-space: nowrap;
+}
 
 /* ============================================
    UTILITIES

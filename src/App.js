@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { initializeApp } from "firebase/app";
 import {
   getFirestore,
@@ -34,7 +34,8 @@ import {
 } from "react-router-dom";
 import {
   FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch,
-  FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiCalendar, FiNavigation, FiMap, FiFilter, FiMessageCircle
+  FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiCalendar, FiNavigation, FiMap, FiFilter, FiMessageCircle,
+  FiDollarSign, FiTrendingUp
 } from "react-icons/fi";
 import { Helmet } from "react-helmet";
 import ICAL from "ical.js";
@@ -171,6 +172,18 @@ const PRICE_TYPES = [
   { id: "perMonth", label: "Per Month", suffix: "month" }
 ];
 
+const PLATFORM_PRICE_OPTIONS = [
+  { id: 'homavia', name: 'Homavia / Direct' },
+  { id: 'airbnb', name: 'Airbnb' },
+  { id: 'bookingCom', name: 'Booking.com' },
+  { id: 'makemytrip', name: 'MakeMyTrip' },
+  { id: 'goibibo', name: 'Goibibo' },
+  { id: 'agoda', name: 'Agoda' },
+  { id: 'expedia', name: 'Expedia' },
+  { id: 'googleCalendar', name: 'Google Calendar' },
+  { id: 'external', name: 'Other / External' }
+];
+
 /* ------------------------------
    Helper Functions
 ------------------------------ */
@@ -217,24 +230,31 @@ const getIdFromSlug = (slug) => {
 };
 
 const CALENDAR_PORTAL_MATCHERS = [
-  { tokens: ['airbnb'], name: 'Airbnb' },
-  { tokens: ['booking.com'], name: 'Booking.com' },
-  { tokens: ['vrbo', 'homeaway'], name: 'Vrbo' },
-  { tokens: ['google.com/calendar', 'calendar.google'], name: 'Google Calendar' },
-  { tokens: ['agoda'], name: 'Agoda' },
-  { tokens: ['makemytrip'], name: 'MakeMyTrip' },
-  { tokens: ['goibibo'], name: 'Goibibo' },
-  { tokens: ['expedia'], name: 'Expedia' },
-  { tokens: ['tripadvisor'], name: 'Tripadvisor' },
-  { tokens: ['hostaway'], name: 'Hostaway' },
-  { tokens: ['lodgify'], name: 'Lodgify' },
-  { tokens: ['guesty'], name: 'Guesty' },
-  { tokens: ['smoobu'], name: 'Smoobu' },
-  { tokens: ['beds24'], name: 'Beds24' },
-  { tokens: ['ownerrez'], name: 'OwnerRez' },
-  { tokens: ['cloudbeds'], name: 'Cloudbeds' },
-  { tokens: ['eviivo'], name: 'eviivo' }
+  { id: 'airbnb', tokens: ['airbnb'], name: 'Airbnb' },
+  { id: 'bookingCom', tokens: ['booking.com', 'booking-calendar'], name: 'Booking.com' },
+  { id: 'external', tokens: ['vrbo', 'homeaway'], name: 'Vrbo' },
+  { id: 'googleCalendar', tokens: ['google.com/calendar', 'calendar.google'], name: 'Google Calendar' },
+  { id: 'agoda', tokens: ['agoda'], name: 'Agoda' },
+  { id: 'makemytrip', tokens: ['makemytrip', 'make my trip', 'mmt'], name: 'MakeMyTrip' },
+  { id: 'goibibo', tokens: ['goibibo'], name: 'Goibibo' },
+  { id: 'expedia', tokens: ['expedia'], name: 'Expedia' },
+  { id: 'external', tokens: ['tripadvisor'], name: 'Tripadvisor' },
+  { id: 'external', tokens: ['hostaway'], name: 'Hostaway' },
+  { id: 'external', tokens: ['lodgify'], name: 'Lodgify' },
+  { id: 'external', tokens: ['guesty'], name: 'Guesty' },
+  { id: 'external', tokens: ['smoobu'], name: 'Smoobu' },
+  { id: 'external', tokens: ['beds24'], name: 'Beds24' },
+  { id: 'external', tokens: ['ownerrez'], name: 'OwnerRez' },
+  { id: 'external', tokens: ['cloudbeds'], name: 'Cloudbeds' },
+  { id: 'external', tokens: ['eviivo'], name: 'eviivo' }
 ];
+
+const findCalendarPortalMatch = (text) => {
+  const searchable = String(text || '').toLowerCase();
+  return CALENDAR_PORTAL_MATCHERS.find(portal =>
+    portal.tokens.some(token => searchable.includes(token))
+  );
+};
 
 const getCalendarPortalName = (icalUrl) => {
   if (!icalUrl) return 'No calendar linked';
@@ -249,9 +269,7 @@ const getCalendarPortalName = (icalUrl) => {
     // Some pasted calendar values are not valid URLs. Fall back to text matching.
   }
 
-  const match = CALENDAR_PORTAL_MATCHERS.find(portal =>
-    portal.tokens.some(token => searchable.includes(token))
-  );
+  const match = findCalendarPortalMatch(searchable);
 
   if (match) return match.name;
 
@@ -260,6 +278,279 @@ const getCalendarPortalName = (icalUrl) => {
   } catch (error) {
     return 'External calendar';
   }
+};
+
+const toPositiveNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+};
+
+const normalizeUnitCount = (value) => {
+  const number = Math.floor(Number(value));
+  return Number.isFinite(number) && number > 0 ? number : 1;
+};
+
+const cleanPlatformPrices = (platformPrices = {}) => {
+  return Object.entries(platformPrices).reduce((acc, [platformId, value]) => {
+    const amount = toPositiveNumber(value);
+    if (amount > 0) acc[platformId] = amount;
+    return acc;
+  }, {});
+};
+
+const getPlatformPriceKey = (source) => {
+  const sourceText = String(source || '').toLowerCase();
+  if (sourceText.includes('homavia') || sourceText.includes('direct')) return 'homavia';
+
+  const match = findCalendarPortalMatch(sourceText);
+  return match?.id || 'external';
+};
+
+const getListingUnitCount = (listing) => {
+  return normalizeUnitCount(listing?.unitCount || listing?.units || 1);
+};
+
+const getListingPlatformPrice = (listing, source) => {
+  const platformPrices = listing?.platformPrices || {};
+  const platformKey = getPlatformPriceKey(source);
+  return (
+    toPositiveNumber(platformPrices[platformKey]) ||
+    toPositiveNumber(platformPrices.homavia) ||
+    toPositiveNumber(platformPrices.external) ||
+    toPositiveNumber(listing?.price)
+  );
+};
+
+const getMonthValue = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+};
+
+const getMonthLabel = (monthValue) => {
+  const [year, month] = String(monthValue).split('-').map(Number);
+  if (!year || !month) return 'Selected month';
+
+  return new Date(year, month - 1, 1).toLocaleDateString('en-IN', {
+    month: 'long',
+    year: 'numeric'
+  });
+};
+
+const formatCurrency = (value) => {
+  return `₹${Math.round(value || 0).toLocaleString('en-IN')}`;
+};
+
+const normalizeCalendarUrlForFetch = (icalUrl) => {
+  if (!icalUrl) return '';
+
+  try {
+    const parsedUrl = new URL(icalUrl);
+    if (parsedUrl.protocol === 'webcal:') {
+      parsedUrl.protocol = 'https:';
+      return parsedUrl.toString();
+    }
+  } catch (error) {
+    return icalUrl;
+  }
+
+  return icalUrl;
+};
+
+const getCalendarFetchUrl = (icalUrl) => {
+  const normalizedUrl = normalizeCalendarUrlForFetch(icalUrl);
+  const proxyUrl = 'https://api.allorigins.win/raw?url=';
+  return normalizedUrl.startsWith('http') ? proxyUrl + encodeURIComponent(normalizedUrl) : normalizedUrl;
+};
+
+const toSearchableCalendarValue = (value) => {
+  if (!value) return '';
+  if (Array.isArray(value)) return value.map(toSearchableCalendarValue).join(' ');
+  if (typeof value === 'object') {
+    return [
+      value.toString?.(),
+      value.name,
+      value.email,
+      value.uri
+    ].filter(Boolean).join(' ');
+  }
+  return String(value);
+};
+
+const getCalendarEventSourceName = (vevent, icalUrl) => {
+  const fallbackSource = getCalendarPortalName(icalUrl);
+  const eventFields = [
+    'summary',
+    'description',
+    'location',
+    'uid',
+    'url',
+    'organizer',
+    'attendee',
+    'comment',
+    'categories'
+  ];
+
+  const eventText = eventFields
+    .map(field => toSearchableCalendarValue(vevent.getFirstPropertyValue(field)))
+    .join(' ');
+
+  const match = findCalendarPortalMatch(`${eventText} ${icalUrl}`);
+  return match?.name || fallbackSource || 'External calendar';
+};
+
+const getLocalDateKey = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getCalendarEventDates = (event) => {
+  const start = event.startDate?.toJSDate?.();
+  if (!start) return [];
+
+  const end = event.endDate?.toJSDate?.() || new Date(start);
+  const current = new Date(start);
+  current.setHours(0, 0, 0, 0);
+
+  const endExclusive = new Date(end);
+  endExclusive.setHours(0, 0, 0, 0);
+
+  const dates = [];
+  while (current < endExclusive) {
+    dates.push(new Date(current));
+    current.setDate(current.getDate() + 1);
+  }
+
+  if (dates.length === 0) {
+    const singleDate = new Date(start);
+    singleDate.setHours(0, 0, 0, 0);
+    dates.push(singleDate);
+  }
+
+  return dates;
+};
+
+const fetchCalendarBlockedDates = async (icalUrl) => {
+  const response = await fetch(getCalendarFetchUrl(icalUrl));
+  if (!response.ok) {
+    throw new Error(`Calendar fetch failed: ${response.status}`);
+  }
+
+  const icsData = await response.text();
+  const jcalData = ICAL.parse(icsData);
+  const comp = new ICAL.Component(jcalData);
+  const vevents = comp.getAllSubcomponents('vevent');
+  const dateMap = new Map();
+
+  vevents.forEach(vevent => {
+    const event = new ICAL.Event(vevent);
+    const source = getCalendarEventSourceName(vevent, icalUrl);
+    const summary = event.summary || 'Blocked';
+
+    getCalendarEventDates(event).forEach(date => {
+      const key = getLocalDateKey(date);
+      const existing = dateMap.get(key);
+
+      if (existing) {
+        if (!existing.sources.includes(source)) existing.sources.push(source);
+        existing.sourceCounts[source] = (existing.sourceCounts[source] || 0) + 1;
+        existing.totalBookings += 1;
+        if (summary && !existing.summaries.includes(summary)) existing.summaries.push(summary);
+      } else {
+        dateMap.set(key, {
+          key,
+          date,
+          source,
+          sources: [source],
+          sourceCounts: { [source]: 1 },
+          totalBookings: 1,
+          summary,
+          summaries: summary ? [summary] : []
+        });
+      }
+    });
+  });
+
+  return Array.from(dateMap.values()).sort((a, b) => a.date - b.date);
+};
+
+const getShortPlatformLabel = (source) => {
+  const shortLabels = {
+    'Booking.com': 'Booking',
+    'Google Calendar': 'Google',
+    'MakeMyTrip': 'MMT',
+    'Tripadvisor': 'Trip',
+    'External calendar': 'External'
+  };
+
+  if (shortLabels[source]) return shortLabels[source];
+  if (!source) return 'Blocked';
+
+  const compact = String(source).replace(/^www\./, '').split('.')[0];
+  return compact.length > 8 ? `${compact.slice(0, 8)}...` : compact;
+};
+
+const calculateListingMonthlyRevenue = (listing, blockedDates, monthValue) => {
+  const unitCount = getListingUnitCount(listing);
+  const platformTotals = {};
+  const bookingRows = [];
+  let totalRevenue = 0;
+  let totalBookedUnitNights = 0;
+
+  const monthDates = blockedDates.filter(blockedDate => getMonthValue(blockedDate.date) === monthValue);
+
+  monthDates.forEach(blockedDate => {
+    const sourceCounts = blockedDate.sourceCounts || blockedDate.sources.reduce((acc, source) => {
+      acc[source] = 1;
+      return acc;
+    }, {});
+
+    Object.entries(sourceCounts).forEach(([source, count]) => {
+      const bookingCount = Math.max(1, Number(count) || 1);
+      const bookedUnitNights = bookingCount * unitCount;
+      const rate = getListingPlatformPrice(listing, source);
+      const revenue = bookedUnitNights * rate;
+
+      totalRevenue += revenue;
+      totalBookedUnitNights += bookedUnitNights;
+
+      if (!platformTotals[source]) {
+        platformTotals[source] = {
+          source,
+          dates: 0,
+          bookedUnitNights: 0,
+          revenue: 0
+        };
+      }
+
+      platformTotals[source].dates += 1;
+      platformTotals[source].bookedUnitNights += bookedUnitNights;
+      platformTotals[source].revenue += revenue;
+
+      bookingRows.push({
+        key: `${listing.id}-${blockedDate.key}-${source}`,
+        date: blockedDate.date,
+        source,
+        unitCount,
+        bookedUnitNights,
+        rate,
+        revenue
+      });
+    });
+  });
+
+  return {
+    listingId: listing.id,
+    listingName: listing.name || '(No name)',
+    unitCount,
+    blockedDates: monthDates.length,
+    bookedUnitNights: totalBookedUnitNights,
+    totalRevenue,
+    platformTotals: Object.values(platformTotals).sort((a, b) => b.revenue - a.revenue || a.source.localeCompare(b.source)),
+    bookingRows
+  };
 };
 
 const useIsDesktop = (breakpoint = 1024) => {
@@ -1630,11 +1921,7 @@ const fetchAndCheckAvailability = async (icalUrl, checkInDate, checkOutDate) => 
   try {
     console.log('Fetching iCal from:', icalUrl);
     
-    // Use CORS proxy for external iCal URLs
-    const proxyUrl = 'https://api.allorigins.win/raw?url=';
-    const urlToFetch = icalUrl.startsWith('http') ? proxyUrl + encodeURIComponent(icalUrl) : icalUrl;
-    
-    const response = await fetch(urlToFetch);
+    const response = await fetch(getCalendarFetchUrl(icalUrl));
     if (!response.ok) {
       console.error('Failed to fetch iCal:', response.status, response.statusText);
       return 'unknown';
@@ -1690,6 +1977,71 @@ const fetchAndCheckAvailability = async (icalUrl, checkInDate, checkOutDate) => 
     return 'unknown';
   }
 };
+
+function PlatformPricingFields({ form, setForm }) {
+  const handlePlatformPriceChange = (platformId, value) => {
+    setForm(prev => {
+      const platformPrices = { ...(prev.platformPrices || {}) };
+      if (value && !isNaN(value) && Number(value) > 0) {
+        platformPrices[platformId] = value;
+      } else {
+        delete platformPrices[platformId];
+      }
+      return { ...prev, platformPrices };
+    });
+  };
+
+  return (
+    <div style={styles.formSection}>
+      <h2 style={styles.sectionTitle}>Revenue Settings</h2>
+      <p style={{ fontSize: 13, color: '#666', marginBottom: 14 }}>
+        Used for host monthly revenue estimates from blocked iCal booking dates.
+      </p>
+
+      <div style={styles.formGrid} className="form-grid">
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Units / Rooms *</label>
+          <input
+            style={styles.input}
+            type="number"
+            min="1"
+            value={form.unitCount}
+            onChange={(e) => setForm(prev => ({ ...prev, unitCount: e.target.value }))}
+            required
+            placeholder="Example: 1"
+          />
+          <small style={{ color: '#666' }}>
+            Revenue uses blocked dates multiplied by this unit count.
+          </small>
+        </div>
+      </div>
+
+      <div style={styles.inputGroup}>
+        <label style={styles.label}>Platform-wise Price (₹)</label>
+        <p style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>
+          Leave a platform blank to use the primary listing price.
+        </p>
+        <div className="platform-price-grid">
+          {PLATFORM_PRICE_OPTIONS.map(platform => (
+            <div key={platform.id} className="platform-price-field">
+              <label style={{ ...styles.label, fontSize: 12, color: '#666' }}>
+                {platform.name}
+              </label>
+              <input
+                style={styles.input}
+                type="number"
+                min="0"
+                value={(form.platformPrices || {})[platform.id] || ''}
+                onChange={(e) => handlePlatformPriceChange(platform.id, e.target.value)}
+                placeholder={`₹${form.price || '0'}`}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function BrandLogo({ compact = false }) {
   return (
@@ -3009,6 +3361,8 @@ function AddHomestayForm() {
     price: "",
     priceType: "perNight",
     additionalPrices: {},
+    unitCount: 1,
+    platformPrices: {},
     city: "",
     area: "",
     contact: "",
@@ -3243,6 +3597,8 @@ function AddHomestayForm() {
         price: Number(form.price),
         priceType: form.priceType,
         additionalPrices: form.additionalPrices,
+        unitCount: normalizeUnitCount(form.unitCount),
+        platformPrices: cleanPlatformPrices(form.platformPrices),
         city: form.city,
         area: form.area,
         contact: form.contact,
@@ -3271,6 +3627,8 @@ function AddHomestayForm() {
         price: "",
         priceType: "perNight",
         additionalPrices: {},
+        unitCount: 1,
+        platformPrices: {},
         city: "",
         area: "",
         contact: "",
@@ -4509,29 +4867,14 @@ function HomestayDetail() {
         // Fetch booked dates from iCal
         if (data.icalUrl) {
           try {
-            const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(data.icalUrl)}`);
-            const icsData = await response.text();
-            const jcalData = ICAL.parse(icsData);
-            const comp = new ICAL.Component(jcalData);
-            const vevents = comp.getAllSubcomponents('vevent');
-            
-            const dates = [];
-            vevents.forEach(vevent => {
-              const event = new ICAL.Event(vevent);
-              const start = event.startDate.toJSDate();
-              const end = event.endDate.toJSDate();
-              
-              // Add all dates in range
-              const current = new Date(start);
-              while (current <= end) {
-                dates.push(new Date(current));
-                current.setDate(current.getDate() + 1);
-              }
-            });
+            const dates = await fetchCalendarBlockedDates(data.icalUrl);
             setBookedDates(dates);
           } catch (err) {
             console.log('Could not fetch calendar:', err);
+            setBookedDates([]);
           }
+        } else {
+          setBookedDates([]);
         }
       } else {
         navigate("/");
@@ -4539,6 +4882,23 @@ function HomestayDetail() {
     };
     fetchHomestay();
   }, [slug, navigate]);
+
+  const bookedDateMap = useMemo(() => {
+    return new Map(bookedDates.map(blockedDate => [blockedDate.key, blockedDate]));
+  }, [bookedDates]);
+
+  const bookedSourceSummary = useMemo(() => {
+    const totals = bookedDates.reduce((acc, blockedDate) => {
+      blockedDate.sources.forEach(source => {
+        acc[source] = (acc[source] || 0) + 1;
+      });
+      return acc;
+    }, {});
+
+    return Object.entries(totals)
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count || a.source.localeCompare(b.source));
+  }, [bookedDates]);
 
   if (!homestay) return <div style={{ textAlign: "center", padding: 40 }}>Loading...</div>;
 
@@ -4791,7 +5151,7 @@ function HomestayDetail() {
                 fontSize: 13,
                 fontWeight: 600
               }}>
-                <FiCalendar size={15} /> Calendar source
+                <FiCalendar size={15} /> Blocked source
               </span>
               <span style={{
                 color: designTokens.colors.dark,
@@ -4839,13 +5199,24 @@ function HomestayDetail() {
             <div style={{ marginTop: 15, marginBottom: 15 }}>
               <Calendar
                 className="professional-calendar"
-                tileClassName={({ date }) => {
-                  const isBooked = bookedDates.some(bookedDate => 
-                    bookedDate.getFullYear() === date.getFullYear() &&
-                    bookedDate.getMonth() === date.getMonth() &&
-                    bookedDate.getDate() === date.getDate()
+                tileClassName={({ date, view }) => {
+                  if (view !== 'month') return null;
+                  return bookedDateMap.has(getLocalDateKey(date)) ? 'booked-date' : 'available-date';
+                }}
+                tileContent={({ date, view }) => {
+                  if (view !== 'month') return null;
+                  const blockedDate = bookedDateMap.get(getLocalDateKey(date));
+                  if (!blockedDate) return null;
+
+                  const sourceText = blockedDate.sources.join(', ');
+                  return (
+                    <span
+                      className="calendar-platform-pill"
+                      title={`Blocked via ${sourceText}`}
+                    >
+                      {getShortPlatformLabel(blockedDate.source)}
+                    </span>
                   );
-                  return isBooked ? 'booked-date' : 'available-date';
                 }}
                 minDate={new Date()}
               />
@@ -4856,9 +5227,20 @@ function HomestayDetail() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: '#ffebee' }}></div>
-                  <span>Booked</span>
+                  <span>Blocked</span>
                 </div>
               </div>
+              {bookedSourceSummary.length > 0 && (
+                <div className="blocked-source-summary">
+                  <div className="blocked-source-title">Blocked by platform</div>
+                  {bookedSourceSummary.map(({ source, count }) => (
+                    <div key={source} className="blocked-source-row">
+                      <span>{source}</span>
+                      <strong>{count} {count === 1 ? 'date' : 'dates'}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           
@@ -5528,7 +5910,7 @@ function AdminTools() {
                             fontWeight: 700
                           }}>
                             <FiCalendar size={12} />
-                            {calendarPortalName}
+                            {h.icalUrl ? `Blocks from ${calendarPortalName}` : calendarPortalName}
                           </div>
                           <div style={{ fontSize: 12, color: '#0284c7', marginTop: 4 }}>
                             ₹{h.price} / {PRICE_TYPES.find(pt => pt.id === h.priceType)?.suffix || 'night'}
