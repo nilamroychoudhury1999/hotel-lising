@@ -566,7 +566,7 @@ form {
 }
 .manual-crm-stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
   margin-bottom: 16px;
 }
@@ -794,6 +794,35 @@ form {
 .manual-calendar-list {
   padding: 0;
   border: 0;
+}
+.manual-expense-breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.manual-expense-breakdown > div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+.manual-expense-breakdown span,
+.manual-expense-breakdown small {
+  display: block;
+  color: var(--color-muted);
+  font-size: 11px;
+}
+.manual-expense-breakdown span {
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.manual-expense-breakdown strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-dark);
+  font-size: 16px;
 }
 .manual-crm-list {
   display: grid;

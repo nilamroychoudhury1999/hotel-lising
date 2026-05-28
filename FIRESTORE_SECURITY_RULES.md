@@ -51,6 +51,12 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && (resource.data.createdBy == request.auth.uid || isAdmin());
     }
 
+    match /hostManualExpenses/{expense} {
+      allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
+      allow read: if request.auth != null && (resource.data.createdBy == request.auth.uid || isAdmin());
+      allow update, delete: if request.auth != null && (resource.data.createdBy == request.auth.uid || isAdmin());
+    }
+
     match /hostManualGuests/{guest} {
       allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
       allow read: if request.auth != null && (resource.data.createdBy == request.auth.uid || isAdmin());
@@ -98,7 +104,7 @@ service cloud.firestore {
 - ✅ **Create**: Authenticated host only, and `createdBy` must equal their UID
 - ✅ **Read**: Record owner or admin
 - ✅ **Update/Delete**: Record owner or admin
-- ✅ **Collections**: `hostManualBookings`, `hostManualGuests`, `hostManualTasks`
+- ✅ **Collections**: `hostManualBookings`, `hostManualExpenses`, `hostManualGuests`, `hostManualTasks`
 
 ## Testing Security Rules
 

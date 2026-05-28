@@ -209,9 +209,31 @@ const DEFAULT_KEYWORDS =
 const DEFAULT_ROBOTS = "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
 const PRIVATE_ROBOTS = "noindex, nofollow, noarchive";
 const HOST_MANUAL_BOOKINGS_COLLECTION = "hostManualBookings";
+const HOST_MANUAL_EXPENSES_COLLECTION = "hostManualExpenses";
 const HOST_MANUAL_GUESTS_COLLECTION = "hostManualGuests";
 const HOST_MANUAL_TASKS_COLLECTION = "hostManualTasks";
 const HOST_MANUAL_PLATFORMS = MANUAL_BLOCK_SOURCE_OPTIONS.map(option => option.name);
+const HOST_EXPENSE_CATEGORIES = [
+  "Cleaning",
+  "Maintenance",
+  "Utilities",
+  "Staff payout",
+  "Supplies",
+  "Platform fee",
+  "Refund",
+  "Transport",
+  "Other"
+];
+const HOST_EXPENSE_PAID_BY_OPTIONS = [
+  "Host",
+  "Owner",
+  "Manager",
+  "Caretaker",
+  "Staff",
+  "Vendor",
+  "Guest reimbursement"
+];
+const HOST_EXPENSE_PAYMENT_MODES = ["Cash", "UPI", "Bank transfer", "Card", "Wallet", "Other"];
 
 /* ------------------------------
    Helper Functions
@@ -5965,6 +5987,7 @@ function HostManualCrmPanel({ listings, user }) {
   const [monthValue, setMonthValue] = useState(getMonthValue());
   const [activeTab, setActiveTab] = useState("bookings");
   const [bookings, setBookings] = useState([]);
+  const [expenses, setExpenses] = useState([]);
   const [guests, setGuests] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -5978,6 +6001,15 @@ function HostManualCrmPanel({ listings, user }) {
     amount: "",
     guestName: "",
     paymentStatus: "Paid",
+    notes: ""
+  });
+  const [expenseForm, setExpenseForm] = useState({
+    listingId: firstListingId,
+    expenseDate: getLocalDateKey(new Date()),
+    category: "Cleaning",
+    amount: "",
+    paidBy: "Host",
+    paymentMode: "Cash",
     notes: ""
   });
   const [guestForm, setGuestForm] = useState({
@@ -6005,6 +6037,7 @@ function HostManualCrmPanel({ listings, user }) {
     if (!firstListingId) return;
 
     setBookingForm(current => current.listingId ? current : { ...current, listingId: firstListingId });
+    setExpenseForm(current => current.listingId ? current : { ...current, listingId: firstListingId });
     setTaskForm(current => current.listingId ? current : { ...current, listingId: firstListingId });
     setCalendarListingId(current => current || firstListingId);
   }, [firstListingId]);
@@ -6040,6 +6073,7 @@ function HostManualCrmPanel({ listings, user }) {
     };
 
     subscribeToCollection(HOST_MANUAL_BOOKINGS_COLLECTION, setBookings);
+    subscribeToCollection(HOST_MANUAL_EXPENSES_COLLECTION, setExpenses);
     subscribeToCollection(HOST_MANUAL_GUESTS_COLLECTION, setGuests);
     subscribeToCollection(HOST_MANUAL_TASKS_COLLECTION, setTasks);
 
@@ -6057,9 +6091,15 @@ function HostManualCrmPanel({ listings, user }) {
     bookings.filter(booking => String(booking.checkIn || "").startsWith(monthValue))
   ), [bookings, monthValue]);
 
+  const monthExpenses = useMemo(() => (
+    expenses.filter(expense => String(expense.expenseDate || "").startsWith(monthValue))
+  ), [expenses, monthValue]);
+
   const crmTotals = useMemo(() => {
     const platformMap = {};
+    const expensePaidByMap = {};
     let totalRevenue = 0;
+    let totalExpenses = 0;
     let totalNights = 0;
     let pendingRevenue = 0;
 
@@ -6081,13 +6121,29 @@ function HostManualCrmPanel({ listings, user }) {
       platformMap[platform].revenue += amount;
     });
 
+    monthExpenses.forEach(expense => {
+      const amount = Number(expense.amount) || 0;
+      const paidBy = expense.paidBy || "Host";
+
+      totalExpenses += amount;
+      if (!expensePaidByMap[paidBy]) {
+        expensePaidByMap[paidBy] = { paidBy, count: 0, amount: 0 };
+      }
+
+      expensePaidByMap[paidBy].count += 1;
+      expensePaidByMap[paidBy].amount += amount;
+    });
+
     return {
       totalRevenue,
+      totalExpenses,
+      netRevenue: totalRevenue - totalExpenses,
       totalNights,
       pendingRevenue,
-      platformTotals: Object.values(platformMap).sort((a, b) => b.revenue - a.revenue || a.platform.localeCompare(b.platform))
+      platformTotals: Object.values(platformMap).sort((a, b) => b.revenue - a.revenue || a.platform.localeCompare(b.platform)),
+      expensesByPaidBy: Object.values(expensePaidByMap).sort((a, b) => b.amount - a.amount || a.paidBy.localeCompare(b.paidBy))
     };
-  }, [monthBookings]);
+  }, [monthBookings, monthExpenses]);
 
   const selectedCalendarListing = listingsById[calendarListingId] || listings[0];
   const calendarBlocks = useMemo(
@@ -6160,6 +6216,44 @@ function HostManualCrmPanel({ listings, user }) {
     } catch (error) {
       console.error("Failed to save manual booking:", error);
       setSaveError("Manual booking could not be saved to Firebase.");
+    }
+  };
+
+  const handleExpenseSubmit = async (event) => {
+    event.preventDefault();
+    if (!user || !expenseForm.listingId) return;
+
+    const amount = Math.max(0, Math.round(Number(expenseForm.amount) || 0));
+    if (!amount) {
+      setSaveError("Expense amount must be greater than zero.");
+      return;
+    }
+
+    setSaveError("");
+    try {
+      await addDoc(collection(db, HOST_MANUAL_EXPENSES_COLLECTION), {
+        ...expenseForm,
+        listingId: expenseForm.listingId,
+        listingName: listingsById[expenseForm.listingId]?.name || "",
+        amount,
+        category: expenseForm.category || "Other",
+        paidBy: expenseForm.paidBy || "Host",
+        paymentMode: expenseForm.paymentMode || "Cash",
+        source: "manual",
+        createdBy: user.uid,
+        createdByName: user.displayName || user.email || "Host",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      setExpenseForm(current => ({
+        ...current,
+        amount: "",
+        notes: ""
+      }));
+    } catch (error) {
+      console.error("Failed to save manual expense:", error);
+      setSaveError("Expense could not be saved to Firebase.");
     }
   };
 
@@ -6296,6 +6390,16 @@ function HostManualCrmPanel({ listings, user }) {
           <small>{getMonthLabel(monthValue)}</small>
         </div>
         <div>
+          <span>Expenses</span>
+          <strong>{formatCurrency(crmTotals.totalExpenses)}</strong>
+          <small>{monthExpenses.length} manual records</small>
+        </div>
+        <div>
+          <span>Net Revenue</span>
+          <strong>{formatCurrency(crmTotals.netRevenue)}</strong>
+          <small>Revenue minus expenses</small>
+        </div>
+        <div>
           <span>Bookings</span>
           <strong>{monthBookings.length}</strong>
           <small>Manual records</small>
@@ -6317,6 +6421,7 @@ function HostManualCrmPanel({ listings, user }) {
       <div className="manual-crm-tabs" role="tablist" aria-label="Manual CRM sections">
         {[
           ["bookings", "Bookings"],
+          ["expenses", "Expenses"],
           ["calendar", "Calendar"],
           ["guests", "Guests"],
           ["tasks", "Tasks"]
@@ -6439,6 +6544,126 @@ function HostManualCrmPanel({ listings, user }) {
                   type="button"
                   aria-label="Delete manual booking"
                   onClick={() => deleteManualRecord(HOST_MANUAL_BOOKINGS_COLLECTION, booking.id)}
+                >
+                  <FiX />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "expenses" && (
+        <div className="manual-crm-grid">
+          <form className="manual-crm-form" onSubmit={handleExpenseSubmit}>
+            <h3>Add Expense</h3>
+            <label>
+              Property
+              <select
+                value={expenseForm.listingId}
+                onChange={(event) => setExpenseForm({ ...expenseForm, listingId: event.target.value })}
+                required
+              >
+                {listings.map(listing => (
+                  <option key={listing.id} value={listing.id}>{listing.name || "(No name)"}</option>
+                ))}
+              </select>
+            </label>
+            <div className="manual-crm-form-row">
+              <label>
+                Expense Date
+                <input
+                  type="date"
+                  value={expenseForm.expenseDate}
+                  onChange={(event) => setExpenseForm({ ...expenseForm, expenseDate: event.target.value })}
+                  required
+                />
+              </label>
+              <label>
+                Category
+                <select
+                  value={expenseForm.category}
+                  onChange={(event) => setExpenseForm({ ...expenseForm, category: event.target.value })}
+                >
+                  {HOST_EXPENSE_CATEGORIES.map(category => (
+                    <option key={category}>{category}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="manual-crm-form-row">
+              <label>
+                Amount
+                <input
+                  type="number"
+                  min="0"
+                  value={expenseForm.amount}
+                  onChange={(event) => setExpenseForm({ ...expenseForm, amount: event.target.value })}
+                  placeholder="0"
+                  required
+                />
+              </label>
+              <label>
+                Paid By
+                <select
+                  value={expenseForm.paidBy}
+                  onChange={(event) => setExpenseForm({ ...expenseForm, paidBy: event.target.value })}
+                >
+                  {HOST_EXPENSE_PAID_BY_OPTIONS.map(paidBy => (
+                    <option key={paidBy}>{paidBy}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label>
+              Payment Mode
+              <select
+                value={expenseForm.paymentMode}
+                onChange={(event) => setExpenseForm({ ...expenseForm, paymentMode: event.target.value })}
+              >
+                {HOST_EXPENSE_PAYMENT_MODES.map(mode => (
+                  <option key={mode}>{mode}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Notes
+              <input
+                value={expenseForm.notes}
+                onChange={(event) => setExpenseForm({ ...expenseForm, notes: event.target.value })}
+                placeholder="Bill number, vendor, reimbursement note"
+              />
+            </label>
+            <button className="manual-crm-primary" type="submit">Save Expense</button>
+          </form>
+
+          <div className="manual-crm-list">
+            <h3>{loading ? "Loading..." : "Expense Ledger"}</h3>
+            {crmTotals.expensesByPaidBy.length > 0 && (
+              <div className="manual-expense-breakdown">
+                {crmTotals.expensesByPaidBy.map(summary => (
+                  <div key={summary.paidBy}>
+                    <span>Paid by {summary.paidBy}</span>
+                    <strong>{formatCurrency(summary.amount)}</strong>
+                    <small>{summary.count} expense{summary.count === 1 ? "" : "s"}</small>
+                  </div>
+                ))}
+              </div>
+            )}
+            {monthExpenses.length === 0 ? (
+              <p className="host-revenue-empty">No manual expenses saved for this month.</p>
+            ) : monthExpenses.map(expense => (
+              <div className="manual-crm-row" key={expense.id}>
+                <div>
+                  <strong>{expense.category || "Expense"}</strong>
+                  <span>{expense.listingName || listingsById[expense.listingId]?.name || "Property"} • Paid by {expense.paidBy || "Host"}</span>
+                  <small>{expense.expenseDate || "No date"} • {expense.paymentMode || "Payment mode not set"}{expense.notes ? ` • ${expense.notes}` : ""}</small>
+                </div>
+                <strong>{formatCurrency(expense.amount)}</strong>
+                <button
+                  type="button"
+                  aria-label="Delete manual expense"
+                  onClick={() => deleteManualRecord(HOST_MANUAL_EXPENSES_COLLECTION, expense.id)}
                 >
                   <FiX />
                 </button>
