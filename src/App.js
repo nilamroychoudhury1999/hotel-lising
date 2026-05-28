@@ -35,7 +35,6 @@ import {
 import {
   FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch,
   FiMail, FiPhone, FiInfo, FiCheck, FiMenu, FiX, FiCalendar, FiNavigation, FiMap, FiFilter, FiMessageCircle,
-  FiDollarSign, FiTrendingUp
 } from "react-icons/fi";
 import { Helmet } from "react-helmet";
 import ICAL from "ical.js";
@@ -450,19 +449,6 @@ const getPlatformPriceKey = (source) => {
 
 const getListingUnitCount = (listing) => {
   return normalizeUnitCount(listing?.unitCount || listing?.units || 1);
-};
-
-const getListingPlatformPrice = (listing, source) => {
-  const platformPrices = listing?.platformPrices || {};
-  const platformKey = getPlatformPriceKey(source);
-  if (platformKey === 'ownerBlock') return 0;
-
-  return (
-    toPositiveNumber(platformPrices[platformKey]) ||
-    toPositiveNumber(platformPrices.homavia) ||
-    toPositiveNumber(platformPrices.external) ||
-    toPositiveNumber(listing?.price)
-  );
 };
 
 const getMonthValue = (date = new Date()) => {
@@ -6036,12 +6022,18 @@ function HostManualCrmPanel({ listings, user }) {
     priority: "Medium",
     status: "Open"
   });
+  const [calendarListingId, setCalendarListingId] = useState(firstListingId);
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [calendarSourceId, setCalendarSourceId] = useState("homavia");
+  const [calendarNote, setCalendarNote] = useState("Manual CRM block");
+  const [calendarSaving, setCalendarSaving] = useState(false);
 
   useEffect(() => {
     if (!firstListingId) return;
 
     setBookingForm(current => current.listingId ? current : { ...current, listingId: firstListingId });
     setTaskForm(current => current.listingId ? current : { ...current, listingId: firstListingId });
+    setCalendarListingId(current => current || firstListingId);
   }, [firstListingId]);
 
   useEffect(() => {
@@ -6123,6 +6115,22 @@ function HostManualCrmPanel({ listings, user }) {
       platformTotals: Object.values(platformMap).sort((a, b) => b.revenue - a.revenue || a.platform.localeCompare(b.platform))
     };
   }, [monthBookings]);
+
+  const selectedCalendarListing = listingsById[calendarListingId] || listings[0];
+  const calendarBlocks = useMemo(
+    () => normalizeManualBlockedDates(selectedCalendarListing?.manualBlockedDates),
+    [selectedCalendarListing]
+  );
+  const calendarBlocksByDate = useMemo(() => {
+    return calendarBlocks.reduce((acc, block) => {
+      if (!acc[block.date]) acc[block.date] = [];
+      acc[block.date].push(block);
+      return acc;
+    }, {});
+  }, [calendarBlocks]);
+  const selectedCalendarDateKey = normalizeManualBlockDateKey(calendarDate);
+  const selectedDateBlocks = calendarBlocksByDate[selectedCalendarDateKey] || [];
+  const calendarBlockCount = calendarBlocks.length;
 
   const handleBookingSubmit = async (event) => {
     event.preventDefault();
@@ -6220,6 +6228,46 @@ function HostManualCrmPanel({ listings, user }) {
     }
   };
 
+  const updateListingManualBlocks = async (nextBlocks) => {
+    if (!selectedCalendarListing?.id) return;
+
+    setCalendarSaving(true);
+    setSaveError("");
+    try {
+      await updateDoc(doc(db, "homestays", selectedCalendarListing.id), {
+        manualBlockedDates: normalizeManualBlockedDates(nextBlocks),
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Failed to update manual calendar:", error);
+      setSaveError("Manual calendar could not be updated.");
+    } finally {
+      setCalendarSaving(false);
+    }
+  };
+
+  const blockSelectedCalendarDate = async () => {
+    if (!selectedCalendarDateKey) return;
+
+    const sourceOption = getManualBlockSourceOption(calendarSourceId);
+    const nextBlocks = [
+      ...calendarBlocks.filter(block => !(block.date === selectedCalendarDateKey && block.sourceId === sourceOption.id)),
+      {
+        date: selectedCalendarDateKey,
+        sourceId: sourceOption.id,
+        source: sourceOption.name,
+        note: calendarNote.trim() || (selectedCalendarListing?.hourly ? "Hourly stay hold" : "Manual CRM block")
+      }
+    ];
+
+    await updateListingManualBlocks(nextBlocks);
+  };
+
+  const unblockSelectedCalendarDate = async () => {
+    if (!selectedCalendarDateKey) return;
+    await updateListingManualBlocks(calendarBlocks.filter(block => block.date !== selectedCalendarDateKey));
+  };
+
   const deleteManualRecord = async (collectionName, recordId) => {
     try {
       await deleteDoc(doc(db, collectionName, recordId));
@@ -6274,6 +6322,7 @@ function HostManualCrmPanel({ listings, user }) {
       <div className="manual-crm-tabs" role="tablist" aria-label="Manual CRM sections">
         {[
           ["bookings", "Bookings"],
+          ["calendar", "Calendar"],
           ["guests", "Guests"],
           ["tasks", "Tasks"]
         ].map(([tabId, label]) => (
@@ -6400,6 +6449,123 @@ function HostManualCrmPanel({ listings, user }) {
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "calendar" && (
+        <div className="manual-crm-calendar-grid">
+          <div className="manual-crm-form manual-crm-calendar-controls">
+            <h3>Manual Property Calendar</h3>
+            <label>
+              Property
+              <select
+                value={calendarListingId}
+                onChange={(event) => setCalendarListingId(event.target.value)}
+                required
+              >
+                {listings.map(listing => (
+                  <option key={listing.id} value={listing.id}>{listing.name || "(No name)"}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Block Reason
+              <select
+                value={calendarSourceId}
+                onChange={(event) => setCalendarSourceId(event.target.value)}
+              >
+                {MANUAL_BLOCK_SOURCE_OPTIONS.map(option => (
+                  <option key={option.id} value={option.id}>{option.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Note
+              <input
+                value={calendarNote}
+                onChange={(event) => setCalendarNote(event.target.value)}
+                placeholder="Hourly stay, maintenance, direct booking"
+              />
+            </label>
+            <div className="manual-calendar-selected">
+              <span>Selected Date</span>
+              <strong>{selectedCalendarDateKey || "Choose a date"}</strong>
+              <small>
+                {selectedDateBlocks.length
+                  ? `${selectedDateBlocks.length} manual block${selectedDateBlocks.length > 1 ? "s" : ""} on this date`
+                  : "Date is open in the manual CRM calendar"}
+              </small>
+            </div>
+            <div className="manual-calendar-actions">
+              <button
+                className="manual-crm-primary"
+                type="button"
+                onClick={blockSelectedCalendarDate}
+                disabled={calendarSaving || !selectedCalendarDateKey}
+              >
+                {calendarSaving ? "Saving..." : "Block Date"}
+              </button>
+              <button
+                className="manual-calendar-unblock"
+                type="button"
+                onClick={unblockSelectedCalendarDate}
+                disabled={calendarSaving || !selectedDateBlocks.length}
+              >
+                Unblock Date
+              </button>
+            </div>
+            <p className="manual-calendar-help">
+              For hourly stays, block the date while the guest is inside. After checkout, click the same date and unblock it so hosts can sell the remaining hours manually.
+            </p>
+          </div>
+
+          <div className="manual-crm-calendar-board">
+            <div className="manual-crm-calendar-summary">
+              <div>
+                <h3>{selectedCalendarListing?.name || "Property calendar"}</h3>
+                <p>
+                  {calendarBlockCount} manual blocked date{calendarBlockCount === 1 ? "" : "s"}
+                  {selectedCalendarListing?.hourly ? " • Hourly stay supported" : ""}
+                </p>
+              </div>
+            </div>
+            <Calendar
+              className="professional-calendar manual-crm-calendar"
+              value={calendarDate}
+              onChange={(value) => setCalendarDate(Array.isArray(value) ? value[0] : value)}
+              tileClassName={({ date, view }) => {
+                if (view !== "month") return null;
+                return calendarBlocksByDate[getLocalDateKey(date)] ? "portal-block-date" : null;
+              }}
+              tileContent={({ date, view }) => {
+                if (view !== "month") return null;
+                const dateBlocks = calendarBlocksByDate[getLocalDateKey(date)];
+                if (!dateBlocks?.length) return null;
+                return <span className="calendar-platform-pill">{getShortPlatformLabel(dateBlocks[0].source)}</span>;
+              }}
+            />
+            <div className="manual-crm-list manual-calendar-list">
+              <h3>Blocked Dates</h3>
+              {calendarBlocks.length === 0 ? (
+                <p className="host-revenue-empty">No manual blocked dates for this property.</p>
+              ) : calendarBlocks.map(block => (
+                <div className="manual-crm-row" key={`${block.date}-${block.sourceId}`}>
+                  <div>
+                    <strong>{block.date}</strong>
+                    <span>{block.source}</span>
+                    <small>{block.note || "Manual calendar block"}</small>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label={`Unblock ${block.date}`}
+                    onClick={() => updateListingManualBlocks(calendarBlocks.filter(item => !(item.date === block.date && item.sourceId === block.sourceId)))}
+                  >
+                    <FiX />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -6575,214 +6741,6 @@ function HostManualCrmPanel({ listings, user }) {
 }
 
 /* ------------------------------
-   Host Revenue Panel
------------------------------- */
-function HostRevenuePanel({ listings }) {
-  const [monthValue, setMonthValue] = useState(getMonthValue());
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [revenue, setRevenue] = useState({
-    totalRevenue: 0,
-    totalBlockedDates: 0,
-    totalBookedUnitNights: 0,
-    platformTotals: [],
-    listingTotals: [],
-    calendarErrors: 0
-  });
-
-  useEffect(() => {
-    let isActive = true;
-
-    const loadRevenue = async () => {
-      const calendarListings = listings.filter(listing =>
-        listing.icalUrl || normalizeManualBlockedDates(listing.manualBlockedDates).length > 0
-      );
-
-      if (calendarListings.length === 0) {
-        setRevenue({
-          totalRevenue: 0,
-          totalBlockedDates: 0,
-          totalBookedUnitNights: 0,
-          platformTotals: [],
-          listingTotals: [],
-          calendarErrors: 0
-        });
-        setLoading(false);
-        setError("");
-        return;
-      }
-
-      setLoading(true);
-      setError("");
-
-      try {
-        const listingResults = await Promise.all(calendarListings.map(async (listing) => {
-          try {
-            const blockedDates = await getListingBlockedDates(listing);
-            return {
-              ...calculateListingMonthlyRevenue(listing, blockedDates, monthValue),
-              hasError: false
-            };
-          } catch (calendarError) {
-            console.log('Revenue calendar fetch failed:', listing.id, calendarError);
-            return {
-              listingId: listing.id,
-              listingName: listing.name || '(No name)',
-              unitCount: getListingUnitCount(listing),
-              blockedDates: 0,
-              bookedUnitNights: 0,
-              totalRevenue: 0,
-              platformTotals: [],
-              bookingRows: [],
-              hasError: true
-            };
-          }
-        }));
-
-        if (!isActive) return;
-
-        const platformMap = {};
-        let totalRevenue = 0;
-        let totalBlockedDates = 0;
-        let totalBookedUnitNights = 0;
-        let calendarErrors = 0;
-
-        listingResults.forEach(result => {
-          totalRevenue += result.totalRevenue;
-          totalBlockedDates += result.blockedDates;
-          totalBookedUnitNights += result.bookedUnitNights;
-          if (result.hasError) calendarErrors += 1;
-
-          result.platformTotals.forEach(platform => {
-            if (!platformMap[platform.source]) {
-              platformMap[platform.source] = {
-                source: platform.source,
-                dates: 0,
-                bookedUnitNights: 0,
-                revenue: 0
-              };
-            }
-
-            platformMap[platform.source].dates += platform.dates;
-            platformMap[platform.source].bookedUnitNights += platform.bookedUnitNights;
-            platformMap[platform.source].revenue += platform.revenue;
-          });
-        });
-
-        setRevenue({
-          totalRevenue,
-          totalBlockedDates,
-          totalBookedUnitNights,
-          calendarErrors,
-          platformTotals: Object.values(platformMap).sort((a, b) => b.revenue - a.revenue || a.source.localeCompare(b.source)),
-          listingTotals: listingResults.sort((a, b) => b.totalRevenue - a.totalRevenue || a.listingName.localeCompare(b.listingName))
-        });
-      } catch (loadError) {
-        console.error("Failed to load host revenue:", loadError);
-        if (isActive) setError("Could not calculate revenue right now.");
-      } finally {
-        if (isActive) setLoading(false);
-      }
-    };
-
-    loadRevenue();
-
-    return () => {
-      isActive = false;
-    };
-  }, [listings, monthValue]);
-
-  return (
-    <section className="host-revenue-panel">
-      <div className="host-revenue-header">
-        <div>
-          <h2>Calendar Revenue Estimate</h2>
-          <p>Optional estimate from calendar and portal blocked dates. Manual CRM revenue is saved separately as the source of truth.</p>
-        </div>
-        <label className="host-revenue-month">
-          <span>Month</span>
-          <input
-            type="month"
-            value={monthValue}
-            onChange={(e) => setMonthValue(e.target.value)}
-          />
-        </label>
-      </div>
-
-      <div className="host-revenue-stats">
-        <div>
-          <span>Total Revenue</span>
-          <strong>{loading ? "Calculating..." : formatCurrency(revenue.totalRevenue)}</strong>
-          <small>{getMonthLabel(monthValue)}</small>
-        </div>
-        <div>
-          <span>Blocked Dates</span>
-          <strong>{revenue.totalBlockedDates}</strong>
-          <small>Booking days</small>
-        </div>
-        <div>
-          <span>Booked Unit-Nights</span>
-          <strong>{revenue.totalBookedUnitNights}</strong>
-          <small>Blocked dates x units</small>
-        </div>
-        <div>
-          <span>Booking Sources</span>
-          <strong>{listings.filter(listing => listing.icalUrl || normalizeManualBlockedDates(listing.manualBlockedDates).length > 0).length}</strong>
-          <small>{revenue.calendarErrors ? `${revenue.calendarErrors} need attention` : 'All ready'}</small>
-        </div>
-      </div>
-
-      {error && <div className="host-revenue-alert">{error}</div>}
-
-      <div className="host-revenue-content">
-        <div className="host-revenue-section">
-          <div className="host-revenue-section-title">
-            <FiTrendingUp size={16} />
-            Platform Breakdown
-          </div>
-          {revenue.platformTotals.length === 0 ? (
-            <p className="host-revenue-empty">
-              {loading ? "Reading booking sources..." : "No blocked booking dates found for this month."}
-            </p>
-          ) : (
-            revenue.platformTotals.map(platform => (
-              <div key={platform.source} className="host-revenue-row">
-                <span>{platform.source}</span>
-                <small>{platform.bookedUnitNights} unit-nights</small>
-                <strong>{formatCurrency(platform.revenue)}</strong>
-              </div>
-            ))
-          )}
-        </div>
-
-        <div className="host-revenue-section">
-          <div className="host-revenue-section-title">
-            <FiDollarSign size={16} />
-            Listing Revenue
-          </div>
-          {revenue.listingTotals.length === 0 ? (
-            <p className="host-revenue-empty">Add portal blocked dates or connect a calendar to calculate optional estimates.</p>
-          ) : (
-            revenue.listingTotals.map(listing => (
-              <div key={listing.listingId} className="host-revenue-listing-row">
-                <div>
-                  <strong>{listing.listingName}</strong>
-                  <span>
-                    {listing.unitCount} {listing.unitCount === 1 ? 'unit' : 'units'} • {listing.blockedDates} blocked dates
-                  </span>
-                  {listing.hasError && <em>Calendar could not be read</em>}
-                </div>
-                <strong>{formatCurrency(listing.totalRevenue)}</strong>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------
    My Listings (Host's own homestays)
 ------------------------------ */
 function MyListings() {
@@ -6860,7 +6818,6 @@ function MyListings() {
       ) : (
         <>
           <HostManualCrmPanel listings={myHomestays} user={user} />
-          <HostRevenuePanel listings={myHomestays} />
 
           <ul style={styles.homestayList} className="homestay-list-grid">
             {myHomestays.map((h) => (
