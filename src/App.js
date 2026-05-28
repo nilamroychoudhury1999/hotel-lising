@@ -911,11 +911,12 @@ const styles = {
     borderRadius: designTokens.radius.lg,
     overflow: 'hidden',
     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    boxShadow: designTokens.shadow.sm,
+    boxShadow: '0 1px 3px rgba(16, 24, 40, 0.06)',
     backgroundColor: designTokens.colors.white,
     cursor: 'pointer',
     position: 'relative',
-    border: `1px solid ${designTokens.colors.borderLight}`
+    border: `1px solid ${designTokens.colors.borderLight}`,
+    minWidth: 0
   },
   homestayImage: {
     width: '100%',
@@ -930,8 +931,8 @@ const styles = {
   homestayInfo: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 8,
-    padding: '16px 18px 18px'
+    gap: 10,
+    padding: '18px 20px 20px'
   },
   price: {
     fontWeight: 800,
@@ -1145,27 +1146,37 @@ const styles = {
     cursor: 'pointer'
   },
   formContainer: {
-    maxWidth: '100%',
+    maxWidth: '1120px',
     width: '100%',
     margin: '0 auto',
-    padding: '16px 0',
+    padding: '34px 20px 56px',
     boxSizing: 'border-box'
   },
   formTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 20
+    fontSize: 34,
+    fontWeight: 850,
+    marginBottom: 14,
+    color: designTokens.colors.dark,
+    letterSpacing: 0,
+    lineHeight: 1.14
   },
   formSection: {
-    marginBottom: 20
+    marginBottom: 20,
+    padding: 24,
+    backgroundColor: designTokens.colors.white,
+    border: `1px solid ${designTokens.colors.borderLight}`,
+    borderRadius: designTokens.radius.lg,
+    boxShadow: '0 1px 3px rgba(16, 24, 40, 0.06)'
   },
   sectionTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    marginBottom: 12
+    fontSize: 18,
+    fontWeight: 800,
+    marginBottom: 18,
+    color: designTokens.colors.dark,
+    letterSpacing: 0
   },
   inputGroup: {
-    marginBottom: 14
+    marginBottom: 18
   },
   label: {
     display: 'block',
@@ -1177,30 +1188,33 @@ const styles = {
   },
   input: {
     width: '100%',
+    minHeight: 48,
     padding: `${designTokens.spacing.md}px ${designTokens.spacing.lg}px`,
-    borderRadius: designTokens.radius.sm,
-    border: `1.5px solid ${designTokens.colors.border}`,
+    borderRadius: designTokens.radius.md,
+    border: `1px solid ${designTokens.colors.border}`,
     fontSize: designTokens.fontSize.sm,
     color: designTokens.colors.text,
     boxSizing: 'border-box',
-    transition: 'all 0.2s',
+    transition: 'border-color 0.2s, box-shadow 0.2s, background-color 0.2s',
     fontFamily: 'inherit',
-    backgroundColor: designTokens.colors.white
+    backgroundColor: designTokens.colors.white,
+    boxShadow: '0 1px 2px rgba(16, 24, 40, 0.04)'
   },
   textarea: {
     width: '100%',
-    padding: `${designTokens.spacing.md}px ${designTokens.spacing.lg}px`,
-    borderRadius: designTokens.radius.sm,
-    border: `1.5px solid ${designTokens.colors.border}`,
+    padding: `${designTokens.spacing.lg}px ${designTokens.spacing.lg}px`,
+    borderRadius: designTokens.radius.md,
+    border: `1px solid ${designTokens.colors.border}`,
     fontSize: designTokens.fontSize.sm,
     color: designTokens.colors.text,
-    minHeight: 100,
+    minHeight: 124,
     resize: 'vertical',
     boxSizing: 'border-box',
-    transition: 'all 0.2s',
+    transition: 'border-color 0.2s, box-shadow 0.2s, background-color 0.2s',
     fontFamily: 'inherit',
     lineHeight: 1.6,
-    backgroundColor: designTokens.colors.white
+    backgroundColor: designTokens.colors.white,
+    boxShadow: '0 1px 2px rgba(16, 24, 40, 0.04)'
   },
   checkboxGroup: {
     display: 'grid',
@@ -1211,7 +1225,14 @@ const styles = {
   checkboxItem: {
     display: 'flex',
     alignItems: 'center',
-    gap: designTokens.spacing.sm
+    gap: designTokens.spacing.sm,
+    padding: '12px 14px',
+    borderRadius: designTokens.radius.md,
+    border: `1px solid ${designTokens.colors.borderLight}`,
+    backgroundColor: designTokens.colors.surface,
+    color: designTokens.colors.text,
+    fontSize: designTokens.fontSize.sm,
+    fontWeight: 600
   },
   imagePreview: {
     width: '100%',
@@ -1224,15 +1245,15 @@ const styles = {
     background: designTokens.colors.primary,
     color: designTokens.colors.white,
     border: 'none',
-    padding: `${designTokens.spacing.lg}px ${designTokens.spacing.xl}px`,
+    padding: `${designTokens.spacing.lg}px ${designTokens.spacing['2xl']}px`,
     borderRadius: designTokens.radius.md,
     fontSize: designTokens.fontSize.base,
-    fontWeight: 600,
+    fontWeight: 800,
     cursor: 'pointer',
-    marginTop: designTokens.spacing.xl,
+    marginTop: designTokens.spacing.lg,
     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
     width: '100%',
-    minHeight: 48,
+    minHeight: 52,
     boxShadow: designTokens.shadow.md,
     letterSpacing: 0
   },
@@ -1269,6 +1290,7 @@ const styles = {
     borderRadius: designTokens.radius.xl,
     marginBottom: designTokens.spacing['2xl'],
     maxHeight: 500,
+    aspectRatio: '16 / 10',
     objectFit: 'cover',
     boxShadow: designTokens.shadow.lg
   },
@@ -1310,8 +1332,8 @@ const styles = {
     fontSize: designTokens.fontSize.base
   },
   bookingCard: {
-    border: `1px solid ${designTokens.colors.border}`,
-    borderRadius: designTokens.radius.xl,
+    border: `1px solid ${designTokens.colors.borderLight}`,
+    borderRadius: designTokens.radius.lg,
     padding: 28,
     boxShadow: designTokens.shadow.lg,
     order: -1,
@@ -1469,26 +1491,31 @@ const styles = {
     marginLeft: 8
   },
   pageContainer: {
-    maxWidth: '1180px',
+    maxWidth: '1240px',
     width: '100%',
     margin: '0 auto',
-    padding: '44px 20px',
+    padding: '44px 20px 60px',
     boxSizing: 'border-box'
   },
   pageTitle: {
-    fontSize: 34,
-    fontWeight: 800,
-    marginBottom: 28,
-    textAlign: 'center',
+    fontSize: 36,
+    fontWeight: 850,
+    marginBottom: 26,
+    textAlign: 'left',
     color: designTokens.colors.dark,
     letterSpacing: 0
   },
   pageContent: {
     lineHeight: 1.8,
     fontSize: 16,
-    maxWidth: '800px',
+    maxWidth: '960px',
     margin: '0 auto',
-    color: designTokens.colors.text
+    color: designTokens.colors.text,
+    backgroundColor: designTokens.colors.white,
+    border: `1px solid ${designTokens.colors.borderLight}`,
+    borderRadius: designTokens.radius.lg,
+    padding: 28,
+    boxShadow: '0 1px 3px rgba(16, 24, 40, 0.06)'
   },
   teamContainer: {
     display: 'grid',
@@ -1619,14 +1646,15 @@ const styles = {
     gap: 10
   },
   premiumBanner: {
-    backgroundColor: '#fff8e1',
-    border: '1px solid #ffd54f',
+    backgroundColor: designTokens.colors.white,
+    border: `1px solid ${designTokens.colors.borderLight}`,
     borderRadius: 8,
-    padding: 12,
-    marginTop: 16,
+    padding: 18,
+    margin: '0 0 20px',
     display: 'flex',
     alignItems: 'flex-start',
-    gap: 10
+    gap: 12,
+    boxShadow: '0 1px 3px rgba(16, 24, 40, 0.06)'
   },
   hamburgerButton: {
     display: 'block',
@@ -3665,6 +3693,9 @@ function AddHomestayForm() {
       </Helmet>
 
       <h1 style={styles.formTitle}>List your homestay</h1>
+      <p className="form-kicker">
+        Add the details guests need, connect your calendar, and keep revenue estimates accurate from day one.
+      </p>
 
       <div style={styles.premiumBanner}>
         <FiStar size={20} color="#ffd700" />
@@ -4444,6 +4475,9 @@ function EditHomestayForm() {
       </Helmet>
 
       <h1 style={styles.formTitle}>Edit your homestay</h1>
+      <p className="form-kicker">
+        Keep pricing, units, calendar sync, and guest-facing details current across every channel.
+      </p>
 
       <div style={styles.premiumBanner}>
         <FiStar size={20} color="#ffd700" />
@@ -7834,6 +7868,7 @@ function MobileApp() {
           {/* Mobile Hamburger */}
           <button
             className="hamburger-button"
+            aria-label="Open navigation menu"
             style={{
               ...styles.hamburgerButton,
               display: isDesktop ? 'none' : 'block'
@@ -7862,7 +7897,7 @@ function MobileApp() {
             ...(mobileMenuOpen ? styles.mobileMenuOpen : {})
           }}
         >
-          <button style={styles.closeButton} onClick={closeMobileMenu}>
+          <button style={styles.closeButton} onClick={closeMobileMenu} aria-label="Close navigation menu">
             <FiX />
           </button>
 
