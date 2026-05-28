@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import logo from "./IMG-20250818-WA0009.jpg";
 import { initializeApp } from "firebase/app";
 import {
   getFirestore,
@@ -2671,9 +2672,7 @@ function ManualBlockedDatesFields({ form, setForm }) {
 function BrandLogo({ compact = false }) {
   return (
     <>
-      <span style={styles.logoMark} aria-hidden="true">
-        <FiHome size={20} />
-      </span>
+      <img src={logo} alt="Homavia" style={styles.logo} />
       {!compact && <span style={styles.logoText}>Homavia</span>}
     </>
   );
