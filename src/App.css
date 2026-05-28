@@ -383,6 +383,202 @@ button:active { transform: scale(0.98); }
   font-size: 12px;
   white-space: nowrap;
 }
+.platform-price-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.platform-price-field {
+  min-width: 0;
+}
+.host-revenue-panel {
+  margin: 0 0 28px;
+  padding: 20px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+.host-revenue-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.host-revenue-header h2 {
+  margin: 0 0 4px;
+  color: var(--color-dark);
+  font-size: 22px;
+}
+.host-revenue-header p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+.host-revenue-month {
+  display: grid;
+  gap: 6px;
+  min-width: 170px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.host-revenue-month input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  font: inherit;
+  text-transform: none;
+}
+.host-revenue-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.host-revenue-stats > div {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+.host-revenue-stats span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.host-revenue-stats strong {
+  display: block;
+  color: var(--color-dark);
+  font-size: 24px;
+  line-height: 1.15;
+}
+.host-revenue-stats small {
+  display: block;
+  margin-top: 6px;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+.host-revenue-alert {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 13px;
+  font-weight: 700;
+}
+.host-revenue-content {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 16px;
+}
+.host-revenue-section {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  background: #ffffff;
+}
+.host-revenue-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--color-dark);
+  font-size: 14px;
+  font-weight: 800;
+}
+.host-revenue-row,
+.host-revenue-listing-row {
+  display: grid;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 0;
+  border-top: 1px solid var(--color-border-light);
+}
+.host-revenue-row {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+.host-revenue-listing-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.host-revenue-row:first-of-type,
+.host-revenue-listing-row:first-of-type {
+  border-top: none;
+}
+.host-revenue-row span,
+.host-revenue-listing-row strong:first-child {
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+.host-revenue-row small,
+.host-revenue-listing-row span,
+.host-revenue-listing-row em {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-style: normal;
+}
+.host-revenue-listing-row em {
+  color: #b42318;
+  font-weight: 700;
+}
+.host-revenue-row strong,
+.host-revenue-listing-row > strong {
+  color: var(--color-primary);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.host-revenue-empty {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+@media (min-width: 768px) {
+  .platform-price-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 900px) {
+  .host-revenue-content {
+    grid-template-columns: 1fr;
+  }
+  .host-revenue-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .host-revenue-panel {
+    padding: 16px;
+  }
+  .host-revenue-header {
+    display: grid;
+  }
+  .host-revenue-month {
+    min-width: 0;
+  }
+  .host-revenue-stats {
+    grid-template-columns: 1fr;
+  }
+  .host-revenue-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .host-revenue-row small {
+    grid-column: 1 / -1;
+  }
+}
 
 /* ============================================
    UTILITIES

@@ -502,7 +502,7 @@ const calculateListingMonthlyRevenue = (listing, blockedDates, monthValue) => {
   const monthDates = blockedDates.filter(blockedDate => getMonthValue(blockedDate.date) === monthValue);
 
   monthDates.forEach(blockedDate => {
-    const sourceCounts = blockedDate.sourceCounts || blockedDate.sources.reduce((acc, source) => {
+    const sourceCounts = blockedDate.sourceCounts || (blockedDate.sources || [blockedDate.source || 'External calendar']).reduce((acc, source) => {
       acc[source] = 1;
       return acc;
     }, {});
@@ -3747,7 +3747,12 @@ function AddHomestayForm() {
               </div>
             ))}
           </div>
+        </div>
 
+        <PlatformPricingFields form={form} setForm={setForm} />
+
+        <div style={styles.formSection}>
+          <h2 style={styles.sectionTitle}>Location & Calendar</h2>
           <div style={styles.formGrid} className="form-grid">
             <div style={styles.inputGroup}>
               <label style={styles.label}>City *</label>
@@ -4085,6 +4090,8 @@ function EditHomestayForm() {
     price: "",
     priceType: "perNight",
     additionalPrices: {},
+    unitCount: 1,
+    platformPrices: {},
     city: "",
     area: "",
     contact: "",
@@ -4148,6 +4155,8 @@ function EditHomestayForm() {
           price: data.price || "",
           priceType: data.priceType || "perNight",
           additionalPrices: data.additionalPrices || {},
+          unitCount: data.unitCount || data.units || 1,
+          platformPrices: data.platformPrices || {},
           city: data.city || "",
           area: data.area || "",
           contact: data.contact || "",
@@ -4388,6 +4397,8 @@ function EditHomestayForm() {
         price: Number(form.price),
         priceType: form.priceType,
         additionalPrices: form.additionalPrices,
+        unitCount: normalizeUnitCount(form.unitCount),
+        platformPrices: cleanPlatformPrices(form.platformPrices),
         city: form.city,
         area: form.area,
         contact: form.contact,
@@ -4515,7 +4526,12 @@ function EditHomestayForm() {
               </div>
             ))}
           </div>
+        </div>
 
+        <PlatformPricingFields form={form} setForm={setForm} />
+
+        <div style={styles.formSection}>
+          <h2 style={styles.sectionTitle}>Location & Calendar</h2>
           <div style={styles.formGrid} className="form-grid">
             <div style={styles.inputGroup}>
               <label style={styles.label}>City *</label>
@@ -5298,6 +5314,212 @@ function HomestayDetail() {
 }
 
 /* ------------------------------
+   Host Revenue Panel
+------------------------------ */
+function HostRevenuePanel({ listings }) {
+  const [monthValue, setMonthValue] = useState(getMonthValue());
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [revenue, setRevenue] = useState({
+    totalRevenue: 0,
+    totalBlockedDates: 0,
+    totalBookedUnitNights: 0,
+    platformTotals: [],
+    listingTotals: [],
+    calendarErrors: 0
+  });
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadRevenue = async () => {
+      const calendarListings = listings.filter(listing => listing.icalUrl);
+
+      if (calendarListings.length === 0) {
+        setRevenue({
+          totalRevenue: 0,
+          totalBlockedDates: 0,
+          totalBookedUnitNights: 0,
+          platformTotals: [],
+          listingTotals: [],
+          calendarErrors: 0
+        });
+        setLoading(false);
+        setError("");
+        return;
+      }
+
+      setLoading(true);
+      setError("");
+
+      try {
+        const listingResults = await Promise.all(calendarListings.map(async (listing) => {
+          try {
+            const blockedDates = await fetchCalendarBlockedDates(listing.icalUrl);
+            return {
+              ...calculateListingMonthlyRevenue(listing, blockedDates, monthValue),
+              hasError: false
+            };
+          } catch (calendarError) {
+            console.log('Revenue calendar fetch failed:', listing.id, calendarError);
+            return {
+              listingId: listing.id,
+              listingName: listing.name || '(No name)',
+              unitCount: getListingUnitCount(listing),
+              blockedDates: 0,
+              bookedUnitNights: 0,
+              totalRevenue: 0,
+              platformTotals: [],
+              bookingRows: [],
+              hasError: true
+            };
+          }
+        }));
+
+        if (!isActive) return;
+
+        const platformMap = {};
+        let totalRevenue = 0;
+        let totalBlockedDates = 0;
+        let totalBookedUnitNights = 0;
+        let calendarErrors = 0;
+
+        listingResults.forEach(result => {
+          totalRevenue += result.totalRevenue;
+          totalBlockedDates += result.blockedDates;
+          totalBookedUnitNights += result.bookedUnitNights;
+          if (result.hasError) calendarErrors += 1;
+
+          result.platformTotals.forEach(platform => {
+            if (!platformMap[platform.source]) {
+              platformMap[platform.source] = {
+                source: platform.source,
+                dates: 0,
+                bookedUnitNights: 0,
+                revenue: 0
+              };
+            }
+
+            platformMap[platform.source].dates += platform.dates;
+            platformMap[platform.source].bookedUnitNights += platform.bookedUnitNights;
+            platformMap[platform.source].revenue += platform.revenue;
+          });
+        });
+
+        setRevenue({
+          totalRevenue,
+          totalBlockedDates,
+          totalBookedUnitNights,
+          calendarErrors,
+          platformTotals: Object.values(platformMap).sort((a, b) => b.revenue - a.revenue || a.source.localeCompare(b.source)),
+          listingTotals: listingResults.sort((a, b) => b.totalRevenue - a.totalRevenue || a.listingName.localeCompare(b.listingName))
+        });
+      } catch (loadError) {
+        console.error("Failed to load host revenue:", loadError);
+        if (isActive) setError("Could not calculate revenue right now.");
+      } finally {
+        if (isActive) setLoading(false);
+      }
+    };
+
+    loadRevenue();
+
+    return () => {
+      isActive = false;
+    };
+  }, [listings, monthValue]);
+
+  return (
+    <section className="host-revenue-panel">
+      <div className="host-revenue-header">
+        <div>
+          <h2>Monthly Revenue</h2>
+          <p>Estimated from blocked calendar booking dates, units, and platform-wise prices.</p>
+        </div>
+        <label className="host-revenue-month">
+          <span>Month</span>
+          <input
+            type="month"
+            value={monthValue}
+            onChange={(e) => setMonthValue(e.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="host-revenue-stats">
+        <div>
+          <span>Total Revenue</span>
+          <strong>{loading ? "Calculating..." : formatCurrency(revenue.totalRevenue)}</strong>
+          <small>{getMonthLabel(monthValue)}</small>
+        </div>
+        <div>
+          <span>Blocked Dates</span>
+          <strong>{revenue.totalBlockedDates}</strong>
+          <small>Calendar booking days</small>
+        </div>
+        <div>
+          <span>Booked Unit-Nights</span>
+          <strong>{revenue.totalBookedUnitNights}</strong>
+          <small>Blocked dates x units</small>
+        </div>
+        <div>
+          <span>Synced Calendars</span>
+          <strong>{listings.filter(listing => listing.icalUrl).length}</strong>
+          <small>{revenue.calendarErrors ? `${revenue.calendarErrors} need attention` : 'All ready'}</small>
+        </div>
+      </div>
+
+      {error && <div className="host-revenue-alert">{error}</div>}
+
+      <div className="host-revenue-content">
+        <div className="host-revenue-section">
+          <div className="host-revenue-section-title">
+            <FiTrendingUp size={16} />
+            Platform Breakdown
+          </div>
+          {revenue.platformTotals.length === 0 ? (
+            <p className="host-revenue-empty">
+              {loading ? "Reading calendars..." : "No blocked booking dates found for this month."}
+            </p>
+          ) : (
+            revenue.platformTotals.map(platform => (
+              <div key={platform.source} className="host-revenue-row">
+                <span>{platform.source}</span>
+                <small>{platform.bookedUnitNights} unit-nights</small>
+                <strong>{formatCurrency(platform.revenue)}</strong>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="host-revenue-section">
+          <div className="host-revenue-section-title">
+            <FiDollarSign size={16} />
+            Listing Revenue
+          </div>
+          {revenue.listingTotals.length === 0 ? (
+            <p className="host-revenue-empty">Add a calendar URL to calculate monthly revenue.</p>
+          ) : (
+            revenue.listingTotals.map(listing => (
+              <div key={listing.listingId} className="host-revenue-listing-row">
+                <div>
+                  <strong>{listing.listingName}</strong>
+                  <span>
+                    {listing.unitCount} {listing.unitCount === 1 ? 'unit' : 'units'} • {listing.blockedDates} blocked dates
+                  </span>
+                  {listing.hasError && <em>Calendar could not be read</em>}
+                </div>
+                <strong>{formatCurrency(listing.totalRevenue)}</strong>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------
    My Listings (Host's own homestays)
 ------------------------------ */
 function MyListings() {
@@ -5370,61 +5592,68 @@ function MyListings() {
           </button>
         </div>
       ) : (
-        <ul style={styles.homestayList} className="homestay-list-grid">
-          {myHomestays.map((h) => (
-            <li key={h.id} style={styles.homestayItem}>
-              <div style={{ position: "relative" }}>
-                <img
-                  src={h.imageUrl}
-                  alt={h.name}
-                  style={styles.homestayImage}
-                />
-              </div>
-              <div style={styles.homestayInfo}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <h3 style={styles.title}>{h.name || "(No name)"}</h3>
-                  <span style={{ fontSize: 12, color: "#666" }}>
-                    {h.city} • {h.area}
-                  </span>
-                </div>
-                <p style={styles.price}>
-                  ₹{h.price} /{" "}
-                  {PRICE_TYPES.find((pt) => pt.id === h.priceType)?.suffix ||
-                    "night"}
-                </p>
+        <>
+          <HostRevenuePanel listings={myHomestays} />
 
-                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                  <button
-                    style={{
-                      ...styles.filterButton,
-                      borderColor: "#B42318",
-                      color: "#B42318",
-                    }}
-                    onClick={() => navigate(`/homestays/${createSlug(h.name, h.id, h.city)}`)}
-                  >
-                    View
-                  </button>
-                  <button
-                    style={{
-                      ...styles.filterButton,
-                      borderColor: "#1565c0",
-                      color: "#1565c0",
-                    }}
-                    onClick={() => navigate(`/edit-homestay/${h.id}`)}
-                  >
-                    Edit
-                  </button>
+          <ul style={styles.homestayList} className="homestay-list-grid">
+            {myHomestays.map((h) => (
+              <li key={h.id} style={styles.homestayItem}>
+                <div style={{ position: "relative" }}>
+                  <img
+                    src={h.imageUrl}
+                    alt={h.name}
+                    style={styles.homestayImage}
+                  />
                 </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+                <div style={styles.homestayInfo}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <h3 style={styles.title}>{h.name || "(No name)"}</h3>
+                    <span style={{ fontSize: 12, color: "#666" }}>
+                      {h.city} • {h.area}
+                    </span>
+                  </div>
+                  <p style={styles.price}>
+                    ₹{h.price} /{" "}
+                    {PRICE_TYPES.find((pt) => pt.id === h.priceType)?.suffix ||
+                      "night"}
+                  </p>
+                  <div style={{ fontSize: 12, color: '#667085', marginTop: -6, marginBottom: 8 }}>
+                    {getListingUnitCount(h)} {getListingUnitCount(h) === 1 ? 'unit' : 'units'} • Platform prices configurable
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <button
+                      style={{
+                        ...styles.filterButton,
+                        borderColor: "#B42318",
+                        color: "#B42318",
+                      }}
+                      onClick={() => navigate(`/homestays/${createSlug(h.name, h.id, h.city)}`)}
+                    >
+                      View
+                    </button>
+                    <button
+                      style={{
+                        ...styles.filterButton,
+                        borderColor: "#1565c0",
+                        color: "#1565c0",
+                      }}
+                      onClick={() => navigate(`/edit-homestay/${h.id}`)}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );
