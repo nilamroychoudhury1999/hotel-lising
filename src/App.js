@@ -6234,7 +6234,7 @@ function HostManualCrmPanel({ listings, user }) {
       <div className="manual-crm-header">
         <div>
           <h2>Manual CRM & Revenue</h2>
-          <p>Saved in Firebase. Manual entries are the source of truth for host revenue, guests, and tasks.</p>
+          <p> Manual entries are the source of truth for host revenue, guests, and tasks.</p>
         </div>
         <label className="host-revenue-month">
           <span>Month</span>
@@ -6376,7 +6376,7 @@ function HostManualCrmPanel({ listings, user }) {
                 placeholder="Manual note"
               />
             </label>
-            <button className="manual-crm-primary" type="submit">Save Booking to Firebase</button>
+            <button className="manual-crm-primary" type="submit">Save Booking</button>
           </form>
 
           <div className="manual-crm-list">
@@ -6442,7 +6442,7 @@ function HostManualCrmPanel({ listings, user }) {
                 placeholder="Preferences, ID note, follow-up"
               />
             </label>
-            <button className="manual-crm-primary" type="submit">Save Guest to Firebase</button>
+            <button className="manual-crm-primary" type="submit">Save Guest data</button>
           </form>
 
           <div className="manual-crm-list">
@@ -6536,7 +6536,7 @@ function HostManualCrmPanel({ listings, user }) {
                 </select>
               </label>
             </div>
-            <button className="manual-crm-primary" type="submit">Save Task to Firebase</button>
+            <button className="manual-crm-primary" type="submit">Save Task to</button>
           </form>
 
           <div className="manual-crm-list">
