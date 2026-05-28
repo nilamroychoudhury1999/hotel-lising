@@ -855,67 +855,6 @@ const getShortPlatformLabel = (source) => {
   return compact.length > 8 ? `${compact.slice(0, 8)}...` : compact;
 };
 
-const calculateListingMonthlyRevenue = (listing, blockedDates, monthValue) => {
-  const unitCount = getListingUnitCount(listing);
-  const platformTotals = {};
-  const bookingRows = [];
-  let totalRevenue = 0;
-  let totalBookedUnitNights = 0;
-
-  const monthDates = blockedDates.filter(blockedDate => getMonthValue(blockedDate.date) === monthValue);
-
-  monthDates.forEach(blockedDate => {
-    const sourceCounts = blockedDate.sourceCounts || (blockedDate.sources || [blockedDate.source || 'External calendar']).reduce((acc, source) => {
-      acc[source] = 1;
-      return acc;
-    }, {});
-
-    Object.entries(sourceCounts).forEach(([source, count]) => {
-      const bookingCount = Math.max(1, Number(count) || 1);
-      const bookedUnitNights = bookingCount * unitCount;
-      const rate = getListingPlatformPrice(listing, source);
-      const revenue = bookedUnitNights * rate;
-
-      totalRevenue += revenue;
-      totalBookedUnitNights += bookedUnitNights;
-
-      if (!platformTotals[source]) {
-        platformTotals[source] = {
-          source,
-          dates: 0,
-          bookedUnitNights: 0,
-          revenue: 0
-        };
-      }
-
-      platformTotals[source].dates += 1;
-      platformTotals[source].bookedUnitNights += bookedUnitNights;
-      platformTotals[source].revenue += revenue;
-
-      bookingRows.push({
-        key: `${listing.id}-${blockedDate.key}-${source}`,
-        date: blockedDate.date,
-        source,
-        unitCount,
-        bookedUnitNights,
-        rate,
-        revenue
-      });
-    });
-  });
-
-  return {
-    listingId: listing.id,
-    listingName: listing.name || '(No name)',
-    unitCount,
-    blockedDates: monthDates.length,
-    bookedUnitNights: totalBookedUnitNights,
-    totalRevenue,
-    platformTotals: Object.values(platformTotals).sort((a, b) => b.revenue - a.revenue || a.source.localeCompare(b.source)),
-    bookingRows
-  };
-};
-
 const useIsDesktop = (breakpoint = 1024) => {
   const [matches, setMatches] = useState(() =>
     typeof window !== 'undefined' && window.innerWidth >= breakpoint
