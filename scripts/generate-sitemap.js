@@ -1,107 +1,162 @@
-const admin = require('firebase-admin');
 const fs = require('fs');
 const path = require('path');
 
-// Initialize Firebase Admin (update with your credentials)
-const serviceAccount = require('../firebase-admin-key.json');
+const BASE_URL = 'https://homavia.in';
+const OUTPUT_PATH = path.join(__dirname, '..', 'public', 'sitemap.xml');
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
+const staticPages = [
+  { path: '/', changefreq: 'daily', priority: '1.0' },
+  { path: '/about', changefreq: 'monthly', priority: '0.8' },
+  { path: '/contact', changefreq: 'monthly', priority: '0.7' },
+  { path: '/premium', changefreq: 'weekly', priority: '0.8' },
+  { path: '/bike-rental', changefreq: 'weekly', priority: '0.8' },
+  { path: '/car-rental', changefreq: 'weekly', priority: '0.8' }
+];
 
-const db = admin.firestore();
-
-// Helper function to create SEO-friendly slug
-function createSlug(name, id, city) {
-  if (!name || !id) return id || '';
-  
-  const cityPart = city ? `-${city.toLowerCase().replace(/\s+/g, '-')}` : '';
-  
-  const slug = name
-    .toLowerCase()
-    .replace(/&/g, 'and')
-    .replace(/\+/g, 'plus')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 50);
-  
-  return `${slug}${cityPart}-${id}`;
+function escapeXml(value = '') {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
-async function generateSitemap() {
-  const baseUrl = 'https://homavia.in';
-  const currentDate = new Date().toISOString().split('T')[0];
-  
-  // Static pages with priorities
-  const staticPages = [
-    { url: '', changefreq: 'daily', priority: '1.0' },
-    { url: 'about', changefreq: 'monthly', priority: '0.8' },
-    { url: 'contact', changefreq: 'monthly', priority: '0.7' },
-    { url: 'premium', changefreq: 'weekly', priority: '0.9' },
-  ];
-  
-  let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
-`;
+function formatDate(value) {
+  if (!value) return new Date().toISOString().split('T')[0];
 
-  // Add static pages
-  staticPages.forEach(page => {
-    sitemap += `  <url>
-    <loc>${baseUrl}/${page.url}</loc>
-    <lastmod>${currentDate}</lastmod>
-    <changefreq>${page.changefreq}</changefreq>
-    <priority>${page.priority}</priority>
-  </url>
-`;
-  });
+  const date = value?.toDate?.() || value;
+  const parsed = date instanceof Date ? date : new Date(date);
+  return Number.isNaN(parsed.getTime())
+    ? new Date().toISOString().split('T')[0]
+    : parsed.toISOString().split('T')[0];
+}
+
+function createSlug(name = '', id = '', city = '') {
+  const baseSlug = String(name || id)
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, 'and')
+    .replace(/\+/g, 'plus')
+    .replace(/@/g, 'at')
+    .replace(/'/g, '')
+    .replace(/"/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .substring(0, 50)
+    .replace(/-+$/g, '');
+
+  const citySlug = String(city || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return [baseSlug, citySlug, id].filter(Boolean).join('-');
+}
+
+function getListingImages(data = {}) {
+  const images = [];
+
+  if (Array.isArray(data.images)) {
+    images.push(...data.images);
+  }
+
+  if (data.imageUrl) images.push(data.imageUrl);
+  if (data.image) images.push(data.image);
+
+  return [...new Set(images.filter(Boolean))].slice(0, 5);
+}
+
+function renderUrlEntry({ loc, lastmod, changefreq, priority, images = [] }) {
+  const imageTags = images.map(image => `
+    <image:image>
+      <image:loc>${escapeXml(image.loc)}</image:loc>
+      <image:caption>${escapeXml(image.caption)}</image:caption>
+    </image:image>`).join('');
+
+  return `  <url>
+    <loc>${escapeXml(loc)}</loc>
+    <lastmod>${escapeXml(lastmod)}</lastmod>
+    <changefreq>${escapeXml(changefreq)}</changefreq>
+    <priority>${escapeXml(priority)}</priority>${imageTags}
+  </url>`;
+}
+
+async function loadHomestaysFromFirestore() {
+  const keyPath = path.join(__dirname, '..', 'firebase-admin-key.json');
+
+  if (!fs.existsSync(keyPath)) {
+    console.warn('Firebase admin key not found. Generating static sitemap only.');
+    return [];
+  }
+
+  let admin;
+  try {
+    admin = require('firebase-admin');
+  } catch (error) {
+    console.warn('firebase-admin is not installed. Generating static sitemap only.');
+    return [];
+  }
 
   try {
-    // Fetch all homestays from Firestore
-    const snapshot = await db.collection('homestays').get();
-    
-    console.log(`Found ${snapshot.size} homestays`);
-    
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      const slug = createSlug(data.name, doc.id, data.city);
-      
-      sitemap += `  <url>
-    <loc>${baseUrl}/homestays/${slug}</loc>
-    <lastmod>${currentDate}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>`;
-      
-      // Add image information
-      if (data.images && data.images.length > 0) {
-        data.images.slice(0, 5).forEach(image => {
-          sitemap += `
-    <image:image>
-      <image:loc>${image}</image:loc>
-      <image:caption>${data.name} - ${data.roomType || 'Homestay'} in ${data.city}</image:caption>
-    </image:image>`;
-        });
-      }
-      
-      sitemap += `
-  </url>
-`;
-    });
-    
-    sitemap += `</urlset>`;
-    
-    // Write sitemap to public folder
-    const sitemapPath = path.join(__dirname, '..', 'public', 'sitemap.xml');
-    fs.writeFileSync(sitemapPath, sitemap);
-    
-    console.log(`✅ Sitemap generated successfully at ${sitemapPath}`);
-    console.log(`Total URLs: ${staticPages.length + snapshot.size}`);
-    
+    const serviceAccount = require(keyPath);
+
+    if (!admin.apps.length) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+    }
+
+    const snapshot = await admin.firestore().collection('homestays').get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
-    console.error('❌ Error generating sitemap:', error);
+    console.warn(`Could not load Firestore homestays: ${error.message}`);
+    return [];
   } finally {
-    admin.app().delete();
+    await Promise.all(admin.apps.map(app => app.delete()));
   }
 }
 
-generateSitemap();
+async function generateSitemap() {
+  const entries = staticPages.map(page => ({
+    loc: `${BASE_URL}${page.path}`,
+    lastmod: formatDate(),
+    changefreq: page.changefreq,
+    priority: page.priority
+  }));
+
+  const homestays = await loadHomestaysFromFirestore();
+
+  homestays.forEach(homestay => {
+    const slug = createSlug(homestay.name, homestay.id, homestay.city);
+    if (!slug) return;
+
+    entries.push({
+      loc: `${BASE_URL}/homestays/${slug}`,
+      lastmod: formatDate(homestay.updatedAt || homestay.createdAt),
+      changefreq: 'weekly',
+      priority: '0.9',
+      images: getListingImages(homestay).map(image => ({
+        loc: image,
+        caption: `${homestay.name || 'Homavia homestay'} - ${homestay.roomType || 'Homestay'} in ${homestay.city || 'India'}`
+      }))
+    });
+  });
+
+  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+${entries.map(renderUrlEntry).join('\n')}
+</urlset>
+`;
+
+  fs.writeFileSync(OUTPUT_PATH, sitemap);
+  console.log(`Sitemap generated at ${OUTPUT_PATH}`);
+  console.log(`Total URLs: ${entries.length}`);
+}
+
+generateSitemap().catch(error => {
+  console.error('Error generating sitemap:', error);
+  process.exitCode = 1;
+});

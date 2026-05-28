@@ -184,9 +184,144 @@ const PLATFORM_PRICE_OPTIONS = [
   { id: 'external', name: 'Other / External' }
 ];
 
+const MANUAL_BLOCK_SOURCE_OPTIONS = [
+  ...PLATFORM_PRICE_OPTIONS.map(platform => ({
+    ...platform,
+    name: platform.id === 'homavia' ? 'Homavia / Direct booking' : platform.name
+  })),
+  { id: 'ownerBlock', name: 'Owner block / Maintenance', nonRevenue: true }
+];
+
+const CALENDAR_LINK_SOURCE_OPTIONS = PLATFORM_PRICE_OPTIONS.filter(platform => platform.id !== 'homavia');
+
+const SITE_URL = "https://homavia.in";
+const SITE_NAME = "Homavia";
+const SITE_LOCALE = "en_IN";
+const SITE_LANGUAGE = "en-IN";
+const CONTACT_PHONE = "+91-8638572663";
+const CONTACT_EMAIL = "takeoffheaven@gmail.com";
+const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
+const DEFAULT_DESCRIPTION =
+  "Find and book verified homestays, bike rentals, and car rentals across India with transparent pricing, direct host contact, and calendar-backed availability.";
+const DEFAULT_KEYWORDS =
+  "Homavia, verified homestays India, book homestay, homestay booking India, bike rental India, car rental India, couple friendly stays";
+const DEFAULT_ROBOTS = "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
+const PRIVATE_ROBOTS = "noindex, nofollow, noarchive";
+
 /* ------------------------------
    Helper Functions
 ------------------------------ */
+const buildAbsoluteUrl = (path = "/") => {
+  if (/^https?:\/\//i.test(path)) return path;
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${SITE_URL}${normalizedPath}`;
+};
+
+const toPlainText = (value = "") =>
+  String(value)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const truncateMeta = (value = "", maxLength = 155) => {
+  const clean = toPlainText(value);
+  if (clean.length <= maxLength) return clean;
+
+  const trimmed = clean.slice(0, maxLength - 1).replace(/\s+\S*$/, "").trim();
+  return `${trimmed || clean.slice(0, maxLength - 1)}...`;
+};
+
+const ensureSentence = (value = "") => {
+  const clean = toPlainText(value);
+  if (!clean) return "";
+  return /[.!?]$/.test(clean) ? clean : `${clean}.`;
+};
+
+const normalizeSeoImage = (image) => {
+  if (!image) return DEFAULT_OG_IMAGE;
+  return buildAbsoluteUrl(image);
+};
+
+const cleanStructuredData = (value) =>
+  JSON.parse(JSON.stringify(value, (_, item) => {
+    if (item === undefined || item === null || item === "") return undefined;
+    if (Array.isArray(item) && item.length === 0) return undefined;
+    return item;
+  }));
+
+const getPriceUnitLabel = (priceType) => {
+  switch (priceType) {
+    case "perHour":
+      return "hour";
+    case "perDay":
+      return "day";
+    case "perWeek":
+      return "week";
+    case "perMonth":
+      return "month";
+    case "perNight":
+    default:
+      return "night";
+  }
+};
+
+function SeoHelmet({
+  title,
+  description = DEFAULT_DESCRIPTION,
+  keywords = DEFAULT_KEYWORDS,
+  canonicalPath = "/",
+  image = DEFAULT_OG_IMAGE,
+  imageAlt = "Homavia verified homestays and travel rentals",
+  type = "website",
+  robots = DEFAULT_ROBOTS,
+  schema = []
+}) {
+  const metaTitle = title || `${SITE_NAME} - Verified Homestays, Bike Rentals & Car Rentals in India`;
+  const metaDescription = truncateMeta(description);
+  const canonicalUrl = buildAbsoluteUrl(canonicalPath);
+  const imageUrl = normalizeSeoImage(image);
+  const schemaItems = (Array.isArray(schema) ? schema : [schema]).filter(Boolean);
+
+  return (
+    <Helmet>
+      <html lang={SITE_LANGUAGE} />
+      <title>{metaTitle}</title>
+      <meta name="description" content={metaDescription} />
+      <meta name="keywords" content={keywords} />
+      <meta name="author" content={SITE_NAME} />
+      <meta name="robots" content={robots} />
+      <link rel="canonical" href={canonicalUrl} />
+
+      <meta property="og:type" content={type} />
+      <meta property="og:url" content={canonicalUrl} />
+      <meta property="og:title" content={metaTitle} />
+      <meta property="og:description" content={metaDescription} />
+      <meta property="og:image" content={imageUrl} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
+      <meta property="og:image:alt" content={imageAlt} />
+      <meta property="og:site_name" content={SITE_NAME} />
+      <meta property="og:locale" content={SITE_LOCALE} />
+
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:url" content={canonicalUrl} />
+      <meta name="twitter:title" content={metaTitle} />
+      <meta name="twitter:description" content={metaDescription} />
+      <meta name="twitter:image" content={imageUrl} />
+      <meta name="twitter:image:alt" content={imageAlt} />
+
+      <link rel="alternate" hrefLang="en-in" href={canonicalUrl} />
+      <link rel="alternate" hrefLang="x-default" href={canonicalUrl} />
+
+      {schemaItems.map((item, index) => (
+        <script key={`schema-${index}`} type="application/ld+json">
+          {JSON.stringify(cleanStructuredData(item))}
+        </script>
+      ))}
+    </Helmet>
+  );
+}
+
 // Create SEO-friendly URL slug from homestay name, city, and ID
 const createSlug = (name, id, city = '') => {
   // Clean and normalize the name
@@ -300,6 +435,7 @@ const cleanPlatformPrices = (platformPrices = {}) => {
 
 const getPlatformPriceKey = (source) => {
   const sourceText = String(source || '').toLowerCase();
+  if (sourceText.includes('owner block') || sourceText.includes('maintenance')) return 'ownerBlock';
   if (sourceText.includes('homavia') || sourceText.includes('direct')) return 'homavia';
 
   const match = findCalendarPortalMatch(sourceText);
@@ -313,6 +449,8 @@ const getListingUnitCount = (listing) => {
 const getListingPlatformPrice = (listing, source) => {
   const platformPrices = listing?.platformPrices || {};
   const platformKey = getPlatformPriceKey(source);
+  if (platformKey === 'ownerBlock') return 0;
+
   return (
     toPositiveNumber(platformPrices[platformKey]) ||
     toPositiveNumber(platformPrices.homavia) ||
@@ -406,6 +544,242 @@ const getLocalDateKey = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const getDateFromLocalKey = (dateKey) => {
+  const [year, month, day] = String(dateKey || '').split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+};
+
+const getManualBlockSourceOption = (sourceId = 'homavia') => (
+  MANUAL_BLOCK_SOURCE_OPTIONS.find(option => option.id === sourceId) ||
+  MANUAL_BLOCK_SOURCE_OPTIONS[0]
+);
+
+const normalizeManualBlockDateKey = (value) => {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return getLocalDateKey(value);
+
+  const textValue = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(textValue)) return textValue;
+
+  const parsed = new Date(textValue);
+  return Number.isNaN(parsed.getTime()) ? null : getLocalDateKey(parsed);
+};
+
+const getCalendarLinkSourceOption = (sourceId = 'external') => (
+  CALENDAR_LINK_SOURCE_OPTIONS.find(option => option.id === sourceId) ||
+  CALENDAR_LINK_SOURCE_OPTIONS.find(option => option.id === 'external') ||
+  CALENDAR_LINK_SOURCE_OPTIONS[0]
+);
+
+const normalizeCalendarLinkUrl = (url) => {
+  if (!url) return '';
+  return normalizeCalendarUrlForFetch(url).replace(/^https:\/\/api\.allorigins\.win\/raw\?url=/, '');
+};
+
+const normalizeListingCalendarLinks = (calendarLinks = [], legacyIcalUrl = '') => {
+  const rawLinks = Array.isArray(calendarLinks) ? [...calendarLinks] : [];
+
+  if (legacyIcalUrl && !rawLinks.some(link => String(link?.url || link).trim() === String(legacyIcalUrl).trim())) {
+    const legacySource = getCalendarPortalName(legacyIcalUrl);
+    rawLinks.push({
+      sourceId: getPlatformPriceKey(legacySource),
+      source: legacySource,
+      url: legacyIcalUrl
+    });
+  }
+
+  const seen = new Set();
+  return rawLinks
+    .map((entry) => {
+      const rawUrl = typeof entry === 'string' ? entry : entry?.url;
+      const url = normalizeCalendarUrlForFetch(String(rawUrl || '').trim());
+      if (!url) return null;
+
+      const detectedSource = typeof entry === 'string'
+        ? getCalendarPortalName(url)
+        : entry?.source || getCalendarPortalName(url);
+      const sourceId = typeof entry === 'string'
+        ? getPlatformPriceKey(detectedSource)
+        : entry?.sourceId || getPlatformPriceKey(detectedSource);
+      const sourceOption = getCalendarLinkSourceOption(sourceId);
+      const dedupeKey = `${sourceOption.id}-${url}`;
+
+      if (seen.has(dedupeKey)) return null;
+      seen.add(dedupeKey);
+
+      return {
+        sourceId: sourceOption.id,
+        source: sourceOption.name,
+        url
+      };
+    })
+    .filter(Boolean);
+};
+
+const getEditableCalendarLinks = (form = {}) => {
+  if (Array.isArray(form.calendarLinks) && form.calendarLinks.length > 0) {
+    return form.calendarLinks;
+  }
+
+  return normalizeListingCalendarLinks([], form.icalUrl);
+};
+
+const normalizeManualBlockedDates = (manualBlockedDates = []) => {
+  const seen = new Set();
+
+  return (Array.isArray(manualBlockedDates) ? manualBlockedDates : [])
+    .map(entry => {
+      const dateKey = normalizeManualBlockDateKey(typeof entry === 'string' ? entry : entry?.date);
+      if (!dateKey) return null;
+
+      const rawSourceId = typeof entry === 'string'
+        ? 'homavia'
+        : entry?.sourceId || getPlatformPriceKey(entry?.source || 'Homavia / Direct booking');
+      const sourceOption = getManualBlockSourceOption(rawSourceId);
+      const uniqueKey = `${dateKey}-${sourceOption.id}`;
+
+      if (seen.has(uniqueKey)) return null;
+      seen.add(uniqueKey);
+
+      const note = typeof entry === 'string' ? '' : toPlainText(entry?.note || '');
+      return {
+        date: dateKey,
+        sourceId: sourceOption.id,
+        source: sourceOption.name,
+        note
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.source.localeCompare(b.source));
+};
+
+const getManualBlockedCalendarDates = (manualBlockedDates = []) => {
+  const dateMap = new Map();
+
+  normalizeManualBlockedDates(manualBlockedDates).forEach(entry => {
+    const date = getDateFromLocalKey(entry.date);
+    if (!date) return;
+
+    const existing = dateMap.get(entry.date);
+    const summary = entry.note || entry.source;
+
+    if (existing) {
+      if (!existing.sources.includes(entry.source)) existing.sources.push(entry.source);
+      existing.sourceCounts[entry.source] = (existing.sourceCounts[entry.source] || 0) + 1;
+      existing.totalBookings += 1;
+      if (summary && !existing.summaries.includes(summary)) existing.summaries.push(summary);
+    } else {
+      dateMap.set(entry.date, {
+        key: entry.date,
+        date,
+        source: entry.source,
+        sources: [entry.source],
+        sourceCounts: { [entry.source]: 1 },
+        totalBookings: 1,
+        summary,
+        summaries: summary ? [summary] : [],
+        manual: true
+      });
+    }
+  });
+
+  return Array.from(dateMap.values()).sort((a, b) => a.date - b.date);
+};
+
+const mergeBlockedDateLists = (...blockedDateLists) => {
+  const dateMap = new Map();
+
+  blockedDateLists.flat().filter(Boolean).forEach(blockedDate => {
+    const key = blockedDate.key || normalizeManualBlockDateKey(blockedDate.date);
+    const date = blockedDate.date instanceof Date ? blockedDate.date : getDateFromLocalKey(key);
+    if (!key || !date) return;
+
+    const existing = dateMap.get(key);
+    const sources = blockedDate.sources?.length ? blockedDate.sources : [blockedDate.source || 'External calendar'];
+    const sourceCounts = blockedDate.sourceCounts || sources.reduce((acc, source) => {
+      acc[source] = (acc[source] || 0) + 1;
+      return acc;
+    }, {});
+    const summaries = blockedDate.summaries?.length
+      ? blockedDate.summaries
+      : [blockedDate.summary].filter(Boolean);
+
+    if (!existing) {
+      dateMap.set(key, {
+        key,
+        date,
+        source: sources[0],
+        sources: [...new Set(sources)],
+        sourceCounts: { ...sourceCounts },
+        totalBookings: Object.values(sourceCounts).reduce((sum, count) => sum + (Number(count) || 0), 0),
+        summary: summaries[0] || 'Blocked',
+        summaries: [...new Set(summaries)],
+        manual: !!blockedDate.manual
+      });
+      return;
+    }
+
+    sources.forEach(source => {
+      if (!existing.sources.includes(source)) existing.sources.push(source);
+      existing.sourceCounts[source] = (existing.sourceCounts[source] || 0) + (Number(sourceCounts[source]) || 1);
+    });
+
+    summaries.forEach(summary => {
+      if (summary && !existing.summaries.includes(summary)) existing.summaries.push(summary);
+    });
+
+    existing.totalBookings = Object.values(existing.sourceCounts).reduce((sum, count) => sum + (Number(count) || 0), 0);
+    existing.manual = existing.manual || !!blockedDate.manual;
+  });
+
+  return Array.from(dateMap.values()).sort((a, b) => a.date - b.date);
+};
+
+const getDateKeysInStayRange = (checkInDate, checkOutDate) => {
+  if (!checkInDate || !checkOutDate) return [];
+
+  const current = new Date(checkInDate);
+  const checkout = new Date(checkOutDate);
+  if (Number.isNaN(current.getTime()) || Number.isNaN(checkout.getTime()) || current >= checkout) return [];
+
+  current.setHours(0, 0, 0, 0);
+  checkout.setHours(0, 0, 0, 0);
+
+  const keys = [];
+  while (current < checkout) {
+    keys.push(getLocalDateKey(current));
+    current.setDate(current.getDate() + 1);
+  }
+  return keys;
+};
+
+const hasManualBlockOverlap = (manualBlockedDates, checkInDate, checkOutDate) => {
+  const blockedKeys = new Set(normalizeManualBlockedDates(manualBlockedDates).map(entry => entry.date));
+  return getDateKeysInStayRange(checkInDate, checkOutDate).some(dateKey => blockedKeys.has(dateKey));
+};
+
+const getListingBlockedDates = async (listing) => {
+  const manualDates = getManualBlockedCalendarDates(listing?.manualBlockedDates);
+  const calendarLinks = normalizeListingCalendarLinks(listing?.calendarLinks, listing?.icalUrl);
+
+  if (calendarLinks.length === 0) return manualDates;
+
+  const settledCalendarDates = await Promise.allSettled(
+    calendarLinks.map(link => fetchCalendarBlockedDates(link.url, link.source))
+  );
+  const successfulDates = settledCalendarDates
+    .filter(result => result.status === 'fulfilled')
+    .flatMap(result => result.value);
+
+  if (successfulDates.length > 0 || manualDates.length > 0) {
+    return mergeBlockedDateLists(successfulDates, manualDates);
+  }
+
+  const firstError = settledCalendarDates.find(result => result.status === 'rejected')?.reason;
+  throw firstError || new Error('No booking sources could be read.');
+};
+
 const getCalendarEventDates = (event) => {
   const start = event.startDate?.toJSDate?.();
   if (!start) return [];
@@ -432,7 +806,7 @@ const getCalendarEventDates = (event) => {
   return dates;
 };
 
-const fetchCalendarBlockedDates = async (icalUrl) => {
+const fetchCalendarBlockedDates = async (icalUrl, sourceOverride = '') => {
   const response = await fetch(getCalendarFetchUrl(icalUrl));
   if (!response.ok) {
     throw new Error(`Calendar fetch failed: ${response.status}`);
@@ -446,7 +820,7 @@ const fetchCalendarBlockedDates = async (icalUrl) => {
 
   vevents.forEach(vevent => {
     const event = new ICAL.Event(vevent);
-    const source = getCalendarEventSourceName(vevent, icalUrl);
+    const source = sourceOverride || getCalendarEventSourceName(vevent, icalUrl);
     const summary = event.summary || 'Blocked';
 
     getCalendarEventDates(event).forEach(date => {
@@ -480,7 +854,9 @@ const getShortPlatformLabel = (source) => {
   const shortLabels = {
     'Booking.com': 'Booking',
     'Google Calendar': 'Google',
+    'Homavia / Direct booking': 'Homavia',
     'MakeMyTrip': 'MMT',
+    'Owner block / Maintenance': 'Owner',
     'Tripadvisor': 'Trip',
     'External calendar': 'External'
   };
@@ -1940,66 +2316,41 @@ const styles = {
 /* ------------------------------
    iCal Availability Helper
 ------------------------------ */
-const fetchAndCheckAvailability = async (icalUrl, checkInDate, checkOutDate) => {
-  if (!icalUrl || !checkInDate || !checkOutDate) {
-    console.log('Missing parameters:', { icalUrl, checkInDate, checkOutDate });
+const fetchAndCheckAvailability = async (listingOrIcalUrl, checkInDate, checkOutDate, manualBlockedDates = []) => {
+  if (!checkInDate || !checkOutDate) {
+    console.log('Missing date parameters:', { checkInDate, checkOutDate });
     return 'unknown';
   }
+
+  const listing = typeof listingOrIcalUrl === 'object' && listingOrIcalUrl !== null ? listingOrIcalUrl : null;
+  const listingManualBlocks = listing ? listing.manualBlockedDates : manualBlockedDates;
+  const calendarLinks = listing
+    ? normalizeListingCalendarLinks(listing.calendarLinks, listing.icalUrl)
+    : normalizeListingCalendarLinks([], listingOrIcalUrl);
+
+  if (hasManualBlockOverlap(listingManualBlocks, checkInDate, checkOutDate)) {
+    return 'unavailable';
+  }
+
+  if (calendarLinks.length === 0) return 'available';
   
   try {
-    console.log('Fetching iCal from:', icalUrl);
-    
-    const response = await fetch(getCalendarFetchUrl(icalUrl));
-    if (!response.ok) {
-      console.error('Failed to fetch iCal:', response.status, response.statusText);
-      return 'unknown';
-    }
-    
-    const icalData = await response.text();
-    console.log('iCal data received, length:', icalData.length);
-    
-    if (!icalData || icalData.length < 10) {
-      console.error('Invalid iCal data received');
-      return 'unknown';
-    }
-    
-    const jcalData = ICAL.parse(icalData);
-    const comp = new ICAL.Component(jcalData);
-    const vevents = comp.getAllSubcomponents('vevent');
-    
-    console.log('Found', vevents.length, 'events in calendar');
-    
-    const checkIn = new Date(checkInDate);
-    const checkOut = new Date(checkOutDate);
-    
-    checkIn.setHours(0, 0, 0, 0);
-    checkOut.setHours(23, 59, 59, 999);
-    
-    for (const vevent of vevents) {
-      const event = new ICAL.Event(vevent);
-      const eventStart = event.startDate.toJSDate();
-      const eventEnd = event.endDate.toJSDate();
-      
-      console.log('Checking event:', {
-        eventStart: eventStart.toISOString(),
-        eventEnd: eventEnd.toISOString(),
-        checkIn: checkIn.toISOString(),
-        checkOut: checkOut.toISOString()
-      });
-      
-      // Check if there's any overlap between the requested dates and booked dates
-      if (
-        (checkIn >= eventStart && checkIn < eventEnd) ||
-        (checkOut > eventStart && checkOut <= eventEnd) ||
-        (checkIn <= eventStart && checkOut >= eventEnd)
-      ) {
-        console.log('Found conflict - property is unavailable');
-        return 'unavailable';
+    const requestedKeys = new Set(getDateKeysInStayRange(checkInDate, checkOutDate));
+    let readAnyCalendar = false;
+
+    for (const calendarLink of calendarLinks) {
+      try {
+        const blockedDates = await fetchCalendarBlockedDates(calendarLink.url, calendarLink.source);
+        readAnyCalendar = true;
+        if (blockedDates.some(blockedDate => requestedKeys.has(blockedDate.key))) {
+          return 'unavailable';
+        }
+      } catch (calendarError) {
+        console.error('Error checking calendar link:', calendarLink.source, calendarError);
       }
     }
     
-    console.log('No conflicts found - property is available');
-    return 'available';
+    return readAnyCalendar ? 'available' : 'unknown';
   } catch (error) {
     console.error('Error checking availability:', error);
     return 'unknown';
@@ -2023,7 +2374,7 @@ function PlatformPricingFields({ form, setForm }) {
     <div style={styles.formSection}>
       <h2 style={styles.sectionTitle}>Revenue Settings</h2>
       <p style={{ fontSize: 13, color: '#666', marginBottom: 14 }}>
-        Used for host monthly revenue estimates from blocked iCal booking dates.
+        Used for monthly revenue estimates from platform calendar links and portal blocked dates.
       </p>
 
       <div style={styles.formGrid} className="form-grid">
@@ -2066,6 +2417,252 @@ function PlatformPricingFields({ form, setForm }) {
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function CalendarLinksFields({ form, setForm }) {
+  const editableLinks = getEditableCalendarLinks(form);
+
+  const updateLinks = (nextLinks) => {
+    const firstUrl = nextLinks.find(link => link.url)?.url || '';
+    setForm(prev => ({
+      ...prev,
+      calendarLinks: nextLinks,
+      icalUrl: firstUrl
+    }));
+  };
+
+  const handleAddLink = () => {
+    updateLinks([
+      ...editableLinks,
+      { sourceId: 'airbnb', source: 'Airbnb', url: '' }
+    ]);
+  };
+
+  const handleChangeLink = (index, field, value) => {
+    const nextLinks = editableLinks.map((link, currentIndex) => {
+      if (currentIndex !== index) return link;
+
+      if (field === 'sourceId') {
+        const sourceOption = getCalendarLinkSourceOption(value);
+        return {
+          ...link,
+          sourceId: sourceOption.id,
+          source: sourceOption.name
+        };
+      }
+
+      return { ...link, [field]: value };
+    });
+
+    updateLinks(nextLinks);
+  };
+
+  const handleRemoveLink = (index) => {
+    updateLinks(editableLinks.filter((_, currentIndex) => currentIndex !== index));
+  };
+
+  return (
+    <div style={styles.formSection}>
+      <h2 style={styles.sectionTitle}>Platform Calendar Links</h2>
+      <p style={{ fontSize: 13, color: '#666', marginBottom: 14 }}>
+        Add one iCal link per platform so blocked dates and revenue are attributed correctly.
+      </p>
+
+      <div className="calendar-link-list">
+        {editableLinks.length === 0 ? (
+          <div className="calendar-link-empty">
+            No external calendars connected. You can still block dates manually from the Homavia portal below.
+          </div>
+        ) : (
+          editableLinks.map((link, index) => {
+            const sourceOption = getCalendarLinkSourceOption(link.sourceId || getPlatformPriceKey(link.source));
+            return (
+              <div key={`${index}-${sourceOption.id}`} className="calendar-link-row">
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Platform</label>
+                  <select
+                    style={styles.input}
+                    value={sourceOption.id}
+                    onChange={(e) => handleChangeLink(index, 'sourceId', e.target.value)}
+                  >
+                    {CALENDAR_LINK_SOURCE_OPTIONS.map(option => (
+                      <option key={option.id} value={option.id}>{option.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>iCal URL</label>
+                  <input
+                    style={styles.input}
+                    type="url"
+                    placeholder="https://.../calendar.ics or webcal://..."
+                    value={link.url || ''}
+                    onChange={(e) => handleChangeLink(index, 'url', e.target.value)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="calendar-link-remove"
+                  onClick={() => handleRemoveLink(index)}
+                  aria-label={`Remove ${sourceOption.name} calendar link`}
+                >
+                  <FiX size={16} />
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <button type="button" className="calendar-link-add" onClick={handleAddLink}>
+        <FiCalendar size={16} /> Add Calendar Link
+      </button>
+    </div>
+  );
+}
+
+function ManualBlockedDatesFields({ form, setForm }) {
+  const [selectedSourceId, setSelectedSourceId] = useState('homavia');
+  const [blockNote, setBlockNote] = useState('');
+  const manualBlocks = useMemo(
+    () => normalizeManualBlockedDates(form.manualBlockedDates),
+    [form.manualBlockedDates]
+  );
+  const blockMap = useMemo(() => {
+    return manualBlocks.reduce((acc, block) => {
+      if (!acc[block.date]) acc[block.date] = [];
+      acc[block.date].push(block);
+      return acc;
+    }, {});
+  }, [manualBlocks]);
+
+  const updateManualBlocks = (nextBlocks) => {
+    setForm(prev => ({
+      ...prev,
+      manualBlockedDates: normalizeManualBlockedDates(nextBlocks)
+    }));
+  };
+
+  const handleToggleDate = (date) => {
+    const dateKey = getLocalDateKey(date);
+    const existingIndex = manualBlocks.findIndex(block =>
+      block.date === dateKey && block.sourceId === selectedSourceId
+    );
+
+    if (existingIndex >= 0) {
+      updateManualBlocks(manualBlocks.filter((_, index) => index !== existingIndex));
+      return;
+    }
+
+    const sourceOption = getManualBlockSourceOption(selectedSourceId);
+    updateManualBlocks([
+      ...manualBlocks,
+      {
+        date: dateKey,
+        sourceId: sourceOption.id,
+        source: sourceOption.name,
+        note: blockNote.trim()
+      }
+    ]);
+  };
+
+  const handleRemoveBlock = (date, sourceId) => {
+    updateManualBlocks(manualBlocks.filter(block => !(block.date === date && block.sourceId === sourceId)));
+  };
+
+  return (
+    <div style={styles.formSection}>
+      <h2 style={styles.sectionTitle}>Portal Date Blocking</h2>
+      <div className="manual-block-panel">
+        <div className="manual-block-controls">
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Block Source</label>
+            <select
+              style={styles.input}
+              value={selectedSourceId}
+              onChange={(e) => setSelectedSourceId(e.target.value)}
+            >
+              {MANUAL_BLOCK_SOURCE_OPTIONS.map(option => (
+                <option key={option.id} value={option.id}>{option.name}</option>
+              ))}
+            </select>
+          </div>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Internal Note</label>
+            <input
+              style={styles.input}
+              value={blockNote}
+              onChange={(e) => setBlockNote(e.target.value)}
+              placeholder="Direct booking, maintenance, owner stay..."
+            />
+          </div>
+        </div>
+
+        <div className="manual-block-calendar-shell">
+          <Calendar
+            className="professional-calendar manual-block-calendar"
+            onClickDay={handleToggleDate}
+            tileClassName={({ date, view }) => {
+              if (view !== 'month') return null;
+              const dateBlocks = blockMap[getLocalDateKey(date)];
+              return dateBlocks?.length ? 'portal-block-date' : null;
+            }}
+            tileContent={({ date, view }) => {
+              if (view !== 'month') return null;
+              const dateBlocks = blockMap[getLocalDateKey(date)];
+              if (!dateBlocks?.length) return null;
+
+              const primaryBlock = dateBlocks[0];
+              return (
+                <span
+                  className="calendar-platform-pill"
+                  title={dateBlocks.map(block => block.source).join(', ')}
+                >
+                  {getShortPlatformLabel(primaryBlock.source)}
+                </span>
+              );
+            }}
+          />
+        </div>
+
+        <div className="manual-block-footer">
+          <div>
+            <strong>{manualBlocks.length}</strong>
+            <span>{manualBlocks.length === 1 ? ' portal blocked date' : ' portal blocked dates'}</span>
+          </div>
+          {manualBlocks.length > 0 && (
+            <button type="button" className="manual-block-clear" onClick={() => updateManualBlocks([])}>
+              Clear all
+            </button>
+          )}
+        </div>
+
+        {manualBlocks.length > 0 && (
+          <div className="manual-block-list">
+            {manualBlocks.map(block => (
+              <div key={`${block.date}-${block.sourceId}`} className="manual-block-row">
+                <div>
+                  <strong>{getDateFromLocalKey(block.date)?.toLocaleDateString('en-IN', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                  })}</strong>
+                  <span>{block.source}{block.note ? ` - ${block.note}` : ''}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveBlock(block.date, block.sourceId)}
+                  aria-label={`Remove blocked date ${block.date}`}
+                >
+                  <FiX size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2119,6 +2716,25 @@ function HomestayListing({ homestays }) {
   const [availabilityFilter, setAvailabilityFilter] = useState('all'); // 'all', 'available', 'booked'
   const [showCalendar, setShowCalendar] = useState(false);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const cityParam = params.get("city");
+    const areaParam = params.get("area");
+    const searchParam = params.get("search");
+
+    if (cityParam && ALL_CITIES.includes(cityParam)) {
+      setSelectedCity(cityParam);
+
+      if (areaParam && AREAS_BY_CITY[cityParam]?.includes(areaParam)) {
+        setSelectedArea(areaParam);
+      }
+    }
+
+    if (searchParam) {
+      setSearchQuery(searchParam);
+    }
+  }, []);
+
   // Check availability for all homestays with iCal URLs when dates are selected
   useEffect(() => {
     const checkAvailability = async () => {
@@ -2135,16 +2751,12 @@ function HomestayListing({ homestays }) {
       const statuses = {};
 
       for (const homestay of homestays) {
-        if (homestay.icalUrl) {
-          const status = await fetchAndCheckAvailability(
-            homestay.icalUrl,
-            checkInDate,
-            checkOutDate
-          );
-          statuses[homestay.id] = status;
-        } else {
-          statuses[homestay.id] = 'unknown';
-        }
+        const status = await fetchAndCheckAvailability(
+          homestay,
+          checkInDate,
+          checkOutDate
+        );
+        statuses[homestay.id] = status;
       }
 
       setAvailabilityStatus(statuses);
@@ -2309,51 +2921,108 @@ function HomestayListing({ homestays }) {
     }
   };
 
+  const homeTitle = selectedCity !== "All"
+    ? `Verified Homestays in ${selectedCity} | Homavia`
+    : "Homavia - Verified Homestays, Bike Rentals & Car Rentals in India";
+  const homeDescription = selectedCity !== "All"
+    ? `Browse ${sortedHomestays.length}+ verified homestays in ${selectedCity}. Compare transparent prices, check calendar availability, and contact hosts directly on Homavia.`
+    : `Explore ${sortedHomestays.length}+ verified homestays across India with bike and car rentals, couple-friendly options, live filters, and direct host contact.`;
+  const homeCanonicalPath = selectedCity !== "All" ? `/?city=${encodeURIComponent(selectedCity)}` : "/";
+  const itemListSchema = sortedHomestays.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": selectedCity !== "All" ? `Homestays in ${selectedCity}` : "Verified homestays on Homavia",
+    "numberOfItems": sortedHomestays.length,
+    "itemListOrder": "https://schema.org/ItemListOrderAscending",
+    "itemListElement": sortedHomestays.slice(0, 10).map((homestay, index) => {
+      const listingUrl = buildAbsoluteUrl(`/homestays/${createSlug(homestay.name, homestay.id, homestay.city)}`);
+      return {
+        "@type": "ListItem",
+        "position": index + 1,
+        "url": listingUrl,
+        "name": homestay.name,
+        "item": {
+          "@type": "LodgingBusiness",
+          "@id": `${listingUrl}#lodging`,
+          "name": homestay.name,
+          "url": listingUrl,
+          "image": normalizeSeoImage(homestay.imageUrl),
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": homestay.area,
+            "addressRegion": homestay.city,
+            "addressCountry": "IN"
+          },
+          "priceRange": homestay.price ? `INR ${homestay.price}` : undefined
+        }
+      };
+    })
+  } : null;
+  const collectionPageSchema = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": homeTitle,
+    "url": buildAbsoluteUrl(homeCanonicalPath),
+    "description": homeDescription,
+    "inLanguage": SITE_LANGUAGE,
+    "isPartOf": {
+      "@type": "WebSite",
+      "name": SITE_NAME,
+      "url": SITE_URL
+    },
+    "mainEntity": itemListSchema
+  };
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": SITE_NAME,
+    "url": SITE_URL,
+    "description": DEFAULT_DESCRIPTION,
+    "inLanguage": SITE_LANGUAGE,
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": `${SITE_URL}/?search={search_term_string}`,
+      "query-input": "required name=search_term_string"
+    }
+  };
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": SITE_NAME,
+    "url": SITE_URL,
+    "logo": DEFAULT_OG_IMAGE,
+    "email": CONTACT_EMAIL,
+    "telephone": CONTACT_PHONE,
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "telephone": CONTACT_PHONE,
+      "email": CONTACT_EMAIL,
+      "contactType": "customer support",
+      "areaServed": "IN",
+      "availableLanguage": ["English", "Hindi"]
+    }
+  };
+  const travelAgencySchema = {
+    "@context": "https://schema.org",
+    "@type": "TravelAgency",
+    "name": SITE_NAME,
+    "url": SITE_URL,
+    "description": DEFAULT_DESCRIPTION,
+    "areaServed": {
+      "@type": "Country",
+      "name": "India"
+    }
+  };
+
   return (
     <div>
-      <Helmet>
-        <title>
-          {selectedCity !== 'All' 
-            ? `Homestays in ${selectedCity} - Book Best Stays | Homavia`
-            : 'Find & Book Homestays Across India | Homavia'
-          }
-        </title>
-        <meta name="description" content={
-          selectedCity !== 'All'
-            ? `Browse ${sortedHomestays.length}+ verified homestays in ${selectedCity}. ${coupleFriendlyOnly ? 'Couple-friendly, ' : ''}${hourlyOnly ? 'Hourly bookings, ' : ''}Best prices, instant confirmation. Book now on Homavia.`
-            : `Explore ${sortedHomestays.length}+ verified homestays across India. Compare prices, read reviews, book instantly. Couple-friendly & hourly stays available.`
-        } />
-        <meta name="keywords" content={`homestay ${selectedCity !== 'All' ? selectedCity : 'India'}, book homestay, budget accommodation, ${coupleFriendlyOnly ? 'couple friendly homestay, ' : ''}${hourlyOnly ? 'hourly homestay, ' : ''}verified homestays`} />
-        {selectedCity !== 'All' && <link rel="canonical" href={`https://homavia.in/?city=${selectedCity}`} />}
-        
-        {/* ItemList Structured Data (like Airbnb search results) */}
-        {sortedHomestays.length > 0 && (
-          <script type="application/ld+json">
-            {JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "ItemList",
-              "itemListElement": sortedHomestays.slice(0, 10).map((homestay, index) => ({
-                "@type": "ListItem",
-                "position": index + 1,
-                "url": `https://homavia.in/homestays/${createSlug(homestay.name, homestay.id, homestay.city)}`,
-                "name": homestay.name,
-                "item": {
-                  "@type": "LodgingBusiness",
-                  "name": homestay.name,
-                  "image": homestay.imageUrl,
-                  "address": {
-                    "@type": "PostalAddress",
-                    "addressLocality": homestay.area,
-                    "addressRegion": homestay.city,
-                    "addressCountry": "IN"
-                  },
-                  "priceRange": `₹${homestay.price}`
-                }
-              }))
-            })}
-          </script>
-        )}
-      </Helmet>
+      <SeoHelmet
+        title={homeTitle}
+        description={homeDescription}
+        keywords={`Homavia, homestay ${selectedCity !== "All" ? selectedCity : "India"}, verified homestays, book homestay, couple friendly homestay, bike rental, car rental, direct host contact`}
+        canonicalPath={homeCanonicalPath}
+        schema={[websiteSchema, organizationSchema, travelAgencySchema, collectionPageSchema, itemListSchema]}
+      />
 
       <section style={styles.heroShell} className="home-hero">
         <img
@@ -3404,6 +4073,8 @@ function AddHomestayForm() {
     premium: false,
     imagePreview: null,
     icalUrl: "",
+    calendarLinks: [],
+    manualBlockedDates: [],
     latitude: null,
     longitude: null,
     address: ""
@@ -3585,6 +4256,10 @@ function AddHomestayForm() {
     }
   };
 
+  const hasInvalidCalendarLinks = () => (
+    getEditableCalendarLinks(form).some(link => link.url && !isValidIcalUrl(link.url))
+  );
+
   const uploadImage = async () => {
     if (!imageFile) return null;
 
@@ -3609,8 +4284,8 @@ function AddHomestayForm() {
     e.preventDefault();
     if (!user) return;
     if (imageError) return;
-    if (!isValidIcalUrl(form.icalUrl)) {
-      alert("Please enter a valid iCal URL (https://, http://, or webcal://).");
+    if (hasInvalidCalendarLinks()) {
+      alert("Please enter valid calendar links (https://, http://, or webcal://).");
       return;
     }
 
@@ -3618,6 +4293,7 @@ function AddHomestayForm() {
     try {
       const imageUrl = await uploadImage();
       if (!imageUrl) throw new Error("Image upload failed");
+      const calendarLinks = normalizeListingCalendarLinks(form.calendarLinks, form.icalUrl);
 
       await addDoc(collection(db, "homestays"), {
         name: form.name,
@@ -3646,7 +4322,9 @@ function AddHomestayForm() {
         createdByName: user.displayName,
         createdAt: serverTimestamp(),
         rating: Math.floor(Math.random() * 2) + 4,
-        icalUrl: normalizeIcalUrl(form.icalUrl)
+        icalUrl: calendarLinks[0]?.url || "",
+        calendarLinks,
+        manualBlockedDates: normalizeManualBlockedDates(form.manualBlockedDates)
       });
 
       setForm({
@@ -3670,6 +4348,8 @@ function AddHomestayForm() {
         premium: false,
         imagePreview: null,
         icalUrl: "",
+        calendarLinks: [],
+        manualBlockedDates: [],
         latitude: null,
         longitude: null,
         address: ""
@@ -3687,10 +4367,12 @@ function AddHomestayForm() {
 
   return (
     <div style={styles.formContainer}>
-      <Helmet>
-        <title>Add Homestay - Homavia</title>
-        <meta name="description" content="List your homestay on Homavia and connect with travelers." />
-      </Helmet>
+      <SeoHelmet
+        title="List Your Homestay | Homavia"
+        description="Host dashboard for adding a Homavia homestay listing, pricing, units, amenities, and calendar sync."
+        canonicalPath="/add-homestay"
+        robots={PRIVATE_ROBOTS}
+      />
 
       <h1 style={styles.formTitle}>List your homestay</h1>
       <p className="form-kicker">
@@ -3855,21 +4537,6 @@ function AddHomestayForm() {
             </div>
 
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Host Calendar (iCal URL) *</label>
-              <input
-                style={styles.input}
-                type="url"
-                placeholder="https://example.com/calendar.ics or webcal://..."
-                value={form.icalUrl}
-                onChange={(e) => setForm({ ...form, icalUrl: e.target.value })}
-                required
-              />
-              <small style={{ color: '#666' }}>
-                Required. Paste an iCal (ICS) link to sync your availability calendar. Get from Airbnb, Booking.com, or Google Calendar.
-              </small>
-            </div>
-
-            <div style={styles.inputGroup}>
               <label style={styles.label}>Property Location (GPS)</label>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
@@ -4023,6 +4690,10 @@ function AddHomestayForm() {
           </div>
         </div>
 
+        <CalendarLinksFields form={form} setForm={setForm} />
+
+        <ManualBlockedDatesFields form={form} setForm={setForm} />
+
         <div style={styles.formSection}>
           <h2 style={styles.sectionTitle}>Photos</h2>
           <div style={styles.inputGroup}>
@@ -4136,6 +4807,8 @@ function EditHomestayForm() {
     premium: false,
     imagePreview: null,
     icalUrl: "",
+    calendarLinks: [],
+    manualBlockedDates: [],
     latitude: null,
     longitude: null,
     address: ""
@@ -4201,6 +4874,8 @@ function EditHomestayForm() {
           premium: !!data.premium,
           imagePreview: data.imageUrl || null,
           icalUrl: data.icalUrl || "",
+          calendarLinks: normalizeListingCalendarLinks(data.calendarLinks, data.icalUrl),
+          manualBlockedDates: normalizeManualBlockedDates(data.manualBlockedDates),
           latitude: data.latitude || null,
           longitude: data.longitude || null,
           address: data.address || ""
@@ -4382,6 +5057,10 @@ function EditHomestayForm() {
     }
   };
 
+  const hasInvalidCalendarLinks = () => (
+    getEditableCalendarLinks(form).some(link => link.url && !isValidIcalUrl(link.url))
+  );
+
   const uploadImage = async () => {
     if (!imageFile) return null;
 
@@ -4406,8 +5085,8 @@ function EditHomestayForm() {
     e.preventDefault();
     if (!user) return;
     if (imageError) return;
-    if (!isValidIcalUrl(form.icalUrl)) {
-      alert("Please enter a valid iCal URL (https://, http://, or webcal://).");
+    if (hasInvalidCalendarLinks()) {
+      alert("Please enter valid calendar links (https://, http://, or webcal://).");
       return;
     }
 
@@ -4420,6 +5099,7 @@ function EditHomestayForm() {
         if (!uploadedUrl) throw new Error("Image upload failed");
         imageUrlToSave = uploadedUrl;
       }
+      const calendarLinks = normalizeListingCalendarLinks(form.calendarLinks, form.icalUrl);
 
       const ref = doc(db, "homestays", id);
       await updateDoc(ref, {
@@ -4445,7 +5125,9 @@ function EditHomestayForm() {
         latitude: form.latitude,
         longitude: form.longitude,
         address: form.address,
-        icalUrl: normalizeIcalUrl(form.icalUrl)
+        icalUrl: calendarLinks[0]?.url || "",
+        calendarLinks,
+        manualBlockedDates: normalizeManualBlockedDates(form.manualBlockedDates)
       });
 
       alert("Homestay updated successfully!");
@@ -4469,10 +5151,12 @@ function EditHomestayForm() {
 
   return (
     <div style={styles.formContainer}>
-      <Helmet>
-        <title>Edit Homestay - Homavia</title>
-        <meta name="description" content="Edit your homestay listing on Homavia." />
-      </Helmet>
+      <SeoHelmet
+        title="Edit Homestay Listing | Homavia"
+        description="Host dashboard for editing a Homavia homestay listing, pricing, units, amenities, and calendar sync."
+        canonicalPath="/edit-homestay"
+        robots={PRIVATE_ROBOTS}
+      />
 
       <h1 style={styles.formTitle}>Edit your homestay</h1>
       <p className="form-kicker">
@@ -4637,21 +5321,6 @@ function EditHomestayForm() {
             </div>
 
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Host Calendar (iCal URL) *</label>
-              <input
-                style={styles.input}
-                type="url"
-                placeholder="https://example.com/calendar.ics or webcal://..."
-                value={form.icalUrl}
-                onChange={(e) => setForm({ ...form, icalUrl: e.target.value })}
-                required
-              />
-              <small style={{ color: '#666' }}>
-                Required. Paste an iCal (ICS) link to sync your availability calendar from Airbnb, Booking.com, etc.
-              </small>
-            </div>
-
-            <div style={styles.inputGroup}>
               <label style={styles.label}>Property Location (GPS)</label>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
@@ -4805,6 +5474,10 @@ function EditHomestayForm() {
           </div>
         </div>
 
+        <CalendarLinksFields form={form} setForm={setForm} />
+
+        <ManualBlockedDatesFields form={form} setForm={setForm} />
+
         <div style={styles.formSection}>
           <h2 style={styles.sectionTitle}>Photos</h2>
           <div style={styles.inputGroup}>
@@ -4914,17 +5587,12 @@ function HomestayDetail() {
         
         // Track page view
         trackPageView(`/homestays/${slug}`, data.name);
-        // Fetch booked dates from iCal
-        if (data.icalUrl) {
-          try {
-            const dates = await fetchCalendarBlockedDates(data.icalUrl);
-            setBookedDates(dates);
-          } catch (err) {
-            console.log('Could not fetch calendar:', err);
-            setBookedDates([]);
-          }
-        } else {
-          setBookedDates([]);
+        try {
+          const dates = await getListingBlockedDates(data);
+          setBookedDates(dates);
+        } catch (err) {
+          console.log('Could not fetch calendar:', err);
+          setBookedDates(getManualBlockedCalendarDates(data.manualBlockedDates));
         }
       } else {
         navigate("/");
@@ -4956,21 +5624,39 @@ function HomestayDetail() {
     homestay.amenities?.includes(amenity.id)
   );
 
-  // Generate SEO-friendly description
-  const seoDescription = `Book ${homestay.name} in ${homestay.area}, ${homestay.city}. ${homestay.roomType} with ${homestay.maxGuests} guests capacity. ₹${homestay.price}/${homestay.priceType === 'perNight' ? 'night' : homestay.priceType === 'perHour' ? 'hour' : 'day'}. ${homestay.coupleFriendly ? 'Couple-friendly. ' : ''}${homestay.amenities?.length ? `Amenities: ${homestay.amenities.slice(0, 3).join(', ')}. ` : ''}Book now on Homavia.`;
-  const calendarPortalName = getCalendarPortalName(homestay.icalUrl);
+  const listingName = toPlainText(homestay.name || "Homavia homestay");
+  const listingCity = toPlainText(homestay.city || "India");
+  const listingArea = toPlainText(homestay.area || listingCity);
+  const priceUnit = getPriceUnitLabel(homestay.priceType);
+  const pageUrl = buildAbsoluteUrl(`/homestays/${createSlug(listingName, homestay.id, listingCity)}`);
+  const imageUrl = normalizeSeoImage(homestay.imageUrl);
+  const seoTitle = `${listingName} in ${listingArea}, ${listingCity} | Homavia`;
+  const seoDescription = truncateMeta(
+    `${homestay.description ? `${ensureSentence(homestay.description)} ` : ""}Book ${listingName} in ${listingArea}, ${listingCity}. ${homestay.roomType || "Homestay"}${homestay.maxGuests ? ` for up to ${homestay.maxGuests} guests` : ""}${homestay.price ? ` from ₹${homestay.price}/${priceUnit}` : ""}. ${homestay.coupleFriendly ? "Couple-friendly stay. " : ""}Check details and contact the host on Homavia.`
+  );
+  const calendarLinkNames = normalizeListingCalendarLinks(homestay.calendarLinks, homestay.icalUrl)
+    .map(link => link.source);
+  const manualBlockedDateCount = normalizeManualBlockedDates(homestay.manualBlockedDates).length;
+  const blockedSourceLabel = [
+    calendarLinkNames.length > 0 ? calendarLinkNames.join(', ') : null,
+    manualBlockedDateCount > 0 ? 'Homavia portal' : null
+  ].filter(Boolean).join(' + ');
   
-  // Structured data for Google
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "LodgingBusiness",
-    "name": homestay.name,
-    "description": homestay.description || seoDescription,
-    "image": homestay.imageUrl,
+    "@id": `${pageUrl}#lodging`,
+    "name": listingName,
+    "url": pageUrl,
+    "mainEntityOfPage": pageUrl,
+    "description": seoDescription,
+    "image": [imageUrl],
+    "inLanguage": SITE_LANGUAGE,
     "address": {
       "@type": "PostalAddress",
-      "addressLocality": homestay.area,
-      "addressRegion": homestay.city,
+      "streetAddress": homestay.address,
+      "addressLocality": listingArea,
+      "addressRegion": listingCity,
       "addressCountry": "IN"
     },
     "geo": homestay.latitude && homestay.longitude ? {
@@ -4978,21 +5664,96 @@ function HomestayDetail() {
       "latitude": homestay.latitude,
       "longitude": homestay.longitude
     } : undefined,
-    "telephone": homestay.contact,
-    "priceRange": `₹${homestay.price}`,
-    "aggregateRating": homestay.rating ? {
+    "hasMap": homestay.latitude && homestay.longitude
+      ? `https://www.google.com/maps/search/?api=1&query=${homestay.latitude},${homestay.longitude}`
+      : undefined,
+    "telephone": homestay.contact || CONTACT_PHONE,
+    "priceRange": homestay.price ? `INR ${homestay.price}` : undefined,
+    "aggregateRating": homestay.rating && homestay.reviewCount ? {
       "@type": "AggregateRating",
       "ratingValue": homestay.rating,
-      "bestRating": "5"
+      "bestRating": "5",
+      "ratingCount": homestay.reviewCount
     } : undefined,
     "amenityFeature": selectedAmenities.map(a => ({
       "@type": "LocationFeatureSpecification",
-      "name": a.name
-    }))
+      "name": a.name,
+      "value": true
+    })),
+    "makesOffer": homestay.price ? {
+      "@type": "Offer",
+      "url": pageUrl,
+      "priceCurrency": "INR",
+      "price": homestay.price,
+      "availability": "https://schema.org/InStock",
+      "priceSpecification": {
+        "@type": "UnitPriceSpecification",
+        "price": homestay.price,
+        "priceCurrency": "INR",
+        "unitText": priceUnit
+      },
+      "seller": {
+        "@type": "Organization",
+        "name": SITE_NAME,
+        "url": SITE_URL
+      }
+    } : undefined
   };
-
-  const pageUrl = `https://homavia.in/homestays/${createSlug(homestay.name, homestay.id, homestay.city)}`;
-  const imageUrl = homestay.imageUrl || 'https://homavia.in/favicon.jpg';
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": buildAbsoluteUrl("/")
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": listingCity,
+        "item": buildAbsoluteUrl(`/?city=${encodeURIComponent(listingCity)}`)
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": listingArea,
+        "item": buildAbsoluteUrl(`/?city=${encodeURIComponent(listingCity)}&area=${encodeURIComponent(listingArea)}`)
+      },
+      {
+        "@type": "ListItem",
+        "position": 4,
+        "name": listingName,
+        "item": pageUrl
+      }
+    ]
+  };
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": listingName,
+    "description": seoDescription,
+    "image": imageUrl,
+    "category": homestay.roomType || "Homestay",
+    "brand": {
+      "@type": "Brand",
+      "name": SITE_NAME
+    },
+    "offers": homestay.price ? {
+      "@type": "Offer",
+      "url": pageUrl,
+      "priceCurrency": "INR",
+      "price": homestay.price,
+      "priceValidUntil": new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      "availability": "https://schema.org/InStock",
+      "seller": {
+        "@type": "Organization",
+        "name": SITE_NAME,
+        "url": SITE_URL
+      }
+    } : undefined
+  };
   const bookingCardStyle = {
     ...styles.bookingCard,
     ...(isDesktop
@@ -5002,94 +5763,16 @@ function HomestayDetail() {
 
   return (
     <div style={styles.detailContainer} className="detail-page">
-      <Helmet>
-        <title>{homestay.name} - {homestay.city} | Book on Homavia</title>
-        <meta name="description" content={seoDescription} />
-        <meta name="keywords" content={`${homestay.name}, homestay in ${homestay.city}, ${homestay.area} homestay, ${homestay.roomType}, ${homestay.coupleFriendly ? 'couple friendly homestay, ' : ''}accommodation in ${homestay.city}, book homestay ${homestay.city}`} />
-        
-        {/* Open Graph / Facebook */}
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content={pageUrl} />
-        <meta property="og:title" content={`${homestay.name} - ${homestay.city}`} />
-        <meta property="og:description" content={seoDescription} />
-        <meta property="og:image" content={imageUrl} />
-        <meta property="og:site_name" content="Homavia" />
-        
-        {/* Twitter */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:url" content={pageUrl} />
-        <meta name="twitter:title" content={`${homestay.name} - ${homestay.city}`} />
-        <meta name="twitter:description" content={seoDescription} />
-        <meta name="twitter:image" content={imageUrl} />
-        
-        {/* Canonical URL */}
-        <link rel="canonical" href={pageUrl} />
-        
-        {/* Structured Data - Lodging Business */}
-        <script type="application/ld+json">
-          {JSON.stringify(structuredData)}
-        </script>
-        
-        {/* Breadcrumb Structured Data (like Airbnb) */}
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "BreadcrumbList",
-            "itemListElement": [
-              {
-                "@type": "ListItem",
-                "position": 1,
-                "name": "Home",
-                "item": "https://homavia.in"
-              },
-              {
-                "@type": "ListItem",
-                "position": 2,
-                "name": homestay.city,
-                "item": `https://homavia.in/?city=${homestay.city}`
-              },
-              {
-                "@type": "ListItem",
-                "position": 3,
-                "name": homestay.area,
-                "item": `https://homavia.in/?city=${homestay.city}&area=${homestay.area}`
-              },
-              {
-                "@type": "ListItem",
-                "position": 4,
-                "name": homestay.name
-              }
-            ]
-          })}
-        </script>
-        
-        {/* Product/Offer Schema (for pricing) */}
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Product",
-            "name": homestay.name,
-            "description": homestay.description || seoDescription,
-            "image": homestay.imageUrl,
-            "brand": {
-              "@type": "Brand",
-              "name": "Homavia"
-            },
-            "offers": {
-              "@type": "Offer",
-              "url": pageUrl,
-              "priceCurrency": "INR",
-              "price": homestay.price,
-              "priceValidUntil": new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-              "availability": "https://schema.org/InStock",
-              "seller": {
-                "@type": "Organization",
-                "name": "Homavia"
-              }
-            }
-          })}
-        </script>
-      </Helmet>
+      <SeoHelmet
+        title={seoTitle}
+        description={seoDescription}
+        keywords={`${listingName}, homestay in ${listingCity}, ${listingArea} homestay, ${homestay.roomType || "private stay"}, ${homestay.coupleFriendly ? "couple friendly homestay, " : ""}book homestay ${listingCity}, Homavia`}
+        canonicalPath={pageUrl}
+        image={imageUrl}
+        imageAlt={`${listingName} homestay in ${listingCity}`}
+        type="website"
+        schema={[structuredData, breadcrumbSchema, productSchema]}
+      />
 
       <div style={styles.detailHeader}>
         <h1 style={styles.detailTitle}>
@@ -5182,7 +5865,7 @@ function HomestayDetail() {
             </span>
           </div>
 
-          {homestay.icalUrl && (
+          {blockedSourceLabel && (
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -5208,7 +5891,7 @@ function HomestayDetail() {
                 fontSize: 13,
                 fontWeight: 800
               }}>
-                {calendarPortalName}
+                {blockedSourceLabel}
               </span>
             </div>
           )}
@@ -5367,7 +6050,9 @@ function HostRevenuePanel({ listings }) {
     let isActive = true;
 
     const loadRevenue = async () => {
-      const calendarListings = listings.filter(listing => listing.icalUrl);
+      const calendarListings = listings.filter(listing =>
+        listing.icalUrl || normalizeManualBlockedDates(listing.manualBlockedDates).length > 0
+      );
 
       if (calendarListings.length === 0) {
         setRevenue({
@@ -5389,7 +6074,7 @@ function HostRevenuePanel({ listings }) {
       try {
         const listingResults = await Promise.all(calendarListings.map(async (listing) => {
           try {
-            const blockedDates = await fetchCalendarBlockedDates(listing.icalUrl);
+            const blockedDates = await getListingBlockedDates(listing);
             return {
               ...calculateListingMonthlyRevenue(listing, blockedDates, monthValue),
               hasError: false
@@ -5468,7 +6153,7 @@ function HostRevenuePanel({ listings }) {
       <div className="host-revenue-header">
         <div>
           <h2>Monthly Revenue</h2>
-          <p>Estimated from blocked calendar booking dates, units, and platform-wise prices.</p>
+          <p>Estimated from calendar and portal blocked booking dates, units, and platform-wise prices.</p>
         </div>
         <label className="host-revenue-month">
           <span>Month</span>
@@ -5489,7 +6174,7 @@ function HostRevenuePanel({ listings }) {
         <div>
           <span>Blocked Dates</span>
           <strong>{revenue.totalBlockedDates}</strong>
-          <small>Calendar booking days</small>
+          <small>Booking days</small>
         </div>
         <div>
           <span>Booked Unit-Nights</span>
@@ -5497,8 +6182,8 @@ function HostRevenuePanel({ listings }) {
           <small>Blocked dates x units</small>
         </div>
         <div>
-          <span>Synced Calendars</span>
-          <strong>{listings.filter(listing => listing.icalUrl).length}</strong>
+          <span>Booking Sources</span>
+          <strong>{listings.filter(listing => listing.icalUrl || normalizeManualBlockedDates(listing.manualBlockedDates).length > 0).length}</strong>
           <small>{revenue.calendarErrors ? `${revenue.calendarErrors} need attention` : 'All ready'}</small>
         </div>
       </div>
@@ -5513,7 +6198,7 @@ function HostRevenuePanel({ listings }) {
           </div>
           {revenue.platformTotals.length === 0 ? (
             <p className="host-revenue-empty">
-              {loading ? "Reading calendars..." : "No blocked booking dates found for this month."}
+              {loading ? "Reading booking sources..." : "No blocked booking dates found for this month."}
             </p>
           ) : (
             revenue.platformTotals.map(platform => (
@@ -5532,7 +6217,7 @@ function HostRevenuePanel({ listings }) {
             Listing Revenue
           </div>
           {revenue.listingTotals.length === 0 ? (
-            <p className="host-revenue-empty">Add a calendar URL to calculate monthly revenue.</p>
+            <p className="host-revenue-empty">Add portal blocked dates or connect a calendar to calculate monthly revenue.</p>
           ) : (
             revenue.listingTotals.map(listing => (
               <div key={listing.listingId} className="host-revenue-listing-row">
@@ -5609,9 +6294,12 @@ function MyListings() {
 
   return (
     <div style={styles.pageContainer}>
-      <Helmet>
-        <title>My Listings - Homavia</title>
-      </Helmet>
+      <SeoHelmet
+        title="My Listings | Homavia"
+        description="Private Homavia host dashboard for managing listings, revenue, platform prices, and availability."
+        canonicalPath="/my-listings"
+        robots={PRIVATE_ROBOTS}
+      />
 
       <h1 style={styles.pageTitle}>My Listings</h1>
 
@@ -6054,9 +6742,12 @@ function AdminTools() {
 
   return (
     <div style={styles.pageContainer}>
-      <Helmet>
-        <title>Admin Panel - Homavia</title>
-      </Helmet>
+      <SeoHelmet
+        title="Admin Panel | Homavia"
+        description="Private Homavia admin panel for managing listings, activity, analytics, and revenue."
+        canonicalPath="/admin"
+        robots={PRIVATE_ROBOTS}
+      />
 
       <h1 style={styles.pageTitle}>Admin Panel</h1>
 
@@ -6141,6 +6832,12 @@ function AdminTools() {
                   ? h.createdAt.toDate().toLocaleDateString()
                   : (h.createdAt || "—");
                 const calendarPortalName = getCalendarPortalName(h.icalUrl);
+                const manualBlockCount = normalizeManualBlockedDates(h.manualBlockedDates).length;
+                const hasBlockingSource = h.icalUrl || manualBlockCount > 0;
+                const blockingSourceLabel = [
+                  h.icalUrl ? calendarPortalName : null,
+                  manualBlockCount > 0 ? `Homavia portal (${manualBlockCount})` : null
+                ].filter(Boolean).join(' + ') || calendarPortalName;
                 return (
                   <li key={h.id} style={styles.homestayItem}>
                     <div style={{ padding: 12 }}>
@@ -6167,13 +6864,13 @@ function AdminTools() {
                             marginTop: 6,
                             padding: '4px 8px',
                             borderRadius: designTokens.radius.full,
-                            backgroundColor: h.icalUrl ? designTokens.colors.primaryLight : designTokens.colors.surface,
-                            color: h.icalUrl ? designTokens.colors.primary : designTokens.colors.textMuted,
+                            backgroundColor: hasBlockingSource ? designTokens.colors.primaryLight : designTokens.colors.surface,
+                            color: hasBlockingSource ? designTokens.colors.primary : designTokens.colors.textMuted,
                             fontSize: 12,
                             fontWeight: 700
                           }}>
                             <FiCalendar size={12} />
-                            {h.icalUrl ? `Blocks from ${calendarPortalName}` : calendarPortalName}
+                            {hasBlockingSource ? `Blocks from ${blockingSourceLabel}` : blockingSourceLabel}
                           </div>
                           <div style={{ fontSize: 12, color: '#0284c7', marginTop: 4 }}>
                             ₹{h.price} / {PRICE_TYPES.find(pt => pt.id === h.priceType)?.suffix || 'night'}
@@ -6335,10 +7032,26 @@ function RequireAdmin({ user, children }) {
 function AboutPage() {
   return (
     <div style={styles.pageContainer}>
-      <Helmet>
-        <title>About Us - Homavia</title>
-        <meta name="description" content="Learn about Homavia - your trusted platform for finding the perfect homestay." />
-      </Helmet>
+      <SeoHelmet
+        title="About Homavia | Verified Homestays & Travel Rentals in India"
+        description="Learn how Homavia connects travelers with verified homestays, local hosts, bike rentals, and car rentals across India."
+        canonicalPath="/about"
+        schema={{
+          "@context": "https://schema.org",
+          "@type": "AboutPage",
+          "name": "About Homavia",
+          "url": buildAbsoluteUrl("/about"),
+          "description": "Homavia helps travelers discover verified homestays and local travel rentals across India.",
+          "inLanguage": SITE_LANGUAGE,
+          "mainEntity": {
+            "@type": "Organization",
+            "name": SITE_NAME,
+            "url": SITE_URL,
+            "email": CONTACT_EMAIL,
+            "telephone": CONTACT_PHONE
+          }
+        }}
+      />
 
       <h1 style={styles.pageTitle}>About Homavia</h1>
 
@@ -6402,10 +7115,34 @@ function ContactPage() {
 
   return (
     <div style={styles.pageContainer}>
-      <Helmet>
-        <title>Contact Us - Homavia</title>
-        <meta name="description" content="Get in touch with Homavia for any questions or support." />
-      </Helmet>
+      <SeoHelmet
+        title="Contact Homavia | Booking & Host Support"
+        description="Contact Homavia for homestay booking help, host listing support, bike rentals, car rentals, and travel questions."
+        canonicalPath="/contact"
+        schema={{
+          "@context": "https://schema.org",
+          "@type": "ContactPage",
+          "name": "Contact Homavia",
+          "url": buildAbsoluteUrl("/contact"),
+          "description": "Contact Homavia for traveler support and host listing support.",
+          "inLanguage": SITE_LANGUAGE,
+          "mainEntity": {
+            "@type": "Organization",
+            "name": SITE_NAME,
+            "url": SITE_URL,
+            "email": CONTACT_EMAIL,
+            "telephone": CONTACT_PHONE,
+            "contactPoint": {
+              "@type": "ContactPoint",
+              "telephone": CONTACT_PHONE,
+              "email": CONTACT_EMAIL,
+              "contactType": "customer support",
+              "areaServed": "IN",
+              "availableLanguage": ["English", "Hindi"]
+            }
+          }
+        }}
+      />
 
       <h1 style={styles.pageTitle}>Contact Us</h1>
 
@@ -6519,10 +7256,27 @@ function ContactPage() {
 function PremiumPage() {
   return (
     <div style={styles.pageContainer}>
-      <Helmet>
-        <title>Premium Features - Homavia</title>
-        <meta name="description" content="Upgrade to Homavia Premium to get more visibility for your homestay." />
-      </Helmet>
+      <SeoHelmet
+        title="Homavia Premium | Featured Visibility for Homestay Hosts"
+        description="Upgrade to Homavia Premium to improve homestay visibility, earn a featured listing badge, and reach more travelers."
+        canonicalPath="/premium"
+        schema={{
+          "@context": "https://schema.org",
+          "@type": "Service",
+          "name": "Homavia Premium",
+          "url": buildAbsoluteUrl("/premium"),
+          "description": "Featured listing and visibility service for Homavia homestay hosts.",
+          "provider": {
+            "@type": "Organization",
+            "name": SITE_NAME,
+            "url": SITE_URL
+          },
+          "areaServed": {
+            "@type": "Country",
+            "name": "India"
+          }
+        }}
+      />
 
       <h1 style={styles.pageTitle}>Premium Features</h1>
 
@@ -6732,13 +7486,61 @@ function BikeRentalPage() {
     display: 'block', fontSize: 13, fontWeight: 600, color: '#374151',
     marginBottom: 6, letterSpacing: 0
   };
+  const bikeRentalDescription = "Rent bikes, scooters, and motorcycles in Goa, Guwahati, and Shillong with daily pricing, WhatsApp booking, helmets, and local support from Homavia.";
+  const bikeServiceSchema = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "name": "Homavia Bike Rental",
+    "serviceType": "Bike rental",
+    "url": buildAbsoluteUrl("/bike-rental"),
+    "description": bikeRentalDescription,
+    "provider": {
+      "@type": "Organization",
+      "name": SITE_NAME,
+      "url": SITE_URL
+    },
+    "areaServed": ["Goa", "Guwahati", "Shillong"]
+  };
+  const bikeItemListSchema = filteredBikes.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": "Bikes and scooters available on Homavia",
+    "numberOfItems": filteredBikes.length,
+    "itemListElement": filteredBikes.slice(0, 10).map((bike, index) => ({
+      "@type": "ListItem",
+      "position": index + 1,
+      "item": {
+        "@type": "Product",
+        "name": bike.name,
+        "image": normalizeSeoImage(bike.image),
+        "category": bike.type || "Bike rental",
+        "brand": {
+          "@type": "Brand",
+          "name": SITE_NAME
+        },
+        "offers": bike.price ? {
+          "@type": "Offer",
+          "priceCurrency": "INR",
+          "price": bike.price,
+          "availability": bike.available ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+          "seller": {
+            "@type": "Organization",
+            "name": SITE_NAME
+          }
+        } : undefined
+      }
+    }))
+  } : null;
 
   return (
     <div>
-      <Helmet>
-        <title>Rent Bikes & Scooters | Homavia - Goa, Guwahati, Shillong</title>
-        <meta name="description" content="Rent bikes, scooters & motorcycles in Goa, Guwahati & Shillong. Affordable daily rentals with helmets & insurance included. Book via WhatsApp." />
-      </Helmet>
+      <SeoHelmet
+        title="Rent Bikes & Scooters in Goa, Guwahati & Shillong | Homavia"
+        description={bikeRentalDescription}
+        keywords="bike rental Goa, scooter rental Goa, bike rental Guwahati, bike rental Shillong, motorcycle rental India, Homavia rentals"
+        canonicalPath="/bike-rental"
+        schema={[bikeServiceSchema, bikeItemListSchema]}
+      />
 
       {/* Hero Section */}
       <div style={{
@@ -7234,13 +8036,61 @@ function CarRentalPage() {
     display: 'block', fontSize: 13, fontWeight: 600, color: '#374151',
     marginBottom: 6, letterSpacing: 0
   };
+  const carRentalDescription = "Rent self-drive and chauffeur-driven cars in Goa, Guwahati, and Shillong with transparent daily pricing, WhatsApp booking, and local support from Homavia.";
+  const carServiceSchema = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "name": "Homavia Car Rental",
+    "serviceType": "Car rental",
+    "url": buildAbsoluteUrl("/car-rental"),
+    "description": carRentalDescription,
+    "provider": {
+      "@type": "Organization",
+      "name": SITE_NAME,
+      "url": SITE_URL
+    },
+    "areaServed": ["Goa", "Guwahati", "Shillong"]
+  };
+  const carItemListSchema = filteredCars.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": "Cars available on Homavia",
+    "numberOfItems": filteredCars.length,
+    "itemListElement": filteredCars.slice(0, 10).map((car, index) => ({
+      "@type": "ListItem",
+      "position": index + 1,
+      "item": {
+        "@type": "Product",
+        "name": car.name,
+        "image": normalizeSeoImage(car.image),
+        "category": car.type || "Car rental",
+        "brand": {
+          "@type": "Brand",
+          "name": SITE_NAME
+        },
+        "offers": car.price ? {
+          "@type": "Offer",
+          "priceCurrency": "INR",
+          "price": car.price,
+          "availability": car.available ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+          "seller": {
+            "@type": "Organization",
+            "name": SITE_NAME
+          }
+        } : undefined
+      }
+    }))
+  } : null;
 
   return (
     <div>
-      <Helmet>
-        <title>Rent Cars | Homavia - Goa, Guwahati, Shillong</title>
-        <meta name="description" content="Rent cars in Goa, Guwahati & Shillong. Hatchbacks, Sedans, SUVs & Luxury cars. Affordable daily rentals. Book via WhatsApp." />
-      </Helmet>
+      <SeoHelmet
+        title="Rent Cars in Goa, Guwahati & Shillong | Homavia"
+        description={carRentalDescription}
+        keywords="car rental Goa, self drive car Goa, car rental Guwahati, car rental Shillong, SUV rental India, Homavia rentals"
+        canonicalPath="/car-rental"
+        schema={[carServiceSchema, carItemListSchema]}
+      />
 
       {/* Hero Section */}
       <div style={{
@@ -7606,7 +8456,7 @@ function Footer() {
 
         <div style={styles.footerColumn}>
           <h4 style={styles.footerTitle}>Contact Us</h4>
-          <a href="mailto:support@homavia.com" style={styles.footerLink} className="footer-link-hover"><FiMail /> support@homavia.com</a>
+          <a href={`mailto:${CONTACT_EMAIL}`} style={styles.footerLink} className="footer-link-hover"><FiMail /> {CONTACT_EMAIL}</a>
           <a href="tel:+918638572663" style={styles.footerLink} className="footer-link-hover"><FiPhone /> +91 8638572663</a>
         </div>
       </div>
@@ -7744,70 +8594,6 @@ function MobileApp() {
 
   return (
     <Router>
-      <Helmet>
-        <title>Homavia - Book Homestays in India | Guwahati, Delhi, Mumbai, Bangalore, Goa & More</title>
-        <meta name="description" content="Find and book verified homestays across 30+ Indian cities. Affordable stays in Guwahati, Delhi, Mumbai, Bangalore, Goa, Shimla, Jaipur & more. Couple-friendly, hourly bookings available. Best prices guaranteed." />
-        <meta name="keywords" content="homestay booking India, homestays in Guwahati, budget accommodation India, couple friendly homestay, hourly stays, homestay Delhi, homestay Mumbai, homestay Bangalore, homestay Goa, verified homestays" />
-        <meta name="author" content="Homavia" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        
-        {/* Open Graph */}
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://homavia.in/" />
-        <meta property="og:title" content="Homavia - Book Homestays in India" />
-        <meta property="og:description" content="Find and book verified homestays across 30+ Indian cities. Affordable, couple-friendly stays with best prices." />
-        <meta property="og:image" content="https://homavia.in/favicon.jpg" />
-        <meta property="og:site_name" content="Homavia" />
-        
-        {/* Twitter */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:url" content="https://homavia.in/" />
-        <meta name="twitter:title" content="Homavia - Book Homestays in India" />
-        <meta name="twitter:description" content="Find and book verified homestays across 30+ Indian cities." />
-        <meta name="twitter:image" content="https://homavia.in/favicon.jpg" />
-        
-        {/* Canonical */}
-        <link rel="canonical" href="https://homavia.in/" />
-        
-        {/* Structured Data for Website */}
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "WebSite",
-            "name": "Homavia",
-            "url": "https://homavia.in",
-            "description": "Book verified homestays across India",
-            "potentialAction": {
-              "@type": "SearchAction",
-              "target": "https://homavia.in/?search={search_term_string}",
-              "query-input": "required name=search_term_string"
-            }
-          })}
-        </script>
-        
-        {/* Organization Structured Data */}
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Organization",
-            "name": "Homavia",
-            "url": "https://homavia.in",
-            "logo": "https://homavia.in/favicon.jpg",
-            "contactPoint": {
-              "@type": "ContactPoint",
-              "telephone": "+91-8638572663",
-              "contactType": "customer service",
-              "email": "support@homavia.com"
-            },
-            "sameAs": [
-              "https://facebook.com/homavia",
-              "https://twitter.com/homavia",
-              "https://instagram.com/homavia"
-            ]
-          })}
-        </script>
-      </Helmet>
-
       <div style={styles.container}>
         <header style={styles.header}>
           <Link to="/" style={styles.logoContainer} onClick={closeMobileMenu}>

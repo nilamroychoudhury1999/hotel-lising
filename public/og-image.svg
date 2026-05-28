@@ -1,0 +1,16 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#F8F3EF"/>
+  <rect x="60" y="60" width="1080" height="510" rx="36" fill="#FFFFFF"/>
+  <rect x="60" y="60" width="1080" height="510" rx="36" stroke="#E8DDD5" stroke-width="2"/>
+  <circle cx="980" cy="148" r="92" fill="#F4DAD2"/>
+  <circle cx="1028" cy="482" r="128" fill="#EAF3EA"/>
+  <rect x="115" y="128" width="94" height="94" rx="28" fill="#B42318"/>
+  <path d="M162 152L128 180V214H151V190H173V214H196V180L162 152Z" fill="white"/>
+  <text x="236" y="166" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="54" font-weight="800">Homavia</text>
+  <text x="236" y="212" fill="#6B7280" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="600">Verified stays and travel rentals across India</text>
+  <text x="115" y="326" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="66" font-weight="800">Book trusted homestays</text>
+  <text x="115" y="398" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="66" font-weight="800">with clear pricing</text>
+  <text x="115" y="462" fill="#4B5563" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="500">Homestays, bike rentals, car rentals, calendar availability, and direct host contact.</text>
+  <rect x="115" y="505" width="220" height="52" rx="26" fill="#111827"/>
+  <text x="145" y="540" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">homavia.in</text>
+</svg>

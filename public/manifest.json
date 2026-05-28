@@ -1,7 +1,7 @@
 {
   "short_name": "Homavia",
-  "name": "Homavia - Find Your Perfect Homestay",
-  "description": "Discover authentic homestay experiences across India. Book comfortable, verified homestays.",
+  "name": "Homavia - Verified Homestays and Travel Rentals",
+  "description": "Find verified homestays, bike rentals, and car rentals across India with transparent pricing and direct host contact.",
   "icons": [
     {
       "src": "favicon.jpg",
@@ -21,11 +21,12 @@
       "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "theme_color": "#ff385c",
-  "background_color": "#ffffff",
+  "theme_color": "#B42318",
+  "background_color": "#F8F3EF",
   "categories": ["travel", "lifestyle"],
   "screenshots": []
 }
