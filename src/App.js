@@ -234,6 +234,7 @@ const HOST_EXPENSE_PAID_BY_OPTIONS = [
   "Guest reimbursement"
 ];
 const HOST_EXPENSE_PAYMENT_MODES = ["Cash", "UPI", "Bank transfer", "Card", "Wallet", "Other"];
+const HOST_EXPENSE_CUSTOM_PAID_BY = "__custom_paid_by__";
 
 /* ------------------------------
    Helper Functions
@@ -5993,6 +5994,7 @@ function HostManualCrmPanel({ listings, user }) {
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState("");
   const firstListingId = listings[0]?.id || "";
+  const hostPaidByName = user?.displayName || user?.email || "Host";
   const [bookingForm, setBookingForm] = useState({
     listingId: firstListingId,
     platform: "Homavia / Direct booking",
@@ -6008,10 +6010,22 @@ function HostManualCrmPanel({ listings, user }) {
     expenseDate: getLocalDateKey(new Date()),
     category: "Cleaning",
     amount: "",
-    paidBy: "Host",
+    paidBy: hostPaidByName,
+    customPaidBy: "",
     paymentMode: "Cash",
     notes: ""
   });
+  const expensePaidByOptions = useMemo(() => {
+    const savedPaidByNames = expenses
+      .map(expense => toPlainText(expense.paidBy).trim())
+      .filter(Boolean);
+    const activePaidByName = expenseForm.paidBy && expenseForm.paidBy !== HOST_EXPENSE_CUSTOM_PAID_BY
+      ? expenseForm.paidBy
+      : "";
+
+    return [hostPaidByName, activePaidByName, ...savedPaidByNames, ...HOST_EXPENSE_PAID_BY_OPTIONS]
+      .filter((option, index, options) => option && options.indexOf(option) === index);
+  }, [expenses, expenseForm.paidBy, hostPaidByName]);
   const [guestForm, setGuestForm] = useState({
     name: "",
     phone: "",
@@ -6041,6 +6055,13 @@ function HostManualCrmPanel({ listings, user }) {
     setTaskForm(current => current.listingId ? current : { ...current, listingId: firstListingId });
     setCalendarListingId(current => current || firstListingId);
   }, [firstListingId]);
+
+  useEffect(() => {
+    setExpenseForm(current => {
+      if (current.paidBy && current.paidBy !== "Host") return current;
+      return { ...current, paidBy: hostPaidByName };
+    });
+  }, [hostPaidByName]);
 
   useEffect(() => {
     if (!user) return undefined;
@@ -6224,20 +6245,31 @@ function HostManualCrmPanel({ listings, user }) {
     if (!user || !expenseForm.listingId) return;
 
     const amount = Math.max(0, Math.round(Number(expenseForm.amount) || 0));
+    const paidByName = toPlainText(
+      expenseForm.paidBy === HOST_EXPENSE_CUSTOM_PAID_BY
+        ? expenseForm.customPaidBy
+        : expenseForm.paidBy
+    ).trim();
+
     if (!amount) {
       setSaveError("Expense amount must be greater than zero.");
+      return;
+    }
+    if (!paidByName) {
+      setSaveError("Paid by name is required.");
       return;
     }
 
     setSaveError("");
     try {
+      const { customPaidBy, ...expensePayload } = expenseForm;
       await addDoc(collection(db, HOST_MANUAL_EXPENSES_COLLECTION), {
-        ...expenseForm,
+        ...expensePayload,
         listingId: expenseForm.listingId,
         listingName: listingsById[expenseForm.listingId]?.name || "",
         amount,
         category: expenseForm.category || "Other",
-        paidBy: expenseForm.paidBy || "Host",
+        paidBy: paidByName,
         paymentMode: expenseForm.paymentMode || "Cash",
         source: "manual",
         createdBy: user.uid,
@@ -6248,6 +6280,8 @@ function HostManualCrmPanel({ listings, user }) {
 
       setExpenseForm(current => ({
         ...current,
+        paidBy: paidByName,
+        customPaidBy: "",
         amount: "",
         notes: ""
       }));
@@ -6609,10 +6643,19 @@ function HostManualCrmPanel({ listings, user }) {
                   value={expenseForm.paidBy}
                   onChange={(event) => setExpenseForm({ ...expenseForm, paidBy: event.target.value })}
                 >
-                  {HOST_EXPENSE_PAID_BY_OPTIONS.map(paidBy => (
+                  {expensePaidByOptions.map(paidBy => (
                     <option key={paidBy}>{paidBy}</option>
                   ))}
+                  <option value={HOST_EXPENSE_CUSTOM_PAID_BY}>Add new name</option>
                 </select>
+                {expenseForm.paidBy === HOST_EXPENSE_CUSTOM_PAID_BY && (
+                  <input
+                    value={expenseForm.customPaidBy}
+                    onChange={(event) => setExpenseForm({ ...expenseForm, customPaidBy: event.target.value })}
+                    placeholder="Enter payer name"
+                    required
+                  />
+                )}
               </label>
             </div>
             <label>
