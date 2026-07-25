@@ -6618,8 +6618,8 @@ const createDailyEntryForm = (listingId = "") => ({
   platform: "Homavia / Direct booking",
   guestName: "",
   guestPhone: "",
-  revenue: "",
-  expense: "",
+  guestAddress: "",
+  price: "",
   paymentStatus: "Paid",
   notes: ""
 });
@@ -6628,6 +6628,10 @@ const createDailyEntryDocId = (uid, listingId, entryDate, unitNumber) => (
   [HOST_DAILY_ENTRY_RECORD_TYPE, uid, listingId, entryDate, `unit${unitNumber}`]
     .join("_")
     .replace(/[^A-Za-z0-9_-]/g, "_")
+);
+
+const getDailyEntryPrice = (entry) => (
+  Number(entry?.price ?? entry?.revenue ?? entry?.amount) || 0
 );
 
 function HostManualCrmPanel({ listings, user }) {
@@ -6793,19 +6797,16 @@ function HostManualCrmPanel({ listings, user }) {
 
   const dailyEntryTotals = useMemo(() => {
     const unitMap = {};
-    let totalRevenue = 0;
-    let totalExpenses = 0;
+    let totalPrice = 0;
     let occupiedDays = 0;
 
     monthDailyEntries.forEach(entry => {
-      const revenue = Number(entry.revenue) || 0;
-      const expense = Number(entry.expense) || 0;
+      const price = getDailyEntryPrice(entry);
       const unitNumber = String(entry.unitNumber || "1");
       const listingName = entry.listingName || listingsById[entry.listingId]?.name || "Property";
       const unitKey = `${entry.listingId || listingName}_${unitNumber}`;
 
-      totalRevenue += revenue;
-      totalExpenses += expense;
+      totalPrice += price;
       if (entry.status === "Occupied") occupiedDays += 1;
 
       if (!unitMap[unitKey]) {
@@ -6817,23 +6818,19 @@ function HostManualCrmPanel({ listings, user }) {
           occupied: 0,
           available: 0,
           maintenance: 0,
-          revenue: 0,
-          expense: 0
+          price: 0
         };
       }
 
       unitMap[unitKey].entries += 1;
-      unitMap[unitKey].revenue += revenue;
-      unitMap[unitKey].expense += expense;
+      unitMap[unitKey].price += price;
       if (entry.status === "Occupied") unitMap[unitKey].occupied += 1;
       if (entry.status === "Available") unitMap[unitKey].available += 1;
       if (entry.status === "Maintenance" || entry.status === "Owner block") unitMap[unitKey].maintenance += 1;
     });
 
     return {
-      totalRevenue,
-      totalExpenses,
-      netRevenue: totalRevenue - totalExpenses,
+      totalPrice,
       occupiedDays,
       unitSummaries: Object.values(unitMap).sort((a, b) => (
         a.listingName.localeCompare(b.listingName) ||
@@ -6943,8 +6940,7 @@ function HostManualCrmPanel({ listings, user }) {
 
     const entryDate = dailyEntryForm.entryDate || getLocalDateKey(new Date());
     const unitNumber = Math.max(1, Math.round(Number(dailyEntryForm.unitNumber) || 1));
-    const revenue = Math.max(0, Math.round(Number(dailyEntryForm.revenue) || 0));
-    const expense = Math.max(0, Math.round(Number(dailyEntryForm.expense) || 0));
+    const price = Math.max(0, Math.round(Number(dailyEntryForm.price) || 0));
     const listingName = listingsById[dailyEntryForm.listingId]?.name || "";
     const docId = createDailyEntryDocId(user.uid, dailyEntryForm.listingId, entryDate, unitNumber);
 
@@ -6961,9 +6957,11 @@ function HostManualCrmPanel({ listings, user }) {
         platform: toPlainText(dailyEntryForm.platform).trim() || "Manual",
         guestName: toPlainText(dailyEntryForm.guestName).trim(),
         guestPhone: toPlainText(dailyEntryForm.guestPhone).trim(),
-        revenue,
-        expense,
-        amount: revenue,
+        guestAddress: toPlainText(dailyEntryForm.guestAddress).trim(),
+        price,
+        amount: price,
+        revenue: price,
+        expense: 0,
         paymentStatus: dailyEntryForm.paymentStatus || "Paid",
         notes: toPlainText(dailyEntryForm.notes).trim(),
         source: "manual-daily-entry",
@@ -6977,8 +6975,8 @@ function HostManualCrmPanel({ listings, user }) {
         ...current,
         guestName: "",
         guestPhone: "",
-        revenue: "",
-        expense: "",
+        guestAddress: "",
+        price: "",
         notes: ""
       }));
     } catch (error) {
@@ -7204,17 +7202,17 @@ function HostManualCrmPanel({ listings, user }) {
       <div className="manual-crm-stats">
         <div>
           <span>Manual Revenue</span>
-          <strong>{formatCurrency(crmTotals.totalRevenue + dailyEntryTotals.totalRevenue)}</strong>
+          <strong>{formatCurrency(crmTotals.totalRevenue + dailyEntryTotals.totalPrice)}</strong>
           <small>{getMonthLabel(monthValue)}</small>
         </div>
         <div>
           <span>Expenses</span>
-          <strong>{formatCurrency(crmTotals.totalExpenses + dailyEntryTotals.totalExpenses)}</strong>
-          <small>{monthExpenses.length + monthDailyEntries.filter(entry => Number(entry.expense) > 0).length} manual records</small>
+          <strong>{formatCurrency(crmTotals.totalExpenses)}</strong>
+          <small>{monthExpenses.length} manual records</small>
         </div>
         <div>
           <span>Net Revenue</span>
-          <strong>{formatCurrency(crmTotals.netRevenue + dailyEntryTotals.netRevenue)}</strong>
+          <strong>{formatCurrency((crmTotals.totalRevenue + dailyEntryTotals.totalPrice) - crmTotals.totalExpenses)}</strong>
           <small>Revenue minus expenses</small>
         </div>
         <div>
@@ -7345,40 +7343,38 @@ function HostManualCrmPanel({ listings, user }) {
                 />
               </label>
             </div>
+            <label>
+              Guest Address
+              <input
+                value={dailyEntryForm.guestAddress}
+                onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, guestAddress: event.target.value })}
+                placeholder="Guest address"
+              />
+            </label>
             <div className="manual-crm-form-row">
               <label>
-                Revenue
+                Price
                 <input
                   type="number"
                   min="0"
-                  value={dailyEntryForm.revenue}
-                  onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, revenue: event.target.value })}
+                  value={dailyEntryForm.price}
+                  onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, price: event.target.value })}
                   placeholder="0"
                 />
               </label>
               <label>
-                Expense
-                <input
-                  type="number"
-                  min="0"
-                  value={dailyEntryForm.expense}
-                  onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, expense: event.target.value })}
-                  placeholder="0"
-                />
+                Payment
+                <select
+                  value={dailyEntryForm.paymentStatus}
+                  onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, paymentStatus: event.target.value })}
+                >
+                  <option>Paid</option>
+                  <option>Partial</option>
+                  <option>Pending</option>
+                  <option>Not applicable</option>
+                </select>
               </label>
             </div>
-            <label>
-              Payment
-              <select
-                value={dailyEntryForm.paymentStatus}
-                onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, paymentStatus: event.target.value })}
-              >
-                <option>Paid</option>
-                <option>Partial</option>
-                <option>Pending</option>
-                <option>Not applicable</option>
-              </select>
-            </label>
             <label>
               Notes
               <input
@@ -7394,16 +7390,16 @@ function HostManualCrmPanel({ listings, user }) {
             <h3>{loading ? "Loading..." : "Unit-wise Daily Ledger"}</h3>
             <div className="manual-daily-summary">
               <div>
-                <span>Daily Revenue</span>
-                <strong>{formatCurrency(dailyEntryTotals.totalRevenue)}</strong>
+                <span>Total Price</span>
+                <strong>{formatCurrency(dailyEntryTotals.totalPrice)}</strong>
               </div>
               <div>
-                <span>Daily Expense</span>
-                <strong>{formatCurrency(dailyEntryTotals.totalExpenses)}</strong>
+                <span>Daily Entries</span>
+                <strong>{monthDailyEntries.length}</strong>
               </div>
               <div>
-                <span>Daily Net</span>
-                <strong>{formatCurrency(dailyEntryTotals.netRevenue)}</strong>
+                <span>Occupied Unit Days</span>
+                <strong>{dailyEntryTotals.occupiedDays}</strong>
               </div>
             </div>
 
@@ -7413,7 +7409,7 @@ function HostManualCrmPanel({ listings, user }) {
                   <div key={summary.unitKey}>
                     <strong>{summary.listingName} • Unit {summary.unitNumber}</strong>
                     <span>{summary.occupied} occupied • {summary.available} available • {summary.maintenance} blocked</span>
-                    <small>{formatCurrency(summary.revenue - summary.expense)} net from {summary.entries} entr{summary.entries === 1 ? "y" : "ies"}</small>
+                    <small>{formatCurrency(summary.price)} price total from {summary.entries} entr{summary.entries === 1 ? "y" : "ies"}</small>
                   </div>
                 ))}
               </div>
@@ -7421,18 +7417,18 @@ function HostManualCrmPanel({ listings, user }) {
 
             {sortedMonthDailyEntries.length === 0 ? (
               <p className="host-revenue-empty">No daily unit entries saved for this month.</p>
-            ) : sortedMonthDailyEntries.map(entry => (
-              <div className="manual-crm-row manual-daily-row" key={entry.id}>
-                <div>
-                  <strong>{entry.entryDate} • Unit {entry.unitNumber || 1}</strong>
+	            ) : sortedMonthDailyEntries.map(entry => (
+	              <div className="manual-crm-row manual-daily-row" key={entry.id}>
+	                <div>
+	                  <strong>{entry.entryDate} • Unit {entry.unitNumber || 1}</strong>
                   <span>{entry.listingName || listingsById[entry.listingId]?.name || "Property"} • {entry.status || "Manual status"} • {entry.platform || "Manual"}</span>
                   <small>
-                    {entry.guestName || "No guest"}{entry.guestPhone ? ` • ${entry.guestPhone}` : ""}{entry.notes ? ` • ${entry.notes}` : ""}
+                    {entry.guestName || "No guest"}{entry.guestPhone ? ` • ${entry.guestPhone}` : ""}{entry.guestAddress ? ` • ${entry.guestAddress}` : ""}{entry.notes ? ` • ${entry.notes}` : ""}
                   </small>
                 </div>
                 <div className="manual-daily-money">
-                  <strong>{formatCurrency(entry.revenue || entry.amount || 0)}</strong>
-                  <small>{Number(entry.expense) > 0 ? `-${formatCurrency(entry.expense)}` : entry.paymentStatus || "Manual"}</small>
+                  <strong>{formatCurrency(getDailyEntryPrice(entry))}</strong>
+                  <small>{entry.paymentStatus || "Manual"}</small>
                 </div>
                 <button
                   type="button"
