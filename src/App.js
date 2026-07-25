@@ -7,6 +7,7 @@ import {
   onSnapshot,
   doc,
   getDoc,
+  setDoc,
   updateDoc,
   serverTimestamp,
   query,
@@ -24,13 +25,15 @@ import {
   signInWithPopup,
   signOut
 } from "firebase/auth";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Link,
   useParams,
-  useNavigate
+  useNavigate,
+  useLocation
 } from "react-router-dom";
 import {
   FiUser, FiMapPin, FiHome, FiStar, FiWifi, FiTv, FiCoffee, FiDroplet, FiSearch,
@@ -45,6 +48,15 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import heroImage from "./prairie-haven-51f728.jpg";
 import "./App.css";
+import { PUBLIC_HOMESTAY_LISTINGS } from "./data/publicHomestays.mjs";
+import { GENERATED_STATIC_SEO_GUIDES } from "./data/staticSeoGuides.mjs";
+import {
+  CONFIRMED_OSM_POOL_STAY_COUNT,
+  MAP_POOL_HOMESTAY_LEAD_COUNT,
+  OSM_ATTRIBUTION,
+  POOL_HOMESTAY_CANDIDATE_COUNT,
+  POOL_HOMESTAY_CANDIDATES
+} from "./data/poolHomestayCandidates.mjs";
 
 const logo = `${process.env.PUBLIC_URL || ""}/homavia-logo.jpg`;
 
@@ -71,6 +83,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const functionsClient = getFunctions(app);
 const provider = new GoogleAuthProvider();
 
 /* ------------------------------
@@ -88,10 +101,73 @@ const isAdminUser = (user) => !!user && user.email === ADMIN_EMAIL;
 /* ------------------------------
    Analytics Tracking Functions
 ------------------------------ */
+const ANALYTICS_COLLECTION = "analytics";
+const PRIVATE_TRAFFIC_PATH_PREFIXES = [
+  "/admin",
+  "/my-listings",
+  "/add-homestay",
+  "/edit-homestay",
+  "/login"
+];
+
+const getTrafficSessionId = () => {
+  if (typeof window === "undefined") return "server";
+
+  try {
+    const storageKey = "homavia_traffic_session_id";
+    const existing = window.localStorage.getItem(storageKey);
+    if (existing) return existing;
+
+    const nextId = `hv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+    window.localStorage.setItem(storageKey, nextId);
+    return nextId;
+  } catch {
+    return `hv_${Date.now().toString(36)}`;
+  }
+};
+
+const getDeviceType = () => {
+  if (typeof window === "undefined") return "unknown";
+  const width = window.innerWidth || 0;
+  if (width < 768) return "mobile";
+  if (width < 1024) return "tablet";
+  return "desktop";
+};
+
+const getReferrerHost = () => {
+  if (typeof document === "undefined" || !document.referrer) return "direct";
+
+  try {
+    const referrerUrl = new URL(document.referrer);
+    return referrerUrl.hostname || "direct";
+  } catch {
+    return "direct";
+  }
+};
+
+const shouldTrackTrafficPath = (path = "") => (
+  !PRIVATE_TRAFFIC_PATH_PREFIXES.some(prefix => path === prefix || path.startsWith(`${prefix}/`))
+);
+
 const trackEvent = async (eventType, data = {}) => {
   try {
-    await addDoc(collection(db, "analytics"), {
-      eventType, // 'page_view', 'call_click', 'whatsapp_click'
+    const pagePath = data.pagePath || (typeof window !== "undefined"
+      ? `${window.location.pathname}${window.location.search}`
+      : "");
+
+    if (eventType === "page_view" && !shouldTrackTrafficPath(pagePath)) return;
+
+    await addDoc(collection(db, ANALYTICS_COLLECTION), {
+      eventType,
+      sessionId: getTrafficSessionId(),
+      pagePath,
+      pageTitle: data.pageTitle || (typeof document !== "undefined" ? document.title : ""),
+      referrerHost: data.referrerHost || getReferrerHost(),
+      referrer: typeof document !== "undefined" ? document.referrer.slice(0, 300) : "",
+      deviceType: getDeviceType(),
+      viewportWidth: typeof window !== "undefined" ? window.innerWidth || null : null,
+      language: typeof navigator !== "undefined" ? navigator.language || "" : "",
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
       timestamp: serverTimestamp(),
       ...data
     });
@@ -101,7 +177,7 @@ const trackEvent = async (eventType, data = {}) => {
 };
 
 const trackPageView = (pagePath, pageTitle) => {
-  trackEvent('page_view', { pagePath, pageTitle });
+  trackEvent('page_view', { pagePath, pageTitle, source: "route_tracker" });
 };
 
 const trackCallClick = (homestayId, homestayName) => {
@@ -173,6 +249,68 @@ const PRICE_TYPES = [
   { id: "perMonth", label: "Per Month", suffix: "month" }
 ];
 
+const PUBLIC_GOOGLE_HOMESTAYS = PUBLIC_HOMESTAY_LISTINGS.map(homestay => {
+  if (homestay.id !== "takeoff-heaven-1bhk-google") return homestay;
+
+  return {
+    ...homestay,
+    imageUrl: heroImage,
+    images: [heroImage]
+  };
+});
+
+const getPublicHomestayById = (id) => (
+  PUBLIC_GOOGLE_HOMESTAYS.find(homestay => homestay.id === id)
+);
+
+const HIDDEN_LISTING_STATUSES = new Set([
+  "draft",
+  "unpublished",
+  "private",
+  "inactive",
+  "rejected",
+  "archived",
+  "hidden"
+]);
+
+const hasOwnField = (value, field) => (
+  Object.prototype.hasOwnProperty.call(value || {}, field)
+);
+
+const isPublicHomestayListing = (homestay) => {
+  const status = String(
+    homestay?.status ||
+    homestay?.listingStatus ||
+    homestay?.approvalStatus ||
+    homestay?.visibility ||
+    ""
+  ).trim().toLowerCase();
+
+  if (HIDDEN_LISTING_STATUSES.has(status)) return false;
+
+  return !["published", "isPublished", "active", "isActive", "approved"].some(
+    field => hasOwnField(homestay, field) && homestay[field] === false
+  );
+};
+
+const normalizeHomestaySnapshot = (snapshot) => {
+  const liveHomestays = snapshot.docs
+    .map(entry => ({ id: entry.id, ...entry.data() }))
+    .filter(homestay => homestay.name && isPublicHomestayListing(homestay));
+
+  if (liveHomestays.length === 0) return PUBLIC_GOOGLE_HOMESTAYS;
+
+  const seenKeys = new Set(
+    liveHomestays.map(homestay => `${homestay.id}|${homestay.name}`.toLowerCase())
+  );
+  const publicFallbacks = PUBLIC_GOOGLE_HOMESTAYS.filter(homestay => {
+    const key = `${homestay.id}|${homestay.name}`.toLowerCase();
+    return !seenKeys.has(key);
+  });
+
+  return [...liveHomestays, ...publicFallbacks];
+};
+
 const PLATFORM_PRICE_OPTIONS = [
   { id: 'homavia', name: 'Homavia / Direct' },
   { id: 'airbnb', name: 'Airbnb' },
@@ -212,7 +350,18 @@ const HOST_MANUAL_BOOKINGS_COLLECTION = "hostManualBookings";
 const HOST_MANUAL_EXPENSES_COLLECTION = "hostManualExpenses";
 const HOST_MANUAL_GUESTS_COLLECTION = "hostManualGuests";
 const HOST_MANUAL_TASKS_COLLECTION = "hostManualTasks";
+const HOST_PROFILE_DOC_PREFIX = "hostProfile";
 const HOST_MANUAL_PLATFORMS = MANUAL_BLOCK_SOURCE_OPTIONS.map(option => option.name);
+const HOST_DAILY_ENTRY_RECORD_TYPE = "dailyEntry";
+const HOST_DAILY_ENTRY_STATUSES = [
+  "Occupied",
+  "Available",
+  "Maintenance",
+  "Owner block",
+  "Cleaning",
+  "Checkout",
+  "No show"
+];
 const HOST_EXPENSE_CATEGORIES = [
   "Cleaning",
   "Maintenance",
@@ -235,6 +384,295 @@ const HOST_EXPENSE_PAID_BY_OPTIONS = [
 ];
 const HOST_EXPENSE_PAYMENT_MODES = ["Cash", "UPI", "Bank transfer", "Card", "Wallet", "Other"];
 const HOST_EXPENSE_CUSTOM_PAID_BY = "__custom_paid_by__";
+const SEO_CONTENT_COLLECTION = "seoContent";
+const MARKETING_AGENT_RUNS_COLLECTION = "marketingAgentRuns";
+const SEO_CONTENT_CATEGORIES = [
+  "Homestay guide",
+  "City travel guide",
+  "Area guide",
+  "Host CRM guide",
+  "Revenue management guide",
+  "Listing growth guide",
+  "Calendar blocking guide",
+  "Bike rental guide",
+  "Car rental guide",
+  "Couple friendly stays",
+  "Hourly stay guide"
+];
+const MARKETING_AGENT_SEO_FOCUS_AREAS = [
+  "Listings SEO",
+  "Host CRM SEO",
+  "Revenue management SEO",
+  "Calendar blocking SEO",
+  "Bike rental SEO",
+  "Car rental SEO",
+  "City and area SEO",
+  "Technical SEO"
+];
+
+const STATIC_PUBLISHED_GUIDES = [
+  {
+    id: "static-takeoff-heaven-guwahati-airport-stay-guide",
+    slug: "hotel-takeoff-heaven-near-guwahati-airport-stay-guide",
+    status: "published",
+    title: "Hotel Takeoff Heaven Near Guwahati Airport: Stay Guide for Early Flights and Short Trips",
+    metaTitle: "Hotel Takeoff Heaven Near Guwahati Airport",
+    metaDescription: "Plan an airport-side stay at Hotel Takeoff Heaven near Guwahati Airport with 1BHK comfort, WiFi, parking, kitchen access, and host support.",
+    keywords: [
+      "Hotel Takeoff Heaven near Guwahati Airport",
+      "Takeoff Heaven Homestay",
+      "Takeoff Heaven 1BHK Guwahati",
+      "hotel near Guwahati Airport",
+      "homestay near Guwahati Airport",
+      "airport stay in Guwahati",
+      "Borjhar homestay",
+      "Garal Guwahati stay"
+    ],
+    introduction:
+      "Hotel Takeoff Heaven is an airport-side Guwahati stay for guests who want a simple, private, and comfortable base near Lokpriya Gopinath Bordoloi International Airport. It is especially useful for early flights, late arrivals, short Guwahati stopovers, and travelers who prefer apartment-style space over a standard room.",
+    sections: [
+      {
+        heading: "Why airport-side stays matter in Guwahati",
+        body:
+          "Many Guwahati travelers do not want to cross the city before an early morning flight or after a late arrival. An airport-side stay near Borjhar, Garal, or Kuhabari Road can reduce travel stress because guests can stay closer to the airport corridor and still reach key Guwahati areas with planned transport."
+      },
+      {
+        heading: "Who should consider Hotel Takeoff Heaven",
+        body:
+          "Takeoff Heaven works well for solo travelers, couples, families, business guests, and transit travelers who want a quieter stay near Guwahati Airport. The property is positioned around 1BHK-style comfort, so guests can look for more privacy, useful room space, and practical amenities instead of only a bed for the night."
+      },
+      {
+        heading: "Amenities guests usually search for",
+        body:
+          "Airport guests commonly check for WiFi, parking, kitchen access, AC availability, workspace, hot water, clean bathrooms, power backup, and easy host communication. These details matter because a short airport stay needs to be predictable, especially when a guest has a flight, family arrival, or next-day road trip."
+      },
+      {
+        heading: "How to plan check-in and airport movement",
+        body:
+          "Before booking, guests should confirm check-in timing, check-out timing, airport pickup or taxi availability, exact location guidance, luggage needs, and whether a late arrival is possible. Travel time can change with traffic and weather, so it is better to plan airport movement with a time buffer."
+      },
+      {
+        heading: "Why book through Homavia",
+        body:
+          "Homavia gives guests a direct way to discover Takeoff Heaven and compare verified stay details. For the host, Homavia also keeps listing data, calendar blocking, room availability, and manual booking records in one CRM, which helps guests see a more reliable stay experience over time."
+      }
+    ],
+    faq: [
+      {
+        question: "Is Hotel Takeoff Heaven near Guwahati Airport?",
+        answer:
+          "Yes. Takeoff Heaven is positioned as an airport-side Guwahati stay near the Borjhar/Garal airport corridor. Guests should confirm exact travel time before arrival because traffic and route conditions can change."
+      },
+      {
+        question: "Is Takeoff Heaven suitable for early morning flights?",
+        answer:
+          "Yes, it is a practical choice for early flights because guests can stay closer to the airport side of Guwahati. Confirm checkout timing, taxi planning, and airport reporting time before booking."
+      },
+      {
+        question: "Is Takeoff Heaven a hotel or homestay?",
+        answer:
+          "Guests may find it described as Hotel Takeoff Heaven, Takeoff Heaven Homestay, or Takeoff Heaven 1BHK across platforms. The useful thing to check is the room type, amenities, host rules, and booking details."
+      },
+      {
+        question: "Can families stay at Takeoff Heaven?",
+        answer:
+          "Yes, the apartment-style setup can suit families, couples, and solo travelers. Guests should confirm guest count, extra guest policy, kitchen use, and house rules before booking."
+      }
+    ],
+    relatedLinks: [
+      { label: "Search Takeoff Heaven", path: "/?city=Guwahati&search=Takeoff%20Heaven" },
+      { label: "Takeoff Heaven Google location", path: "https://share.google/8sL29nkbVFrPy2Rut" },
+      { label: "Takeoff Heaven 1BHK guide", path: "/travel-guides/takeoff-heaven-1bhk-guwahati-airport-family-couple-guide" },
+      { label: "Bike rental in Guwahati", path: "/bike-rental" },
+      { label: "Read more travel guides", path: "/travel-guides" }
+    ],
+    cta: "Search Takeoff Heaven on Homavia and confirm airport-side availability, guest count, timing, and host rules before booking.",
+    category: "Area guide",
+    city: "Guwahati",
+    targetKeyword: "Hotel Takeoff Heaven near Guwahati Airport",
+    createdAt: "2026-06-08T00:00:00+05:30",
+    updatedAt: "2026-06-08T00:00:00+05:30",
+    publishedAt: "2026-06-08T00:00:00+05:30"
+  },
+  {
+    id: "static-takeoff-heaven-1bhk-airport-family-guide",
+    slug: "takeoff-heaven-1bhk-guwahati-airport-family-couple-guide",
+    status: "published",
+    title: "Takeoff Heaven 1BHK Guwahati Airport Guide for Families, Couples, and Solo Travelers",
+    metaTitle: "Takeoff Heaven 1BHK Guwahati Airport Guide",
+    metaDescription: "See why Takeoff Heaven 1BHK near Guwahati Airport suits families, couples, solo guests, work trips, and short private stays.",
+    keywords: [
+      "Takeoff Heaven 1BHK Guwahati",
+      "1BHK near Guwahati Airport",
+      "family stay near Guwahati Airport",
+      "couple stay near Guwahati Airport",
+      "private apartment near Guwahati Airport",
+      "airport homestay Guwahati",
+      "Takeoff Heaven apartment"
+    ],
+    introduction:
+      "Takeoff Heaven 1BHK is useful for travelers who want a private apartment-style stay near Guwahati Airport. Instead of choosing only by price, guests should compare privacy, room layout, kitchen access, parking, WiFi, work setup, guest rules, and airport movement.",
+    sections: [
+      {
+        heading: "Why 1BHK airport stays rank well",
+        body:
+          "Search demand near Guwahati Airport is practical. Guests look for private rooms, 1BHK apartments, family stays, couple-friendly stays, parking, kitchen access, and flexible timing. A clear 1BHK guide helps Takeoff Heaven appear for searches that are more specific than only hotel near Guwahati Airport."
+      },
+      {
+        heading: "For families",
+        body:
+          "Families often need more than a bed. They check whether the stay has enough space, a usable kitchen, parking, clean bathrooms, easy luggage handling, and a host who can explain directions. A 1BHK near the airport can be useful before flights, after long drives, or during short Guwahati visits."
+      },
+      {
+        heading: "For couples and solo travelers",
+        body:
+          "Couples and solo guests usually care about privacy, safety, ID rules, WiFi, quiet surroundings, and easy check-in. Before booking Takeoff Heaven, guests should confirm house rules, maximum occupancy, arrival timing, and whether any extra guest charges apply."
+      },
+      {
+        heading: "For work and transit trips",
+        body:
+          "Business and transit travelers should check WiFi strength, desk or table availability, charging points, phone network, taxi access, and power backup. These small details matter when the stay is short and the guest needs to work, rest, and leave on time."
+      },
+      {
+        heading: "How Homavia supports Takeoff Heaven",
+        body:
+          "Homavia can connect this property-focused guide to the live Takeoff Heaven listing, related Guwahati guides, and rental pages. Internal links help Google understand that Takeoff Heaven is part of a broader Guwahati airport stay cluster rather than an isolated listing."
+      }
+    ],
+    faq: [
+      {
+        question: "Who is Takeoff Heaven 1BHK best for?",
+        answer:
+          "It is best for guests who want private apartment-style comfort near Guwahati Airport, including families, couples, solo travelers, business guests, and short-stay visitors."
+      },
+      {
+        question: "What should I confirm before booking a 1BHK near Guwahati Airport?",
+        answer:
+          "Confirm location, guest count, check-in timing, checkout timing, kitchen use, parking, WiFi, AC, extra guest charges, cancellation terms, and taxi planning."
+      },
+      {
+        question: "Can a 1BHK stay be better than a hotel room?",
+        answer:
+          "Yes, when guests want more privacy, more usable space, a kitchen, and a home-like stay. A hotel room may be better for guests who need reception service and standardized hotel facilities."
+      },
+      {
+        question: "How does this blog help Takeoff Heaven rank?",
+        answer:
+          "It targets specific searches such as Takeoff Heaven 1BHK Guwahati, family stay near Guwahati Airport, and private apartment near Guwahati Airport, then links those searches back into Homavia."
+      }
+    ],
+    relatedLinks: [
+      { label: "Search Takeoff Heaven", path: "/?city=Guwahati&search=Takeoff%20Heaven" },
+      { label: "Takeoff Heaven Google location", path: "https://share.google/8sL29nkbVFrPy2Rut" },
+      { label: "Airport stay guide", path: "/travel-guides/hotel-takeoff-heaven-near-guwahati-airport-stay-guide" },
+      { label: "Airport stay guide", path: "/travel-guides/hotel-takeoff-heaven-near-guwahati-airport-stay-guide" },
+      { label: "Open Host CRM", path: "/my-listings" }
+    ],
+    cta: "Use Homavia to find Takeoff Heaven 1BHK and confirm the right unit, guest count, and airport-side timing before booking.",
+    category: "Homestay guide",
+    city: "Guwahati",
+    targetKeyword: "Takeoff Heaven 1BHK Guwahati",
+    createdAt: "2026-06-08T00:00:00+05:30",
+    updatedAt: "2026-06-08T00:00:00+05:30",
+    publishedAt: "2026-06-08T00:00:00+05:30"
+  },
+  {
+    id: "static-guwahati-airport-hotel-booking-checklist-takeoff-heaven",
+    slug: "guwahati-airport-hotel-booking-checklist-takeoff-heaven",
+    status: "published",
+    title: "Guwahati Airport Hotel Booking Checklist: When to Choose Takeoff Heaven",
+    metaTitle: "Guwahati Airport Hotel Booking Checklist",
+    metaDescription: "Use this Guwahati Airport hotel checklist for early flights, late arrivals, family stays, 1BHK apartments, parking, WiFi, and Takeoff Heaven.",
+    keywords: [
+      "Guwahati Airport hotel booking",
+      "hotel near Lokpriya Gopinath Bordoloi Airport",
+      "Guwahati airport hotel checklist",
+      "Takeoff Heaven near airport",
+      "short stay near Guwahati Airport",
+      "late arrival stay Guwahati Airport",
+      "early flight hotel Guwahati"
+    ],
+    introduction:
+      "Booking a stay near Guwahati Airport is different from booking a city hotel. Guests need to think about flight timing, taxi access, luggage, check-in rules, sleep quality, parking, WiFi, and whether the room type suits a family, couple, solo traveler, or work trip. Takeoff Heaven is one airport-side option to consider when those details matter.",
+    sections: [
+      {
+        heading: "Start with flight timing",
+        body:
+          "For early flights, choose a stay that reduces morning travel stress. For late arrivals, confirm whether the host can support your arrival window and provide clear directions. Always keep a buffer for security reporting time, traffic, rain, and route delays."
+      },
+      {
+        heading: "Compare location and access",
+        body:
+          "Airport-side areas such as Borjhar, Garal, and nearby airport corridors can be more practical than central Guwahati for transit stays. Guests should still confirm the exact pickup point, route, and travel time because airport access can vary by time of day."
+      },
+      {
+        heading: "Check the stay type",
+        body:
+          "A 1BHK or apartment-style stay can be better for guests who need a kitchen, work desk, private space, parking, and family comfort. A standard hotel room can be better for guests who want reception support, restaurant service, and hotel-style operations."
+      },
+      {
+        heading: "Look for practical amenities",
+        body:
+          "For an airport stay, the most important amenities are clean bedding, WiFi, AC or fan comfort, parking, hot water, power backup, kitchen basics, good phone communication, and easy checkout. These are the details guests search for before choosing a hotel or homestay near Guwahati Airport."
+      },
+      {
+        heading: "Where Takeoff Heaven fits",
+        body:
+          "Takeoff Heaven should be positioned as a practical airport-side stay for guests searching for a private 1BHK, homestay, apartment, or hotel-style option near Guwahati Airport. The strongest SEO angle is clear: near airport, private space, useful amenities, and direct Homavia discovery."
+      }
+    ],
+    faq: [
+      {
+        question: "What is the best type of stay near Guwahati Airport?",
+        answer:
+          "For transit, early flights, and family comfort, a private 1BHK or airport-side homestay can be useful. For full-service needs, a hotel may be better. The best choice depends on timing, budget, and guest needs."
+      },
+      {
+        question: "Should I stay near the airport or central Guwahati?",
+        answer:
+          "Stay near the airport for early flights, late arrivals, or short stopovers. Stay in central Guwahati if your main work is around GS Road, Paltan Bazar, Pan Bazaar, or city attractions."
+      },
+      {
+        question: "Why include Takeoff Heaven in airport hotel searches?",
+        answer:
+          "Takeoff Heaven matches the airport-side intent because guests search for hotel, homestay, apartment, and 1BHK options near Guwahati Airport. A clear blog page helps Google connect those searches to Homavia."
+      },
+      {
+        question: "Can I book Takeoff Heaven directly from Homavia?",
+        answer:
+          "Guests can use Homavia to discover the property and check the current listing details, then confirm availability, pricing, and house rules before booking."
+      }
+    ],
+    relatedLinks: [
+      { label: "Search Takeoff Heaven", path: "/?city=Guwahati&search=Takeoff%20Heaven" },
+      { label: "Takeoff Heaven Google location", path: "https://share.google/8sL29nkbVFrPy2Rut" },
+      { label: "Takeoff Heaven 1BHK guide", path: "/travel-guides/takeoff-heaven-1bhk-guwahati-airport-family-couple-guide" },
+      { label: "Guwahati airport stay guide", path: "/travel-guides/hotel-takeoff-heaven-near-guwahati-airport-stay-guide" },
+      { label: "Car rentals", path: "/car-rental" }
+    ],
+    cta: "Search Takeoff Heaven on Homavia when you need an airport-side Guwahati stay for early flights, late arrivals, or private 1BHK comfort.",
+    category: "Area guide",
+    city: "Guwahati",
+    targetKeyword: "Guwahati Airport hotel booking",
+    createdAt: "2026-06-08T00:00:00+05:30",
+    updatedAt: "2026-06-08T00:00:00+05:30",
+    publishedAt: "2026-06-08T00:00:00+05:30"
+  }
+];
+
+const ACTIVE_STATIC_PUBLISHED_GUIDES = [
+  ...STATIC_PUBLISHED_GUIDES,
+  ...GENERATED_STATIC_SEO_GUIDES
+];
+const TOP_HOMESTAY_GUIDES = ACTIVE_STATIC_PUBLISHED_GUIDES
+  .filter(guide => guide.source === "static-top-homestays-india")
+  .sort((a, b) => String(a.city || a.title).localeCompare(String(b.city || b.title)));
+const ONE_YEAR_BLOG_GUIDES = ACTIVE_STATIC_PUBLISHED_GUIDES
+  .filter(guide => guide.source === "static-one-year-blog-plan")
+  .sort((a, b) => String(a.title).localeCompare(String(b.title)));
+const MAP_HOMESTAY_AREA_GUIDES = ACTIVE_STATIC_PUBLISHED_GUIDES
+  .filter(guide => guide.source === "static-map-homestay-areas")
+  .sort((a, b) => String(a.city || a.title).localeCompare(String(b.city || b.title)));
 
 /* ------------------------------
    Helper Functions
@@ -264,6 +702,79 @@ const ensureSentence = (value = "") => {
   if (!clean) return "";
   return /[.!?]$/.test(clean) ? clean : `${clean}.`;
 };
+
+const createContentSlug = (title = "") => {
+  const baseSlug = toPlainText(title)
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/\+/g, "plus")
+    .replace(/@/g, "at")
+    .replace(/'/g, "")
+    .replace(/"/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/[\s-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .substring(0, 70)
+    .replace(/-+$/g, "");
+
+  return baseSlug || `homavia-guide-${Date.now()}`;
+};
+
+const normalizeSeoContentDraft = (draft = {}, fallbackTopic = "") => {
+  const rawSections = Array.isArray(draft.sections) ? draft.sections : [];
+  const sections = rawSections
+    .map(section => ({
+      heading: toPlainText(section?.heading || ""),
+      body: toPlainText(section?.body || section?.content || "")
+    }))
+    .filter(section => section.heading && section.body);
+
+  return {
+    title: toPlainText(draft.title || fallbackTopic || "Homavia Travel Guide"),
+    metaTitle: toPlainText(draft.metaTitle || draft.title || fallbackTopic || "Homavia Travel Guide"),
+    metaDescription: truncateMeta(draft.metaDescription || draft.introduction || DEFAULT_DESCRIPTION),
+    keywords: Array.isArray(draft.keywords)
+      ? draft.keywords.map(keyword => toPlainText(keyword)).filter(Boolean).slice(0, 12)
+      : [],
+    introduction: toPlainText(draft.introduction || ""),
+    sections,
+    faq: (Array.isArray(draft.faq) ? draft.faq : [])
+      .map(item => ({
+        question: toPlainText(item?.question || ""),
+        answer: toPlainText(item?.answer || "")
+      }))
+      .filter(item => item.question && item.answer)
+      .slice(0, 6),
+    cta: toPlainText(draft.cta || "Explore verified Homavia stays and travel rentals before you book.")
+  };
+};
+
+const normalizeStringList = (items = [], limit = 12) => (
+  (Array.isArray(items) ? items : [])
+    .map(item => toPlainText(item))
+    .filter(Boolean)
+    .slice(0, limit)
+);
+
+const normalizeMarketingAgentResult = (result = {}, fallbackTopic = "") => ({
+  summary: toPlainText(result.summary || "Website SEO plan generated for Homavia."),
+  seoDraft: normalizeSeoContentDraft(result.seoDraft || result.draft || result, fallbackTopic),
+  sitePlan: normalizeStringList(result.sitePlan || result.campaignPlan || result.plan || [], 10),
+  landingPages: normalizeStringList(result.landingPages || result.websitePages || result.pages || [], 12),
+  contentClusters: normalizeStringList(result.contentClusters || result.clusters || [], 12),
+  internalLinks: normalizeStringList(result.internalLinks || result.links || [], 12),
+  technicalSeoTasks: normalizeStringList(result.technicalSeoTasks || result.technicalTasks || [], 12),
+  schemaIdeas: normalizeStringList(result.schemaIdeas || result.schema || [], 8),
+  weeklyTasks: normalizeStringList(result.weeklyTasks || result.tasks || [], 12),
+  qualityChecklist: normalizeStringList(result.qualityChecklist || result.checklist || [], 12),
+  sourceLinks: (Array.isArray(result.sourceLinks) ? result.sourceLinks : [])
+    .map(source => ({
+      title: toPlainText(source?.title || source?.url || ""),
+      url: toPlainText(source?.url || "")
+    }))
+    .filter(source => source.url)
+    .slice(0, 8)
+});
 
 const normalizeSeoImage = (image) => {
   if (!image) return DEFAULT_OG_IMAGE;
@@ -310,6 +821,59 @@ function SeoHelmet({
   const imageUrl = normalizeSeoImage(image);
   const schemaItems = (Array.isArray(schema) ? schema : [schema]).filter(Boolean);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const upsertMeta = (selector, attributes) => {
+      let element = document.head.querySelector(selector);
+      if (!element) {
+        element = document.createElement("meta");
+        document.head.appendChild(element);
+      }
+      Object.entries(attributes).forEach(([key, value]) => {
+        element.setAttribute(key, value);
+      });
+    };
+
+    const upsertLink = (selector, attributes) => {
+      let element = document.head.querySelector(selector);
+      if (!element) {
+        element = document.createElement("link");
+        document.head.appendChild(element);
+      }
+      Object.entries(attributes).forEach(([key, value]) => {
+        element.setAttribute(key, value);
+      });
+    };
+
+    document.documentElement.lang = SITE_LANGUAGE;
+    document.title = metaTitle;
+    upsertMeta('meta[name="description"]', { name: "description", content: metaDescription });
+    upsertMeta('meta[name="keywords"]', { name: "keywords", content: keywords });
+    upsertMeta('meta[name="author"]', { name: "author", content: SITE_NAME });
+    upsertMeta('meta[name="robots"]', { name: "robots", content: robots });
+    upsertLink('link[rel="canonical"]', { rel: "canonical", href: canonicalUrl });
+
+    upsertMeta('meta[property="og:type"]', { property: "og:type", content: type });
+    upsertMeta('meta[property="og:url"]', { property: "og:url", content: canonicalUrl });
+    upsertMeta('meta[property="og:title"]', { property: "og:title", content: metaTitle });
+    upsertMeta('meta[property="og:description"]', { property: "og:description", content: metaDescription });
+    upsertMeta('meta[property="og:image"]', { property: "og:image", content: imageUrl });
+    upsertMeta('meta[property="og:image:alt"]', { property: "og:image:alt", content: imageAlt });
+    upsertMeta('meta[property="og:site_name"]', { property: "og:site_name", content: SITE_NAME });
+    upsertMeta('meta[property="og:locale"]', { property: "og:locale", content: SITE_LOCALE });
+
+    upsertMeta('meta[name="twitter:card"]', { name: "twitter:card", content: "summary_large_image" });
+    upsertMeta('meta[name="twitter:url"]', { name: "twitter:url", content: canonicalUrl });
+    upsertMeta('meta[name="twitter:title"]', { name: "twitter:title", content: metaTitle });
+    upsertMeta('meta[name="twitter:description"]', { name: "twitter:description", content: metaDescription });
+    upsertMeta('meta[name="twitter:image"]', { name: "twitter:image", content: imageUrl });
+    upsertMeta('meta[name="twitter:image:alt"]', { name: "twitter:image:alt", content: imageAlt });
+
+    upsertLink('link[rel="alternate"][hreflang="en-in"]', { rel: "alternate", hreflang: "en-in", href: canonicalUrl });
+    upsertLink('link[rel="alternate"][hreflang="x-default"]', { rel: "alternate", hreflang: "x-default", href: canonicalUrl });
+  }, [canonicalUrl, imageAlt, imageUrl, keywords, metaDescription, metaTitle, robots, type]);
+
   return (
     <Helmet>
       <html lang={SITE_LANGUAGE} />
@@ -350,6 +914,23 @@ function SeoHelmet({
   );
 }
 
+function WebsiteTrafficTracker() {
+  const location = useLocation();
+
+  useEffect(() => {
+    const pagePath = `${location.pathname}${location.search}`;
+    if (!shouldTrackTrafficPath(pagePath)) return undefined;
+
+    const timer = window.setTimeout(() => {
+      trackPageView(pagePath, document.title || pagePath);
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [location.pathname, location.search]);
+
+  return null;
+}
+
 // Create SEO-friendly URL slug from homestay name, city, and ID
 const createSlug = (name, id, city = '') => {
   // Clean and normalize the name
@@ -388,6 +969,8 @@ const createSlug = (name, id, city = '') => {
 // Extract ID from slug (always the last segment after final hyphen)
 const getIdFromSlug = (slug) => {
   if (!slug) return null;
+  const publicListing = PUBLIC_GOOGLE_HOMESTAYS.find(homestay => slug.endsWith(`-${homestay.id}`) || slug === homestay.id);
+  if (publicListing) return publicListing.id;
   const parts = slug.split('-');
   return parts[parts.length - 1];
 };
@@ -2661,7 +3244,7 @@ function BrandLogo({ compact = false }) {
 /* ------------------------------
    Homestay Listing
 ------------------------------ */
-function HomestayListing({ homestays }) {
+function HomestayListing({ homestays, loading = false }) {
   const [selectedCity, setSelectedCity] = useState("All");
   const [selectedArea, setSelectedArea] = useState("All");
   const [coupleFriendlyOnly, setCoupleFriendlyOnly] = useState(false);
@@ -2900,12 +3483,17 @@ function HomestayListing({ homestays }) {
     }
   };
 
+  const visibleHomestayCount = sortedHomestays.length || homestays.length;
+  const inventoryPhrase = visibleHomestayCount > 0
+    ? `${visibleHomestayCount}+ verified homestays`
+    : "verified homestays";
+
   const homeTitle = selectedCity !== "All"
     ? `Verified Homestays in ${selectedCity} | Homavia`
     : "Homavia - Verified Homestays, Bike Rentals & Car Rentals in India";
   const homeDescription = selectedCity !== "All"
-    ? `Browse ${sortedHomestays.length}+ verified homestays in ${selectedCity}. Compare transparent prices, check calendar availability, and contact hosts directly on Homavia.`
-    : `Explore ${sortedHomestays.length}+ verified homestays across India with bike and car rentals, couple-friendly options, live filters, and direct host contact.`;
+    ? `Browse ${inventoryPhrase} in ${selectedCity}. Compare transparent prices, check calendar availability, and contact hosts directly on Homavia.`
+    : `Explore ${inventoryPhrase} across India with bike and car rentals, couple-friendly options, live filters, and direct host contact.`;
   const homeCanonicalPath = selectedCity !== "All" ? `/?city=${encodeURIComponent(selectedCity)}` : "/";
   const itemListSchema = sortedHomestays.length > 0 ? {
     "@context": "https://schema.org",
@@ -3020,7 +3608,7 @@ function HomestayListing({ homestays }) {
           </p>
           <div style={styles.heroStats} className="home-hero-stats">
             <div style={styles.heroStat}>
-              <p style={styles.heroStatValue}>{homestays.length || sortedHomestays.length}+</p>
+              <p style={styles.heroStatValue}>{visibleHomestayCount > 0 ? `${visibleHomestayCount}+` : "Live"}</p>
               <p style={styles.heroStatLabel}>listed stays</p>
             </div>
             <div style={styles.heroStat}>
@@ -3886,7 +4474,22 @@ function HomestayListing({ homestays }) {
         </div>
       )}
 
-      {sortedHomestays.length === 0 ? (
+      {loading && homestays.length === 0 ? (
+        <div style={styles.loaderContainer}>
+          <div style={styles.spinner}></div>
+          <h3 style={{
+            fontSize: 20,
+            fontWeight: 600,
+            color: '#1f2937',
+            marginBottom: 8
+          }}>Loading verified stays</h3>
+          <p style={{
+            fontSize: 14,
+            color: '#6b7280',
+            marginBottom: 20
+          }}>Fetching the latest Homavia inventory for this page.</p>
+        </div>
+      ) : sortedHomestays.length === 0 ? (
         <div style={styles.loaderContainer}>
           <div style={{
             width: 56,
@@ -4289,7 +4892,10 @@ function AddHomestayForm() {
         rating: Math.floor(Math.random() * 2) + 4,
         icalUrl: calendarLinks[0]?.url || "",
         calendarLinks,
-        manualBlockedDates: normalizeManualBlockedDates(form.manualBlockedDates)
+        manualBlockedDates: normalizeManualBlockedDates(form.manualBlockedDates),
+        status: "published",
+        published: true,
+        publishedAt: serverTimestamp()
       });
 
       setForm({
@@ -5535,9 +6141,6 @@ function HomestayDetail() {
       if (docSnap.exists()) {
         const data = { id: docSnap.id, ...docSnap.data() };
         setHomestay(data);
-        
-        // Track page view
-        trackPageView(`/homestays/${slug}`, data.name);
         try {
           const dates = await getListingBlockedDates(data);
           setBookedDates(dates);
@@ -5545,6 +6148,10 @@ function HomestayDetail() {
           console.log('Could not fetch calendar:', err);
           setBookedDates(getManualBlockedCalendarDates(data.manualBlockedDates));
         }
+      } else if (getPublicHomestayById(id)) {
+        const data = getPublicHomestayById(id);
+        setHomestay(data);
+        setBookedDates(getManualBlockedCalendarDates(data.manualBlockedDates));
       } else {
         navigate("/");
       }
@@ -5619,6 +6226,7 @@ function HomestayDetail() {
       ? `https://www.google.com/maps/search/?api=1&query=${homestay.latitude},${homestay.longitude}`
       : undefined,
     "telephone": homestay.contact || CONTACT_PHONE,
+    "sameAs": homestay.googleMapLink ? [homestay.googleMapLink] : undefined,
     "priceRange": homestay.price ? `INR ${homestay.price}` : undefined,
     "aggregateRating": homestay.rating && homestay.reviewCount ? {
       "@type": "AggregateRating",
@@ -5947,6 +6555,24 @@ function HomestayDetail() {
             </a>
           </div>
 
+          {homestay.googleMapLink && (
+            <a
+              href={homestay.googleMapLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                ...styles.bookButton,
+                marginTop: 10,
+                backgroundColor: '#ffffff',
+                color: designTokens.colors.primary,
+                border: `1px solid ${designTokens.colors.primary}`,
+                textDecoration: 'none'
+              }}
+            >
+              <FiMapPin /> Open Google location
+            </a>
+          )}
+
           {auth.currentUser?.uid === homestay.createdBy && (
             <>
               <button
@@ -5984,9 +6610,29 @@ function HomestayDetail() {
 /* ------------------------------
    Manual Host CRM Panel
 ------------------------------ */
+const createDailyEntryForm = (listingId = "") => ({
+  listingId,
+  entryDate: getLocalDateKey(new Date()),
+  unitNumber: "1",
+  status: "Occupied",
+  platform: "Homavia / Direct booking",
+  guestName: "",
+  guestPhone: "",
+  revenue: "",
+  expense: "",
+  paymentStatus: "Paid",
+  notes: ""
+});
+
+const createDailyEntryDocId = (uid, listingId, entryDate, unitNumber) => (
+  [HOST_DAILY_ENTRY_RECORD_TYPE, uid, listingId, entryDate, `unit${unitNumber}`]
+    .join("_")
+    .replace(/[^A-Za-z0-9_-]/g, "_")
+);
+
 function HostManualCrmPanel({ listings, user }) {
   const [monthValue, setMonthValue] = useState(getMonthValue());
-  const [activeTab, setActiveTab] = useState("bookings");
+  const [activeTab, setActiveTab] = useState("daily");
   const [bookings, setBookings] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [guests, setGuests] = useState([]);
@@ -5995,6 +6641,7 @@ function HostManualCrmPanel({ listings, user }) {
   const [saveError, setSaveError] = useState("");
   const firstListingId = listings[0]?.id || "";
   const hostPaidByName = user?.displayName || user?.email || "Host";
+  const [dailyEntryForm, setDailyEntryForm] = useState(createDailyEntryForm(firstListingId));
   const [bookingForm, setBookingForm] = useState({
     listingId: firstListingId,
     platform: "Homavia / Direct booking",
@@ -6050,6 +6697,7 @@ function HostManualCrmPanel({ listings, user }) {
   useEffect(() => {
     if (!firstListingId) return;
 
+    setDailyEntryForm(current => current.listingId ? current : { ...current, listingId: firstListingId });
     setBookingForm(current => current.listingId ? current : { ...current, listingId: firstListingId });
     setExpenseForm(current => current.listingId ? current : { ...current, listingId: firstListingId });
     setTaskForm(current => current.listingId ? current : { ...current, listingId: firstListingId });
@@ -6108,13 +6756,99 @@ function HostManualCrmPanel({ listings, user }) {
     }, {});
   }, [listings]);
 
+  const manualBookings = useMemo(() => (
+    bookings.filter(booking => booking.recordType !== HOST_DAILY_ENTRY_RECORD_TYPE)
+  ), [bookings]);
+
+  const dailyEntries = useMemo(() => (
+    bookings.filter(booking => booking.recordType === HOST_DAILY_ENTRY_RECORD_TYPE)
+  ), [bookings]);
+
   const monthBookings = useMemo(() => (
-    bookings.filter(booking => String(booking.checkIn || "").startsWith(monthValue))
-  ), [bookings, monthValue]);
+    manualBookings.filter(booking => String(booking.checkIn || "").startsWith(monthValue))
+  ), [manualBookings, monthValue]);
+
+  const monthDailyEntries = useMemo(() => (
+    dailyEntries.filter(entry => String(entry.entryDate || "").startsWith(monthValue))
+  ), [dailyEntries, monthValue]);
 
   const monthExpenses = useMemo(() => (
     expenses.filter(expense => String(expense.expenseDate || "").startsWith(monthValue))
   ), [expenses, monthValue]);
+
+  const selectedDailyListing = listingsById[dailyEntryForm.listingId] || listings[0];
+  const dailyEntryUnitOptions = useMemo(() => {
+    const unitCount = getListingUnitCount(selectedDailyListing);
+    return Array.from({ length: unitCount }, (_, index) => String(index + 1));
+  }, [selectedDailyListing]);
+
+  useEffect(() => {
+    if (!dailyEntryUnitOptions.length) return;
+    setDailyEntryForm(current => (
+      dailyEntryUnitOptions.includes(String(current.unitNumber))
+        ? current
+        : { ...current, unitNumber: dailyEntryUnitOptions[0] }
+    ));
+  }, [dailyEntryUnitOptions]);
+
+  const dailyEntryTotals = useMemo(() => {
+    const unitMap = {};
+    let totalRevenue = 0;
+    let totalExpenses = 0;
+    let occupiedDays = 0;
+
+    monthDailyEntries.forEach(entry => {
+      const revenue = Number(entry.revenue) || 0;
+      const expense = Number(entry.expense) || 0;
+      const unitNumber = String(entry.unitNumber || "1");
+      const listingName = entry.listingName || listingsById[entry.listingId]?.name || "Property";
+      const unitKey = `${entry.listingId || listingName}_${unitNumber}`;
+
+      totalRevenue += revenue;
+      totalExpenses += expense;
+      if (entry.status === "Occupied") occupiedDays += 1;
+
+      if (!unitMap[unitKey]) {
+        unitMap[unitKey] = {
+          unitKey,
+          listingName,
+          unitNumber,
+          entries: 0,
+          occupied: 0,
+          available: 0,
+          maintenance: 0,
+          revenue: 0,
+          expense: 0
+        };
+      }
+
+      unitMap[unitKey].entries += 1;
+      unitMap[unitKey].revenue += revenue;
+      unitMap[unitKey].expense += expense;
+      if (entry.status === "Occupied") unitMap[unitKey].occupied += 1;
+      if (entry.status === "Available") unitMap[unitKey].available += 1;
+      if (entry.status === "Maintenance" || entry.status === "Owner block") unitMap[unitKey].maintenance += 1;
+    });
+
+    return {
+      totalRevenue,
+      totalExpenses,
+      netRevenue: totalRevenue - totalExpenses,
+      occupiedDays,
+      unitSummaries: Object.values(unitMap).sort((a, b) => (
+        a.listingName.localeCompare(b.listingName) ||
+        Number(a.unitNumber) - Number(b.unitNumber)
+      ))
+    };
+  }, [listingsById, monthDailyEntries]);
+
+  const sortedMonthDailyEntries = useMemo(() => {
+    return [...monthDailyEntries].sort((a, b) => (
+      String(b.entryDate || "").localeCompare(String(a.entryDate || "")) ||
+      (a.listingName || listingsById[a.listingId]?.name || "").localeCompare(b.listingName || listingsById[b.listingId]?.name || "") ||
+      Number(a.unitNumber || 1) - Number(b.unitNumber || 1)
+    ));
+  }, [listingsById, monthDailyEntries]);
 
   const crmTotals = useMemo(() => {
     const platformMap = {};
@@ -6202,6 +6936,56 @@ function HostManualCrmPanel({ listings, user }) {
   useEffect(() => {
     setCalendarBlockUnits(current => Math.min(normalizeUnitCount(current), calendarBlockUnitLimit));
   }, [calendarBlockUnitLimit]);
+
+  const handleDailyEntrySubmit = async (event) => {
+    event.preventDefault();
+    if (!user || !dailyEntryForm.listingId) return;
+
+    const entryDate = dailyEntryForm.entryDate || getLocalDateKey(new Date());
+    const unitNumber = Math.max(1, Math.round(Number(dailyEntryForm.unitNumber) || 1));
+    const revenue = Math.max(0, Math.round(Number(dailyEntryForm.revenue) || 0));
+    const expense = Math.max(0, Math.round(Number(dailyEntryForm.expense) || 0));
+    const listingName = listingsById[dailyEntryForm.listingId]?.name || "";
+    const docId = createDailyEntryDocId(user.uid, dailyEntryForm.listingId, entryDate, unitNumber);
+
+    setSaveError("");
+    try {
+      await setDoc(doc(db, HOST_MANUAL_BOOKINGS_COLLECTION, docId), {
+        recordType: HOST_DAILY_ENTRY_RECORD_TYPE,
+        listingId: dailyEntryForm.listingId,
+        listingName,
+        entryDate,
+        unitNumber,
+        unitLabel: `Unit ${unitNumber}`,
+        status: dailyEntryForm.status || "Occupied",
+        platform: toPlainText(dailyEntryForm.platform).trim() || "Manual",
+        guestName: toPlainText(dailyEntryForm.guestName).trim(),
+        guestPhone: toPlainText(dailyEntryForm.guestPhone).trim(),
+        revenue,
+        expense,
+        amount: revenue,
+        paymentStatus: dailyEntryForm.paymentStatus || "Paid",
+        notes: toPlainText(dailyEntryForm.notes).trim(),
+        source: "manual-daily-entry",
+        createdBy: user.uid,
+        createdByName: user.displayName || user.email || "Host",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      setDailyEntryForm(current => ({
+        ...current,
+        guestName: "",
+        guestPhone: "",
+        revenue: "",
+        expense: "",
+        notes: ""
+      }));
+    } catch (error) {
+      console.error("Failed to save daily unit entry:", error);
+      setSaveError("Daily unit entry could not be saved to Firebase.");
+    }
+  };
 
   const handleBookingSubmit = async (event) => {
     event.preventDefault();
@@ -6420,28 +7204,28 @@ function HostManualCrmPanel({ listings, user }) {
       <div className="manual-crm-stats">
         <div>
           <span>Manual Revenue</span>
-          <strong>{formatCurrency(crmTotals.totalRevenue)}</strong>
+          <strong>{formatCurrency(crmTotals.totalRevenue + dailyEntryTotals.totalRevenue)}</strong>
           <small>{getMonthLabel(monthValue)}</small>
         </div>
         <div>
           <span>Expenses</span>
-          <strong>{formatCurrency(crmTotals.totalExpenses)}</strong>
-          <small>{monthExpenses.length} manual records</small>
+          <strong>{formatCurrency(crmTotals.totalExpenses + dailyEntryTotals.totalExpenses)}</strong>
+          <small>{monthExpenses.length + monthDailyEntries.filter(entry => Number(entry.expense) > 0).length} manual records</small>
         </div>
         <div>
           <span>Net Revenue</span>
-          <strong>{formatCurrency(crmTotals.netRevenue)}</strong>
+          <strong>{formatCurrency(crmTotals.netRevenue + dailyEntryTotals.netRevenue)}</strong>
           <small>Revenue minus expenses</small>
         </div>
         <div>
-          <span>Bookings</span>
-          <strong>{monthBookings.length}</strong>
-          <small>Manual records</small>
+          <span>Daily Entries</span>
+          <strong>{monthDailyEntries.length}</strong>
+          <small>Unit-wise records</small>
         </div>
         <div>
-          <span>Booked Nights</span>
-          <strong>{crmTotals.totalNights}</strong>
-          <small>Check-in to checkout</small>
+          <span>Occupied Unit Days</span>
+          <strong>{dailyEntryTotals.occupiedDays}</strong>
+          <small>Manual unit status</small>
         </div>
         <div>
           <span>Open Tasks</span>
@@ -6454,6 +7238,7 @@ function HostManualCrmPanel({ listings, user }) {
 
       <div className="manual-crm-tabs" role="tablist" aria-label="Manual CRM sections">
         {[
+          ["daily", "Daily Entries"],
           ["bookings", "Bookings"],
           ["expenses", "Expenses"],
           ["calendar", "Calendar"],
@@ -6470,6 +7255,197 @@ function HostManualCrmPanel({ listings, user }) {
           </button>
         ))}
       </div>
+
+      {activeTab === "daily" && (
+        <div className="manual-crm-grid manual-daily-grid">
+          <form className="manual-crm-form" onSubmit={handleDailyEntrySubmit}>
+            <h3>Daily Unit Entry</h3>
+            <label>
+              Property
+              <select
+                value={dailyEntryForm.listingId}
+                onChange={(event) => setDailyEntryForm({
+                  ...dailyEntryForm,
+                  listingId: event.target.value,
+                  unitNumber: "1"
+                })}
+                required
+              >
+                {listings.map(listing => (
+                  <option key={listing.id} value={listing.id}>{listing.name || "(No name)"}</option>
+                ))}
+              </select>
+            </label>
+            <div className="manual-crm-form-row">
+              <label>
+                Date
+                <input
+                  type="date"
+                  value={dailyEntryForm.entryDate}
+                  onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, entryDate: event.target.value })}
+                  required
+                />
+              </label>
+              <label>
+                Unit
+                <select
+                  value={dailyEntryForm.unitNumber}
+                  onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, unitNumber: event.target.value })}
+                  required
+                >
+                  {dailyEntryUnitOptions.map(unitNumber => (
+                    <option key={unitNumber} value={unitNumber}>Unit {unitNumber}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="manual-crm-form-row">
+              <label>
+                Status
+                <select
+                  value={dailyEntryForm.status}
+                  onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, status: event.target.value })}
+                >
+                  {HOST_DAILY_ENTRY_STATUSES.map(status => (
+                    <option key={status}>{status}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Source
+                <input
+                  list="daily-entry-platform-options"
+                  value={dailyEntryForm.platform}
+                  onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, platform: event.target.value })}
+                  placeholder="Manual, Airbnb, Booking.com"
+                />
+                <datalist id="daily-entry-platform-options">
+                  {HOST_MANUAL_PLATFORMS.map(platform => (
+                    <option key={platform} value={platform} />
+                  ))}
+                </datalist>
+              </label>
+            </div>
+            <div className="manual-crm-form-row">
+              <label>
+                Guest Name
+                <input
+                  value={dailyEntryForm.guestName}
+                  onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, guestName: event.target.value })}
+                  placeholder="Manual guest name"
+                />
+              </label>
+              <label>
+                Guest Phone
+                <input
+                  type="tel"
+                  value={dailyEntryForm.guestPhone}
+                  onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, guestPhone: event.target.value })}
+                  placeholder="+91..."
+                />
+              </label>
+            </div>
+            <div className="manual-crm-form-row">
+              <label>
+                Revenue
+                <input
+                  type="number"
+                  min="0"
+                  value={dailyEntryForm.revenue}
+                  onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, revenue: event.target.value })}
+                  placeholder="0"
+                />
+              </label>
+              <label>
+                Expense
+                <input
+                  type="number"
+                  min="0"
+                  value={dailyEntryForm.expense}
+                  onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, expense: event.target.value })}
+                  placeholder="0"
+                />
+              </label>
+            </div>
+            <label>
+              Payment
+              <select
+                value={dailyEntryForm.paymentStatus}
+                onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, paymentStatus: event.target.value })}
+              >
+                <option>Paid</option>
+                <option>Partial</option>
+                <option>Pending</option>
+                <option>Not applicable</option>
+              </select>
+            </label>
+            <label>
+              Notes
+              <input
+                value={dailyEntryForm.notes}
+                onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, notes: event.target.value })}
+                placeholder="Cleaning, checkout, repair, guest note"
+              />
+            </label>
+            <button className="manual-crm-primary" type="submit">Save Daily Unit Entry</button>
+          </form>
+
+          <div className="manual-crm-list manual-daily-ledger">
+            <h3>{loading ? "Loading..." : "Unit-wise Daily Ledger"}</h3>
+            <div className="manual-daily-summary">
+              <div>
+                <span>Daily Revenue</span>
+                <strong>{formatCurrency(dailyEntryTotals.totalRevenue)}</strong>
+              </div>
+              <div>
+                <span>Daily Expense</span>
+                <strong>{formatCurrency(dailyEntryTotals.totalExpenses)}</strong>
+              </div>
+              <div>
+                <span>Daily Net</span>
+                <strong>{formatCurrency(dailyEntryTotals.netRevenue)}</strong>
+              </div>
+            </div>
+
+            {dailyEntryTotals.unitSummaries.length > 0 && (
+              <div className="manual-unit-summary-grid">
+                {dailyEntryTotals.unitSummaries.map(summary => (
+                  <div key={summary.unitKey}>
+                    <strong>{summary.listingName} • Unit {summary.unitNumber}</strong>
+                    <span>{summary.occupied} occupied • {summary.available} available • {summary.maintenance} blocked</span>
+                    <small>{formatCurrency(summary.revenue - summary.expense)} net from {summary.entries} entr{summary.entries === 1 ? "y" : "ies"}</small>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {sortedMonthDailyEntries.length === 0 ? (
+              <p className="host-revenue-empty">No daily unit entries saved for this month.</p>
+            ) : sortedMonthDailyEntries.map(entry => (
+              <div className="manual-crm-row manual-daily-row" key={entry.id}>
+                <div>
+                  <strong>{entry.entryDate} • Unit {entry.unitNumber || 1}</strong>
+                  <span>{entry.listingName || listingsById[entry.listingId]?.name || "Property"} • {entry.status || "Manual status"} • {entry.platform || "Manual"}</span>
+                  <small>
+                    {entry.guestName || "No guest"}{entry.guestPhone ? ` • ${entry.guestPhone}` : ""}{entry.notes ? ` • ${entry.notes}` : ""}
+                  </small>
+                </div>
+                <div className="manual-daily-money">
+                  <strong>{formatCurrency(entry.revenue || entry.amount || 0)}</strong>
+                  <small>{Number(entry.expense) > 0 ? `-${formatCurrency(entry.expense)}` : entry.paymentStatus || "Manual"}</small>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Delete daily unit entry"
+                  onClick={() => deleteManualRecord(HOST_MANUAL_BOOKINGS_COLLECTION, entry.id)}
+                >
+                  <FiX />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {activeTab === "bookings" && (
         <div className="manual-crm-grid">
@@ -7031,20 +8007,85 @@ function HostManualCrmPanel({ listings, user }) {
 /* ------------------------------
    My Listings (Host's own homestays)
 ------------------------------ */
+const createHostRegistrationForm = (user = null) => ({
+  fullName: user?.displayName || "",
+  propertyName: "",
+  propertyLocation: ""
+});
+
+const getHostProfileDocId = (uid) => `${HOST_PROFILE_DOC_PREFIX}_${uid}`;
+
 function MyListings() {
   const [user, setUser] = useState(null);
   const [myHomestays, setMyHomestays] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [hostProfile, setHostProfile] = useState(null);
+  const [hostForm, setHostForm] = useState(createHostRegistrationForm());
+  const [savingHostProfile, setSavingHostProfile] = useState(false);
+  const [editingHostProfile, setEditingHostProfile] = useState(false);
+  const [hostProfileError, setHostProfileError] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
+    let unsubscribeListings = null;
+    let unsubscribeHostProfile = null;
+
+    const cleanupHostStreams = () => {
+      if (unsubscribeListings) {
+        unsubscribeListings();
+        unsubscribeListings = null;
+      }
+      if (unsubscribeHostProfile) {
+        unsubscribeHostProfile();
+        unsubscribeHostProfile = null;
+      }
+    };
+
     const unsubAuth = auth.onAuthStateChanged((u) => {
+      cleanupHostStreams();
       setUser(u);
+      setHostProfileError("");
+
       if (!u) {
         setMyHomestays([]);
+        setHostProfile(null);
+        setHostForm(createHostRegistrationForm());
+        setEditingHostProfile(false);
         setLoading(false);
+        setProfileLoading(false);
         return;
       }
+
+      setLoading(true);
+      setProfileLoading(true);
+      setHostForm(createHostRegistrationForm(u));
+
+      unsubscribeHostProfile = onSnapshot(
+        doc(db, "homestays", getHostProfileDocId(u.uid)),
+        (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            setHostProfile({ id: snapshot.id, ...data });
+            setHostForm({
+              fullName: data.fullName || u.displayName || "",
+              propertyName: data.propertyName || "",
+              propertyLocation: data.propertyLocation || ""
+            });
+            setEditingHostProfile(false);
+          } else {
+            setHostProfile(null);
+            setHostForm(createHostRegistrationForm(u));
+            setEditingHostProfile(true);
+          }
+          setProfileLoading(false);
+        },
+        (error) => {
+          console.error("Error loading host profile:", error);
+          setHostProfileError("Could not load your host setup. Please refresh and try again.");
+          setProfileLoading(false);
+        }
+      );
 
       const qRef = query(
         collection(db, "homestays"),
@@ -7052,17 +8093,78 @@ function MyListings() {
         orderBy("createdAt", "desc")
       );
 
-      const unsub = onSnapshot(qRef, (snapshot) => {
-        const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setMyHomestays(docs);
-        setLoading(false);
-      });
-
-      return () => unsub();
+      unsubscribeListings = onSnapshot(
+        qRef,
+        (snapshot) => {
+          const docs = snapshot.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .filter((homestay) => homestay.recordType !== HOST_PROFILE_DOC_PREFIX);
+          setMyHomestays(docs);
+          setLoading(false);
+        },
+        (error) => {
+          console.error("Error loading host listings:", error);
+          setMyHomestays([]);
+          setLoading(false);
+        }
+      );
     });
 
-    return () => unsubAuth();
+    return () => {
+      cleanupHostStreams();
+      unsubAuth();
+    };
   }, []);
+
+  const handleHostFormChange = (field, value) => {
+    setHostForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleHostRegistration = async (e) => {
+    e.preventDefault();
+    if (!user) return;
+
+    const fullName = hostForm.fullName.trim();
+    const propertyName = hostForm.propertyName.trim();
+    const propertyLocation = hostForm.propertyLocation.trim();
+
+    if (!fullName || !propertyName || !propertyLocation) {
+      setHostProfileError("Please enter your full name, property name, and city/state.");
+      return;
+    }
+
+    setSavingHostProfile(true);
+    setHostProfileError("");
+
+    try {
+      const profileRef = doc(db, "homestays", getHostProfileDocId(user.uid));
+      const profilePayload = {
+        recordType: HOST_PROFILE_DOC_PREFIX,
+        fullName,
+        propertyName,
+        propertyLocation,
+        createdBy: user.uid,
+        status: "private",
+        listingStatus: "private",
+        published: false,
+        isPublished: false,
+        updatedAt: serverTimestamp()
+      };
+
+      if (!hostProfile) {
+        profilePayload.createdAt = serverTimestamp();
+        profilePayload.status = "active";
+      }
+
+      await setDoc(profileRef, profilePayload, { merge: true });
+      setEditingHostProfile(false);
+    } catch (error) {
+      console.error("Error saving host profile:", error);
+      setHostProfileError("Could not save your host setup. Please try again.");
+    }
+
+    setSavingHostProfile(false);
+  };
 
   if (!user) {
     return (
@@ -7072,99 +8174,231 @@ function MyListings() {
     );
   }
 
-  if (loading) {
+  if (loading || profileLoading) {
     return (
       <div style={styles.loaderContainer}>
         <div style={styles.spinner}></div>
-        <p style={styles.loaderText}>Loading your listings...</p>
-        <p style={styles.loaderSubtext}>Please wait while we fetch your properties</p>
+        <p style={styles.loaderText}>Loading your dashboard...</p>
+        <p style={styles.loaderSubtext}>Please wait while we fetch your host workspace</p>
       </div>
     );
   }
 
+  const showHostRegistration = !hostProfile || editingHostProfile;
+
   return (
     <div style={styles.pageContainer}>
       <SeoHelmet
-        title="My Listings | Homavia"
+        title="Host Dashboard | Homavia"
         description="Private Homavia host dashboard for managing listings, revenue, platform prices, and availability."
         canonicalPath="/my-listings"
         robots={PRIVATE_ROBOTS}
       />
 
-      <h1 style={styles.pageTitle}>My Listings</h1>
+      <h1 style={styles.pageTitle}>Host Dashboard</h1>
 
-      {myHomestays.length === 0 ? (
-        <div style={{ textAlign: "center" }}>
-          <p>You haven't listed any homestays yet.</p>
-          <button
-            style={styles.submitButton}
-            onClick={() => navigate("/add-homestay")}
-          >
-            List Your First Homestay
-          </button>
-        </div>
+      {showHostRegistration ? (
+        <section style={{ ...styles.formSection, maxWidth: 760 }}>
+          <div style={{ marginBottom: 20 }}>
+            <p style={{
+              margin: "0 0 8px",
+              color: designTokens.colors.primary,
+              fontSize: 13,
+              fontWeight: 800,
+              textTransform: "uppercase",
+              letterSpacing: 0
+            }}>
+              Quick host setup
+            </p>
+            <h2 style={{ ...styles.sectionTitle, marginBottom: 8 }}>
+              Register your property in under a minute
+            </h2>
+            <p style={{ margin: 0, color: designTokens.colors.textMuted, lineHeight: 1.6 }}>
+              Add only the essentials now. Photos, amenities, pricing, map links, and drive links can be completed later from this dashboard.
+            </p>
+          </div>
+
+          <form onSubmit={handleHostRegistration}>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Full Name *</label>
+              <input
+                style={styles.input}
+                value={hostForm.fullName}
+                onChange={(e) => handleHostFormChange("fullName", e.target.value)}
+                required
+                autoComplete="name"
+              />
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Property Name *</label>
+              <input
+                style={styles.input}
+                value={hostForm.propertyName}
+                onChange={(e) => handleHostFormChange("propertyName", e.target.value)}
+                required
+                autoComplete="organization"
+              />
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Property Location (City/State) *</label>
+              <input
+                style={styles.input}
+                value={hostForm.propertyLocation}
+                onChange={(e) => handleHostFormChange("propertyLocation", e.target.value)}
+                required
+                placeholder="Guwahati, Assam"
+                autoComplete="address-level2"
+              />
+            </div>
+
+            {hostProfileError && (
+              <div className="host-revenue-alert" style={{ marginBottom: 16 }}>
+                {hostProfileError}
+              </div>
+            )}
+
+            <button
+              style={styles.submitButton}
+              type="submit"
+              disabled={savingHostProfile}
+            >
+              {savingHostProfile ? "Saving..." : "Open Dashboard"}
+            </button>
+          </form>
+        </section>
       ) : (
         <>
-          <HostManualCrmPanel listings={myHomestays} user={user} />
+          <section style={{
+            ...styles.formSection,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 18,
+            flexWrap: "wrap"
+          }}>
+            <div>
+              <p style={{
+                margin: "0 0 8px",
+                color: designTokens.colors.primary,
+                fontSize: 13,
+                fontWeight: 800,
+                textTransform: "uppercase",
+                letterSpacing: 0
+              }}>
+                Registered host
+              </p>
+              <h2 style={{ margin: "0 0 10px", fontSize: 24, color: designTokens.colors.dark }}>
+                {hostProfile.propertyName}
+              </h2>
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", color: designTokens.colors.textMuted, fontSize: 14 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <FiUser /> {hostProfile.fullName}
+                </span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <FiMapPin /> {hostProfile.propertyLocation}
+                </span>
+              </div>
+            </div>
 
-          <ul style={styles.homestayList} className="homestay-list-grid">
-            {myHomestays.map((h) => (
-              <li key={h.id} style={styles.homestayItem}>
-                <div style={{ position: "relative" }}>
-                  <img
-                    src={h.imageUrl}
-                    alt={h.name}
-                    style={styles.homestayImage}
-                  />
-                </div>
-                <div style={styles.homestayInfo}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <h3 style={styles.title}>{h.name || "(No name)"}</h3>
-                    <span style={{ fontSize: 12, color: "#666" }}>
-                      {h.city} • {h.area}
-                    </span>
-                  </div>
-                  <p style={styles.price}>
-                    ₹{h.price} /{" "}
-                    {PRICE_TYPES.find((pt) => pt.id === h.priceType)?.suffix ||
-                      "night"}
-                  </p>
-                  <div style={{ fontSize: 12, color: '#667085', marginTop: -6, marginBottom: 8 }}>
-                    {getListingUnitCount(h)} {getListingUnitCount(h) === 1 ? 'unit' : 'units'} • Platform prices configurable
-                  </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                style={{ ...styles.filterButton, margin: 0 }}
+                onClick={() => setEditingHostProfile(true)}
+              >
+                Edit Setup
+              </button>
+              <button
+                type="button"
+                style={{ ...styles.submitButton, width: "auto", marginTop: 0 }}
+                onClick={() => navigate("/add-homestay")}
+              >
+                <FiHome /> Add Listing
+              </button>
+            </div>
+          </section>
 
-                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <button
-                      style={{
-                        ...styles.filterButton,
-                        borderColor: "#B42318",
-                        color: "#B42318",
-                      }}
-                      onClick={() => navigate(`/homestays/${createSlug(h.name, h.id, h.city)}`)}
-                    >
-                      View
-                    </button>
-                    <button
-                      style={{
-                        ...styles.filterButton,
-                        borderColor: "#1565c0",
-                        color: "#1565c0",
-                      }}
-                      onClick={() => navigate(`/edit-homestay/${h.id}`)}
-                    >
-                      Edit
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {myHomestays.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "28px 0" }}>
+              <h2 style={{ margin: "0 0 8px", fontSize: 22, color: designTokens.colors.dark }}>
+                No listings yet
+              </h2>
+              <p style={{ margin: "0 0 18px", color: designTokens.colors.textMuted }}>
+                Start with your first listing, then complete photos, amenities, pricing, maps, and files as you go.
+              </p>
+              <button
+                style={{ ...styles.submitButton, maxWidth: 320 }}
+                onClick={() => navigate("/add-homestay")}
+              >
+                List Your First Homestay
+              </button>
+            </div>
+          ) : (
+            <>
+              <HostManualCrmPanel listings={myHomestays} user={user} />
+
+              <ul style={styles.homestayList} className="homestay-list-grid">
+                {myHomestays.map((h) => (
+                  <li key={h.id} style={styles.homestayItem}>
+                    <div style={{ position: "relative" }}>
+                      <img
+                        src={h.imageUrl}
+                        alt={h.name}
+                        style={styles.homestayImage}
+                      />
+                    </div>
+                    <div style={styles.homestayInfo}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                        }}
+                      >
+                        <h3 style={styles.title}>{h.name || "(No name)"}</h3>
+                        <span style={{ fontSize: 12, color: "#666" }}>
+                          {h.city} • {h.area}
+                        </span>
+                      </div>
+                      <p style={styles.price}>
+                        ₹{h.price} /{" "}
+                        {PRICE_TYPES.find((pt) => pt.id === h.priceType)?.suffix ||
+                          "night"}
+                      </p>
+                      <div style={{ fontSize: 12, color: '#667085', marginTop: -6, marginBottom: 8 }}>
+                        {getListingUnitCount(h)} {getListingUnitCount(h) === 1 ? 'unit' : 'units'} • Platform prices configurable
+                      </div>
+
+                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                        <button
+                          style={{
+                            ...styles.filterButton,
+                            borderColor: "#B42318",
+                            color: "#B42318"
+                          }}
+                          onClick={() => navigate(`/homestays/${createSlug(h.name, h.id, h.city)}`)}
+                        >
+                          View
+                        </button>
+                        <button
+                          style={{
+                            ...styles.filterButton,
+                            borderColor: "#1565c0",
+                            color: "#1565c0"
+                          }}
+                          onClick={() => navigate(`/edit-homestay/${h.id}`)}
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </>
       )}
     </div>
@@ -7179,6 +8413,11 @@ function AnalyticsDashboard() {
     totalPageViews: 0,
     totalCalls: 0,
     totalWhatsApp: 0,
+    uniqueVisitors: 0,
+    totalEvents: 0,
+    topPages: [],
+    topReferrers: [],
+    deviceBreakdown: [],
     recentActivity: []
   });
   const [loading, setLoading] = useState(true);
@@ -7188,7 +8427,7 @@ function AnalyticsDashboard() {
     const fetchAnalytics = async () => {
       setLoading(true);
       try {
-        let analyticsQuery = collection(db, "analytics");
+        let analyticsQuery = collection(db, ANALYTICS_COLLECTION);
         
         // Apply time filter
         if (timeRange !== 'all') {
@@ -7206,38 +8445,68 @@ function AnalyticsDashboard() {
           analyticsQuery = query(
             analyticsQuery,
             where("timestamp", ">=", Timestamp.fromDate(startDate)),
-            orderBy("timestamp", "desc")
+            orderBy("timestamp", "desc"),
+            limit(1000)
           );
         } else {
-          analyticsQuery = query(analyticsQuery, orderBy("timestamp", "desc"), limit(100));
+          analyticsQuery = query(analyticsQuery, orderBy("timestamp", "desc"), limit(1000));
         }
 
         const snapshot = await getDocs(analyticsQuery);
-        
-        let pageViews = 0;
-        let calls = 0;
-        let whatsapp = 0;
-        const activity = [];
+        const activity = snapshot.docs.map(entry => {
+          const data = entry.data();
 
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          
-          if (data.eventType === 'page_view') pageViews++;
-          if (data.eventType === 'call_click') calls++;
-          if (data.eventType === 'whatsapp_click') whatsapp++;
-          
-          activity.push({
-            id: doc.id,
+          return {
+            id: entry.id,
             ...data,
             timestamp: data.timestamp?.toDate() || new Date()
-          });
+          };
         });
+        const pageViewEvents = activity.filter(item => item.eventType === 'page_view');
+        const pageViews = pageViewEvents.length;
+        const calls = activity.filter(item => item.eventType === 'call_click').length;
+        const whatsapp = activity.filter(item => item.eventType === 'whatsapp_click').length;
+        const uniqueVisitors = new Set(pageViewEvents.map(item => item.sessionId).filter(Boolean)).size;
+        const pageCounts = {};
+        const pageTitles = {};
+        const referrerCounts = {};
+        const deviceCounts = {};
+
+        pageViewEvents.forEach(item => {
+          const pagePath = item.pagePath || "Unknown page";
+          pageCounts[pagePath] = (pageCounts[pagePath] || 0) + 1;
+          if (!pageTitles[pagePath] && item.pageTitle) pageTitles[pagePath] = item.pageTitle;
+
+          const referrerHost = item.referrerHost || "direct";
+          const referrerLabel = referrerHost === "direct" || referrerHost.includes("homavia.in")
+            ? "Direct / internal"
+            : referrerHost;
+          referrerCounts[referrerLabel] = (referrerCounts[referrerLabel] || 0) + 1;
+
+          const device = item.deviceType || "unknown";
+          deviceCounts[device] = (deviceCounts[device] || 0) + 1;
+        });
+
+        const toSortedEntries = (counts, limitCount = 8) => (
+          Object.entries(counts)
+            .map(([label, count]) => ({ label, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, limitCount)
+        );
 
         setStats({
           totalPageViews: pageViews,
           totalCalls: calls,
           totalWhatsApp: whatsapp,
-          recentActivity: activity.slice(0, 50)
+          uniqueVisitors,
+          totalEvents: activity.length,
+          topPages: toSortedEntries(pageCounts, 10).map(item => ({
+            ...item,
+            title: pageTitles[item.label] || item.label
+          })),
+          topReferrers: toSortedEntries(referrerCounts, 8),
+          deviceBreakdown: toSortedEntries(deviceCounts, 5),
+          recentActivity: activity.slice(0, 60)
         });
       } catch (error) {
         console.error("Error fetching analytics:", error);
@@ -7272,9 +8541,72 @@ function AnalyticsDashboard() {
     textTransform: 'uppercase',
     letterSpacing: 0
   };
+  const listCardStyle = {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 24,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    minWidth: 0
+  };
+  const trafficList = (title, items, formatter = item => item.label) => (
+    <div style={listCardStyle}>
+      <h3 style={{ marginTop: 0, marginBottom: 18, fontSize: 18 }}>{title}</h3>
+      {items.length === 0 ? (
+        <p style={{ color: '#666', margin: 0 }}>No data yet</p>
+      ) : (
+        <div style={{ display: 'grid', gap: 12 }}>
+          {items.map((item, index) => {
+            const maxCount = Math.max(...items.map(entry => entry.count), 1);
+            const width = `${Math.max(8, Math.round((item.count / maxCount) * 100))}%`;
+
+            return (
+              <div key={`${title}-${item.label}`}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
+                  <span style={{ fontSize: 13, color: '#344054', fontWeight: 700 }}>
+                    {index + 1}. {formatter(item)}
+                  </span>
+                  <span style={{ fontSize: 13, color: '#B42318', fontWeight: 800 }}>{item.count}</span>
+                </div>
+                <div style={{ height: 7, borderRadius: 999, backgroundColor: '#f2f4f7', overflow: 'hidden' }}>
+                  <div style={{ width, height: '100%', backgroundColor: '#B42318' }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+  const eventLabel = (eventType) => {
+    if (eventType === 'page_view') return 'Page view';
+    if (eventType === 'call_click') return 'Call click';
+    if (eventType === 'whatsapp_click') return 'WhatsApp click';
+    return eventType || 'Event';
+  };
+  const eventColor = (eventType) => {
+    if (eventType === 'call_click') return '#0284c7';
+    if (eventType === 'whatsapp_click') return '#16a34a';
+    return '#B42318';
+  };
 
   return (
     <div>
+      <div style={{
+        padding: 16,
+        backgroundColor: '#f0f9ff',
+        borderRadius: 12,
+        marginBottom: 24,
+        border: '1px solid #bae6fd'
+      }}>
+        <h3 style={{ margin: 0, marginBottom: 8, fontSize: 16, color: '#0284c7' }}>
+          Website Traffic Tracker
+        </h3>
+        <p style={{ margin: 0, fontSize: 14, color: '#475467' }}>
+          Tracks public page views, unique visitor sessions, top pages, referrers, devices, and booking-intent clicks.
+          Private admin and host pages are excluded from page-view tracking.
+        </p>
+      </div>
+
       {/* Time Range Filter */}
       <div style={{ marginBottom: 24, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         {['today', 'week', 'month', 'all'].map(range => (
@@ -7307,9 +8639,15 @@ function AnalyticsDashboard() {
           {/* Stats Cards */}
           <div style={{ display: 'flex', gap: 16, marginBottom: 32, flexWrap: 'wrap' }}>
             <div style={statCardStyle}>
-              <div style={statLabelStyle}>Total Traffic</div>
+              <div style={statLabelStyle}>Page Views</div>
               <div style={statNumberStyle}>{stats.totalPageViews}</div>
-              <div style={{ fontSize: 12, color: '#999' }}>Page Views</div>
+              <div style={{ fontSize: 12, color: '#999' }}>Public route visits</div>
+            </div>
+
+            <div style={statCardStyle}>
+              <div style={statLabelStyle}>Unique Visitors</div>
+              <div style={{...statNumberStyle, color: '#7c3aed'}}>{stats.uniqueVisitors}</div>
+              <div style={{ fontSize: 12, color: '#999' }}>Browser sessions</div>
             </div>
             
             <div style={statCardStyle}>
@@ -7326,9 +8664,15 @@ function AnalyticsDashboard() {
 
             <div style={statCardStyle}>
               <div style={statLabelStyle}>Total Engagement</div>
-              <div style={{...statNumberStyle, color: '#7c3aed'}}>{stats.totalCalls + stats.totalWhatsApp}</div>
-              <div style={{ fontSize: 12, color: '#999' }}>Combined interactions</div>
+              <div style={{...statNumberStyle, color: '#f97316'}}>{stats.totalCalls + stats.totalWhatsApp}</div>
+              <div style={{ fontSize: 12, color: '#999' }}>Call + WhatsApp clicks</div>
             </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 32 }}>
+            {trafficList("Top Pages", stats.topPages, item => item.title || item.label)}
+            {trafficList("Top Referrers", stats.topReferrers)}
+            {trafficList("Devices", stats.deviceBreakdown, item => item.label.charAt(0).toUpperCase() + item.label.slice(1))}
           </div>
 
           {/* Recent Activity */}
@@ -7345,12 +8689,8 @@ function AnalyticsDashboard() {
             ) : (
               <div style={{ maxHeight: 500, overflowY: 'auto' }}>
                 {stats.recentActivity.map((activity) => {
-                  const icon = activity.eventType === 'page_view' ? '👁️' : 
-                               activity.eventType === 'call_click' ? '📞' : '💬';
-                  const label = activity.eventType === 'page_view' ? 'Page View' :
-                                activity.eventType === 'call_click' ? 'Call Click' : 'WhatsApp Click';
-                  const color = activity.eventType === 'page_view' ? '#666' :
-                                activity.eventType === 'call_click' ? '#0284c7' : '#25D366';
+                  const label = eventLabel(activity.eventType);
+                  const color = eventColor(activity.eventType);
 
                   return (
                     <div
@@ -7363,9 +8703,20 @@ function AnalyticsDashboard() {
                         borderBottom: '1px solid #f0f0f0'
                       }}
                     >
-                      <div style={{ fontSize: 24 }}>{icon}</div>
+                      <div style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        backgroundColor: color,
+                        flex: '0 0 auto'
+                      }} />
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 600, color, fontSize: 14 }}>{label}</div>
+                        {activity.pagePath && (
+                          <div style={{ fontSize: 12, color: '#344054', marginTop: 2, wordBreak: 'break-word' }}>
+                            {activity.pagePath}
+                          </div>
+                        )}
                         {activity.homestayName && (
                           <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
                             {activity.homestayName}
@@ -7376,6 +8727,9 @@ function AnalyticsDashboard() {
                             {activity.pageTitle}
                           </div>
                         )}
+                        <div style={{ fontSize: 12, color: '#98a2b3', marginTop: 2 }}>
+                          {activity.referrerHost || 'direct'} • {activity.deviceType || 'unknown'}
+                        </div>
                       </div>
                       <div style={{ fontSize: 12, color: '#999', textAlign: 'right' }}>
                         {activity.timestamp.toLocaleDateString()}<br/>
@@ -7405,6 +8759,20 @@ function AdminTools() {
   const [mode, setMode] = useState("preview"); // 'preview' | 'delete'
   const [activeTab, setActiveTab] = useState("manage"); // 'manage' | 'cleanup'
   const [msg, setMsg] = useState("");
+  const [contentItems, setContentItems] = useState([]);
+  const [marketingRuns, setMarketingRuns] = useState([]);
+  const [contentLoading, setContentLoading] = useState(false);
+  const [contentMsg, setContentMsg] = useState("");
+  const [contentDraft, setContentDraft] = useState(null);
+  const [contentForm, setContentForm] = useState({
+    goal: "Grow organic Google traffic for Homavia listings, host CRM, revenue tools, bike rental, and car rental pages",
+    topic: "Homavia host CRM and verified homestay listings in Guwahati",
+    city: "Guwahati",
+    category: "Host CRM guide",
+    targetKeyword: "homestay management software in Guwahati",
+    focusAreas: ["Listings SEO", "Host CRM SEO", "Revenue management SEO", "Calendar blocking SEO"],
+    autoPublish: false
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -7426,6 +8794,40 @@ function AdminTools() {
         setAllListings(listings);
       }
     );
+    return unsubscribe;
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!isAdminUser(currentUser)) return undefined;
+
+    const unsubscribe = onSnapshot(
+      query(collection(db, SEO_CONTENT_COLLECTION), orderBy("createdAt", "desc"), limit(50)),
+      (snapshot) => {
+        setContentItems(snapshot.docs.map(entry => ({ id: entry.id, ...entry.data() })));
+      },
+      (error) => {
+        console.error("Failed to load SEO content:", error);
+        setContentMsg("Could not load SEO content.");
+      }
+    );
+
+    return unsubscribe;
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!isAdminUser(currentUser)) return undefined;
+
+    const unsubscribe = onSnapshot(
+      query(collection(db, MARKETING_AGENT_RUNS_COLLECTION), orderBy("createdAt", "desc"), limit(25)),
+      (snapshot) => {
+        setMarketingRuns(snapshot.docs.map(entry => ({ id: entry.id, ...entry.data() })));
+      },
+      (error) => {
+        console.error("Failed to load marketing agent runs:", error);
+        setContentMsg("Could not load marketing agent history.");
+      }
+    );
+
     return unsubscribe;
   }, [currentUser]);
 
@@ -7530,6 +8932,127 @@ function AdminTools() {
     }
   };
 
+  const publishSeoContent = async (draft = contentDraft, status = "published") => {
+    if (!draft) {
+      setContentMsg("Generate a draft first.");
+      return;
+    }
+
+    const normalizedDraft = normalizeSeoContentDraft(draft.seoDraft || draft, contentForm.topic);
+    const slug = createContentSlug(normalizedDraft.title);
+
+    setContentLoading(true);
+    setContentMsg("");
+    try {
+      await addDoc(collection(db, SEO_CONTENT_COLLECTION), {
+        ...normalizedDraft,
+        slug,
+        category: contentForm.category,
+        city: toPlainText(contentForm.city),
+        targetKeyword: toPlainText(contentForm.targetKeyword),
+        status,
+        generatedBy: "gemini",
+        createdBy: currentUser.uid,
+        createdByName: currentUser.displayName || currentUser.email || "Admin",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        publishedAt: status === "published" ? serverTimestamp() : null
+      });
+
+      setContentDraft(null);
+      setContentMsg(status === "published" ? "Content published successfully." : "Draft saved successfully.");
+    } catch (error) {
+      console.error("Failed to publish SEO content:", error);
+      setContentMsg("Could not save content.");
+    } finally {
+      setContentLoading(false);
+    }
+  };
+
+  const runMarketingAgent = async () => {
+    if (!contentForm.topic.trim() || !contentForm.targetKeyword.trim()) {
+      setContentMsg("Topic and target keyword are required.");
+      return;
+    }
+
+    setContentLoading(true);
+    setContentMsg("");
+    try {
+      const marketingAgent = httpsCallable(functionsClient, "runMarketingAgent");
+      const result = await marketingAgent({
+        goal: contentForm.goal,
+        topic: contentForm.topic,
+        city: contentForm.city,
+        category: contentForm.category,
+        targetKeyword: contentForm.targetKeyword,
+        focusAreas: contentForm.focusAreas,
+        listingSnapshot: allListings.slice(0, 12).map(listing => ({
+          name: listing.name || "",
+          city: listing.city || "",
+          area: listing.area || "",
+          roomType: listing.roomType || "",
+          price: listing.price || "",
+          priceType: listing.priceType || "",
+          coupleFriendly: !!listing.coupleFriendly,
+          hourly: !!listing.hourly,
+          premium: !!listing.premium
+        }))
+      });
+      const generatedResult = normalizeMarketingAgentResult(result.data?.result || result.data, contentForm.topic);
+      setContentDraft(generatedResult);
+
+      await addDoc(collection(db, MARKETING_AGENT_RUNS_COLLECTION), {
+        ...generatedResult,
+        goal: toPlainText(contentForm.goal),
+        topic: toPlainText(contentForm.topic),
+        city: toPlainText(contentForm.city),
+        category: contentForm.category,
+        targetKeyword: toPlainText(contentForm.targetKeyword),
+        focusAreas: contentForm.focusAreas,
+        generatedBy: "gemini",
+        createdBy: currentUser.uid,
+        createdByName: currentUser.displayName || currentUser.email || "Admin",
+        createdAt: serverTimestamp()
+      });
+
+      if (contentForm.autoPublish) {
+        await publishSeoContent(generatedResult.seoDraft, "published");
+      } else {
+        setContentMsg("Gemini marketing agent run complete. Review before publishing the SEO page.");
+      }
+    } catch (error) {
+      console.error("Gemini marketing agent failed:", error);
+      setContentMsg("Gemini agent failed. Deploy the Firebase function and set the GEMINI_API_KEY secret.");
+    } finally {
+      setContentLoading(false);
+    }
+  };
+
+  const updateSeoContentStatus = async (item, status) => {
+    try {
+      await updateDoc(doc(db, SEO_CONTENT_COLLECTION, item.id), {
+        status,
+        updatedAt: serverTimestamp(),
+        publishedAt: status === "published" ? (item.publishedAt || serverTimestamp()) : null
+      });
+    } catch (error) {
+      console.error("Failed to update SEO content:", error);
+      setContentMsg("Could not update content status.");
+    }
+  };
+
+  const seoPreviewDraft = contentDraft?.seoDraft || null;
+  const agentOutputGroups = contentDraft ? [
+    { title: "Website SEO Plan", items: contentDraft.sitePlan },
+    { title: "Landing Page Ideas", items: contentDraft.landingPages },
+    { title: "Content Clusters", items: contentDraft.contentClusters },
+    { title: "Internal Links", items: contentDraft.internalLinks },
+    { title: "Technical SEO", items: contentDraft.technicalSeoTasks },
+    { title: "Schema Ideas", items: contentDraft.schemaIdeas },
+    { title: "Weekly SEO Tasks", items: contentDraft.weeklyTasks },
+    { title: "Quality Checklist", items: contentDraft.qualityChecklist }
+  ].filter(group => group.items?.length > 0) : [];
+
   return (
     <div style={styles.pageContainer}>
       <SeoHelmet
@@ -7573,7 +9096,23 @@ function AdminTools() {
           }}
           onClick={() => setActiveTab('analytics')}
         >
-          Analytics
+          Traffic Tracker
+        </button>
+        <button
+          style={{
+            padding: '12px 24px',
+            border: 'none',
+            borderBottom: activeTab === 'content' ? '3px solid #B42318' : '3px solid transparent',
+            backgroundColor: 'transparent',
+            color: activeTab === 'content' ? '#B42318' : '#666',
+            fontWeight: activeTab === 'content' ? 'bold' : 'normal',
+            fontSize: 16,
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+          onClick={() => setActiveTab('content')}
+        >
+          SEO Agent
         </button>
         <button
           style={{
@@ -7723,6 +9262,228 @@ function AdminTools() {
         </div>
       )}
 
+      {activeTab === 'content' && (
+        <div className="admin-content-publisher">
+          <div className="admin-content-card">
+            <div>
+              <h2>Gemini Website SEO Agent</h2>
+              <p>Generate indexable website content and SEO action plans for Homavia listings, CRM, revenue tools, calendar blocking, and rentals.</p>
+            </div>
+
+            <div className="admin-content-grid">
+              <label className="admin-content-wide">
+                SEO Goal
+                <textarea
+                  value={contentForm.goal}
+                  onChange={(event) => setContentForm({ ...contentForm, goal: event.target.value })}
+                  placeholder="Grow organic Google traffic for Homavia website features"
+                  rows={3}
+                />
+              </label>
+              <label>
+                Page Topic
+                <input
+                  value={contentForm.topic}
+                  onChange={(event) => setContentForm({ ...contentForm, topic: event.target.value })}
+                  placeholder="Homavia host CRM and verified homestay listings"
+                />
+              </label>
+              <label>
+                Target Keyword
+                <input
+                  value={contentForm.targetKeyword}
+                  onChange={(event) => setContentForm({ ...contentForm, targetKeyword: event.target.value })}
+                  placeholder="homestay management software in Guwahati"
+                />
+              </label>
+              <label>
+                City
+                <input
+                  value={contentForm.city}
+                  onChange={(event) => setContentForm({ ...contentForm, city: event.target.value })}
+                  placeholder="Guwahati"
+                />
+              </label>
+              <label>
+                Category
+                <select
+                  value={contentForm.category}
+                  onChange={(event) => setContentForm({ ...contentForm, category: event.target.value })}
+                >
+                  {SEO_CONTENT_CATEGORIES.map(category => (
+                    <option key={category}>{category}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="admin-content-fieldset">
+              <strong>SEO Focus Areas</strong>
+              <div className="admin-channel-grid">
+                {MARKETING_AGENT_SEO_FOCUS_AREAS.map(area => (
+                  <label key={area}>
+                    <input
+                      type="checkbox"
+                      checked={contentForm.focusAreas.includes(area)}
+                      onChange={(event) => {
+                        const focusAreas = event.target.checked
+                          ? [...contentForm.focusAreas, area]
+                          : contentForm.focusAreas.filter(item => item !== area);
+                        setContentForm({ ...contentForm, focusAreas });
+                      }}
+                    />
+                    {area}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <label className="admin-content-toggle">
+              <input
+                type="checkbox"
+                checked={contentForm.autoPublish}
+                onChange={(event) => setContentForm({ ...contentForm, autoPublish: event.target.checked })}
+              />
+              Auto publish SEO page after Gemini generation
+            </label>
+
+            <div className="admin-content-actions">
+              <button type="button" onClick={runMarketingAgent} disabled={contentLoading}>
+                {contentLoading ? "Working..." : "Run Website SEO Agent"}
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => publishSeoContent(seoPreviewDraft, "draft")}
+                disabled={contentLoading || !seoPreviewDraft}
+              >
+                Save Draft
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => publishSeoContent(seoPreviewDraft, "published")}
+                disabled={contentLoading || !seoPreviewDraft}
+              >
+                Publish
+              </button>
+            </div>
+
+            {contentMsg && <div className="host-revenue-alert">{contentMsg}</div>}
+          </div>
+
+          {contentDraft && (
+            <div className="admin-content-card">
+              <h2>SEO Agent Output</h2>
+              {contentDraft.summary && <p>{contentDraft.summary}</p>}
+
+              {agentOutputGroups.length > 0 && (
+                <div className="admin-agent-output-grid">
+                  {agentOutputGroups.map(group => (
+                    <section className="admin-agent-output-card" key={group.title}>
+                      <h3>{group.title}</h3>
+                      <ul>
+                        {group.items.map(item => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </section>
+                  ))}
+                </div>
+              )}
+
+              {contentDraft.sourceLinks?.length > 0 && (
+                <div className="admin-content-sources">
+                  <h3>Research Sources</h3>
+                  {contentDraft.sourceLinks.map(source => (
+                    <a key={source.url} href={source.url} target="_blank" rel="noreferrer">
+                      {source.title || source.url}
+                    </a>
+                  ))}
+                </div>
+              )}
+
+              {seoPreviewDraft && (
+                <>
+                  <h2>{seoPreviewDraft.title}</h2>
+                  <p>{seoPreviewDraft.metaDescription}</p>
+                </>
+              )}
+              <div className="admin-content-preview">
+                {seoPreviewDraft?.introduction && <p>{seoPreviewDraft.introduction}</p>}
+                {seoPreviewDraft?.sections.map(section => (
+                  <section key={section.heading}>
+                    <h3>{section.heading}</h3>
+                    <p>{section.body}</p>
+                  </section>
+                ))}
+                {seoPreviewDraft?.faq.length > 0 && (
+                  <section>
+                    <h3>FAQ</h3>
+                    {seoPreviewDraft.faq.map(item => (
+                      <div key={item.question}>
+                        <strong>{item.question}</strong>
+                        <p>{item.answer}</p>
+                      </div>
+                    ))}
+                  </section>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="admin-content-card">
+            <h2>SEO Agent History</h2>
+            {marketingRuns.length === 0 ? (
+              <p>No SEO agent runs saved yet.</p>
+            ) : (
+              <div className="admin-content-list">
+                {marketingRuns.map(item => (
+                  <div className="admin-content-row" key={item.id}>
+                    <div>
+                      <strong>{item.topic || item.seoDraft?.title || "SEO run"}</strong>
+                      <span>{item.category || "SEO"} • {item.targetKeyword || "No keyword"} • {(item.focusAreas || []).join(", ") || "Website SEO"}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="admin-content-card">
+            <h2>Published Content</h2>
+            {contentItems.length === 0 ? (
+              <p>No content generated yet.</p>
+            ) : (
+              <div className="admin-content-list">
+                {contentItems.map(item => (
+                  <div className="admin-content-row" key={item.id}>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <span>{item.category || "Guide"} • {item.status || "draft"} • {item.targetKeyword || "No keyword"}</span>
+                    </div>
+                    <div className="admin-content-row-actions">
+                      {item.status === "published" && (
+                        <Link to={`/travel-guides/${item.slug}`}>View</Link>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => updateSeoContentStatus(item, item.status === "published" ? "draft" : "published")}
+                      >
+                        {item.status === "published" ? "Unpublish" : "Publish"}
+                      </button>
+                      <button type="button" onClick={() => deleteDoc(doc(db, SEO_CONTENT_COLLECTION, item.id))}>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Cleanup Old Listings Tab */}
       {activeTab === 'cleanup' && (
         <div style={{ ...styles.pageContent, display: 'grid', gap: 16 }}>
@@ -7819,6 +9580,582 @@ function RequireAdmin({ user, children }) {
 /* ------------------------------
    Static pages
 ------------------------------ */
+const formatGuideDate = (value) => {
+  const rawDate = value?.toDate?.() || value;
+  const parsed = rawDate instanceof Date ? rawDate : new Date(rawDate || Date.now());
+
+  return Number.isNaN(parsed.getTime())
+    ? new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
+    : parsed.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+};
+
+const getGuideTime = (guide = {}) => {
+  const value = guide.publishedAt || guide.createdAt || guide.updatedAt;
+  const rawDate = value?.toDate?.() || value;
+  const parsed = rawDate instanceof Date ? rawDate : new Date(rawDate || 0);
+  return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+};
+
+const toGuideIsoDate = (value) => {
+  const rawDate = value?.toDate?.() || value;
+  const parsed = rawDate instanceof Date ? rawDate : new Date(rawDate || "");
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+};
+
+const mergePublishedGuides = (remoteGuides = []) => {
+  const merged = new Map();
+
+  [...remoteGuides, ...ACTIVE_STATIC_PUBLISHED_GUIDES].forEach(guide => {
+    if (guide?.slug && !merged.has(guide.slug)) {
+      merged.set(guide.slug, guide);
+    }
+  });
+
+  return Array.from(merged.values()).sort((a, b) => getGuideTime(b) - getGuideTime(a));
+};
+
+const fetchScheduledGuides = async (slug = "") => {
+  try {
+    const endpoint = slug
+      ? `/.netlify/functions/seo-content?slug=${encodeURIComponent(slug)}`
+      : "/.netlify/functions/seo-content";
+    const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
+
+    if (!response.ok) return slug ? null : [];
+
+    const payload = await response.json();
+    return slug ? (payload.guide || null) : (Array.isArray(payload.guides) ? payload.guides : []);
+  } catch (error) {
+    console.warn("Scheduled guide content unavailable:", error);
+    return slug ? null : [];
+  }
+};
+
+function TravelGuidesPage() {
+  const [guides, setGuides] = useState(ACTIVE_STATIC_PUBLISHED_GUIDES);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    const applyGuides = async (firestoreGuides = []) => {
+      const scheduledGuides = await fetchScheduledGuides();
+      if (!active) return;
+      setGuides(mergePublishedGuides([...firestoreGuides, ...scheduledGuides]));
+      setLoading(false);
+    };
+
+    const unsubscribe = onSnapshot(
+      query(collection(db, SEO_CONTENT_COLLECTION), where("status", "==", "published"), limit(80)),
+      (snapshot) => {
+        const publishedGuides = snapshot.docs.map(entry => ({ id: entry.id, ...entry.data() }));
+        applyGuides(publishedGuides);
+      },
+      (error) => {
+        console.error("Failed to load travel guides:", error);
+        applyGuides([]);
+      }
+    );
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
+
+  return (
+    <div style={styles.pageContainer}>
+      <SeoHelmet
+        title="Homavia Travel & Host Guides | Homestay, CRM, Revenue & Rental SEO"
+        description="Read Homavia guides for verified homestays, host CRM, manual revenue tracking, calendar blocking, bike rentals, car rentals, and local travel planning."
+        canonicalPath="/travel-guides"
+        keywords="Homavia guides, homestay CRM India, homestay revenue calculator, verified homestays Guwahati, bike rental guide, car rental guide"
+        schema={{
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          "name": "Homavia Travel and Host Guides",
+          "url": buildAbsoluteUrl("/travel-guides"),
+          "description": "SEO-friendly Homavia guides for guests and hosts.",
+          "inLanguage": SITE_LANGUAGE
+        }}
+      />
+
+      <section className="guide-index-hero">
+        <span>Homavia Guides</span>
+        <h1>Website guides for stays, rentals, CRM, and host revenue</h1>
+        <p>
+          Practical Homavia pages for travelers searching for verified stays and hosts managing bookings, rooms, expenses, calendars, and revenue.
+        </p>
+      </section>
+
+      {loading ? (
+        <div style={styles.pageContent}>Loading guides...</div>
+      ) : guides.length === 0 ? (
+        <div style={styles.pageContent}>No published guides yet.</div>
+      ) : (
+        <div className="guide-card-grid">
+          {guides.map(guide => (
+            <Link className="guide-card" to={`/travel-guides/${guide.slug}`} key={guide.id}>
+              <span>{guide.category || "Guide"}</span>
+              <h2>{guide.title}</h2>
+              <p>{guide.metaDescription || guide.introduction || DEFAULT_DESCRIPTION}</p>
+              <small>{guide.targetKeyword || guide.city || "Homavia SEO"}</small>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IndiaTravelPage() {
+  const topHomestayGuides = useMemo(() => TOP_HOMESTAY_GUIDES, []);
+  const featuredGuides = topHomestayGuides.slice(0, 18);
+  const firstYearBlog = ONE_YEAR_BLOG_GUIDES[0];
+  const firstMapAreaGuide = MAP_HOMESTAY_AREA_GUIDES[0];
+  const northEastGuides = topHomestayGuides.filter(guide => [
+    "Assam", "Meghalaya", "Arunachal Pradesh", "Sikkim", "Nagaland", "Manipur", "Tripura", "Mizoram"
+  ].includes(guide.state));
+  const northGuides = topHomestayGuides.filter(guide => [
+    "Delhi", "Rajasthan", "Uttar Pradesh", "Uttarakhand", "Himachal Pradesh", "Jammu and Kashmir", "Ladakh", "Punjab", "Chandigarh"
+  ].includes(guide.state));
+  const westSouthGuides = topHomestayGuides.filter(guide => [
+    "Goa", "Maharashtra", "Gujarat", "Karnataka", "Kerala", "Tamil Nadu", "Puducherry", "Telangana", "Andhra Pradesh", "Andaman and Nicobar Islands"
+  ].includes(guide.state));
+
+  const destinationListSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": "Top Homestay Destinations in India",
+    "itemListElement": topHomestayGuides.slice(0, 100).map((guide, index) => ({
+      "@type": "ListItem",
+      "position": index + 1,
+      "name": guide.city || guide.title,
+      "url": buildAbsoluteUrl(`/travel-guides/${guide.slug}`)
+    }))
+  };
+
+  return (
+    <div style={styles.pageContainer}>
+      <SeoHelmet
+        title="India Travel Guide | Top Homestays, Rentals & Destination Stays | Homavia"
+        description="Explore Homavia's India travel hub for top homestay destinations, verified stay checks, bike rentals, car rentals, host contact, and local trip planning."
+        canonicalPath="/india-travel"
+        keywords="India travel guide, top homestays in India, best homestay destinations India, verified homestays India, India trip planning, Homavia travel"
+        schema={[
+          {
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            "name": "Homavia India Travel Guide",
+            "url": buildAbsoluteUrl("/india-travel"),
+            "description": "Homavia hub for India travel, top homestay destinations, rentals, verified stay checks, and destination planning.",
+            "inLanguage": SITE_LANGUAGE,
+            "isPartOf": {
+              "@type": "WebSite",
+              "name": SITE_NAME,
+              "url": SITE_URL
+            }
+          },
+          destinationListSchema,
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": SITE_URL
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "India Travel",
+                "item": buildAbsoluteUrl("/india-travel")
+              }
+            ]
+          }
+        ]}
+      />
+
+      <section className="guide-index-hero">
+        <span>India Travel by Homavia</span>
+        <h1>India travel guide for top homestays, rentals, and destination stays</h1>
+        <p>
+          Build your India trip around practical stay decisions: verified host contact, best areas, family and couple checks,
+          workation comfort, bike rentals, car rentals, and destination-specific homestay guides.
+        </p>
+      </section>
+
+      <div className="guide-card-grid" style={{ marginBottom: 24 }}>
+        <Link className="guide-card" to="/travel-guides">
+          <span>Guide Library</span>
+          <h2>{ACTIVE_STATIC_PUBLISHED_GUIDES.length}+ Homavia travel guides</h2>
+          <p>Browse destination pages, host CRM guides, rental planning, calendar blocking, and revenue workflows.</p>
+          <small>Travel SEO cluster</small>
+        </Link>
+        {firstYearBlog && (
+          <Link className="guide-card" to={`/travel-guides/${firstYearBlog.slug}`}>
+            <span>One-Year Blog Plan</span>
+            <h2>{ONE_YEAR_BLOG_GUIDES.length} seasonal travel blogs</h2>
+            <p>Month-by-month India travel content for homestays, rentals, workations, couples, and family trips.</p>
+            <small>Weekly SEO publishing</small>
+          </Link>
+        )}
+        {firstMapAreaGuide && (
+          <Link className="guide-card" to={`/travel-guides/${firstMapAreaGuide.slug}`}>
+            <span>Map Area Discovery</span>
+            <h2>{MAP_HOMESTAY_AREA_GUIDES.length} landmark-area guides</h2>
+            <p>Area-led homestay discovery around airports, beaches, ghats, markets, safari gates, and hill routes.</p>
+            <small>Map SEO cluster</small>
+          </Link>
+        )}
+        <Link className="guide-card" to="/pool-homestays">
+          <span>Pool Stay Directory</span>
+          <h2>{POOL_HOMESTAY_CANDIDATE_COUNT} pool stay candidates</h2>
+          <p>Map-sourced pool stay candidates and Homavia pool homestay leads across India with verification notes.</p>
+          <small>{CONFIRMED_OSM_POOL_STAY_COUNT} OSM pool-tagged entries</small>
+        </Link>
+        <Link className="guide-card" to="/bike-rental">
+          <span>Rental Planning</span>
+          <h2>Bike rentals for local trips</h2>
+          <p>Connect stay discovery with two-wheeler planning for beach, hill, city, and short-distance routes.</p>
+          <small>Bike rental India</small>
+        </Link>
+        <Link className="guide-card" to="/car-rental">
+          <span>Rental Planning</span>
+          <h2>Car rentals for destination travel</h2>
+          <p>Plan airport pickup, local sightseeing, family drives, and intercity travel around your stay.</p>
+          <small>Car rental India</small>
+        </Link>
+      </div>
+
+      <section className="guide-index-hero">
+        <span>Destination Coverage</span>
+        <h2>{topHomestayGuides.length} top homestay destination pages across India</h2>
+        <p>
+          These pages create crawlable internal routes for high-intent searches like top homestays in Goa,
+          top homestays in Manali, top homestays in Guwahati, and verified homestay destinations across India.
+        </p>
+      </section>
+
+      <div className="guide-card-grid" style={{ marginBottom: 24 }}>
+        {featuredGuides.map(guide => (
+          <Link className="guide-card" to={`/travel-guides/${guide.slug}`} key={guide.id}>
+            <span>{guide.state || "India"} • Top homestays</span>
+            <h2>{guide.city || guide.title}</h2>
+            <p>{guide.metaDescription || guide.introduction || DEFAULT_DESCRIPTION}</p>
+            <small>{guide.targetKeyword}</small>
+          </Link>
+        ))}
+      </div>
+
+      <section className="guide-detail-layout">
+        <div className="guide-article">
+          <h2>Regional travel clusters</h2>
+          <p>
+            Homavia uses regional clusters so visitors and search engines can move from an India-level travel hub
+            to destination pages, then into stay, rental, and host-contact workflows.
+          </p>
+          <h3>North East India</h3>
+          <p>{northEastGuides.slice(0, 18).map(guide => guide.city).join(", ")}</p>
+          <h3>North and Himalayan India</h3>
+          <p>{northGuides.slice(0, 24).map(guide => guide.city).join(", ")}</p>
+          <h3>West and South India</h3>
+          <p>{westSouthGuides.slice(0, 36).map(guide => guide.city).join(", ")}</p>
+        </div>
+        <aside className="guide-sidebar">
+          <strong>Rank-building focus</strong>
+          <p>Real inventory, helpful destination content, crawlable links, fresh sitemap URLs, and verified host data.</p>
+          <Link to="/travel-guides/top-homestays-in-goa-best-areas-booking-checks-and-homavia-tips">Top homestays in Goa</Link>
+          <Link to="/travel-guides/top-homestays-in-manali-best-areas-booking-checks-and-homavia-tips">Top homestays in Manali</Link>
+          <Link to="/travel-guides/top-homestays-in-guwahati-best-areas-booking-checks-and-homavia-tips">Top homestays in Guwahati</Link>
+          <Link to="/">Browse Homavia stays</Link>
+        </aside>
+      </section>
+    </div>
+  );
+}
+
+function PoolHomestaysPage() {
+  const confirmedPoolStays = useMemo(
+    () => POOL_HOMESTAY_CANDIDATES.filter(item => item.poolStatus === "confirmed_map_pool_tag"),
+    []
+  );
+  const mapPoolLeads = useMemo(
+    () => POOL_HOMESTAY_CANDIDATES.filter(item => item.poolStatus !== "confirmed_map_pool_tag"),
+    []
+  );
+  const featuredItems = useMemo(
+    () => [...confirmedPoolStays, ...mapPoolLeads].slice(0, 120),
+    [confirmedPoolStays, mapPoolLeads]
+  );
+
+  return (
+    <div style={styles.pageContainer}>
+      <SeoHelmet
+        title="Pool Homestays in India | 100+ Map Leads & Pool Stay Candidates | Homavia"
+        description="Explore 100+ Homavia pool homestay leads and map-sourced pool stay candidates across India. Verify pool access, host details, price, and availability before booking."
+        canonicalPath="/pool-homestays"
+        keywords="pool homestays in India, private pool villa India, homestay with swimming pool India, pool stay near me, Homavia pool stays"
+        schema={{
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          "name": "Pool Homestays and Pool Stay Candidates in India",
+          "url": buildAbsoluteUrl("/pool-homestays"),
+          "description": "Homavia directory of map-sourced pool stay candidates and pool homestay leads across India.",
+          "inLanguage": SITE_LANGUAGE,
+          "mainEntity": {
+            "@type": "ItemList",
+            "name": "Pool homestay candidates",
+            "numberOfItems": POOL_HOMESTAY_CANDIDATE_COUNT,
+            "itemListElement": featuredItems.slice(0, 100).map((item, index) => ({
+              "@type": "ListItem",
+              "position": index + 1,
+              "name": item.name,
+              "url": buildAbsoluteUrl("/pool-homestays")
+            }))
+          }
+        }}
+      />
+
+      <section className="guide-index-hero">
+        <span>Pool Homestays</span>
+        <h1>Pool homestays and map-sourced pool stay candidates in India</h1>
+        <p>
+          Browse {POOL_HOMESTAY_CANDIDATE_COUNT} pool stay candidates across India, including {CONFIRMED_OSM_POOL_STAY_COUNT}
+          {" "}OpenStreetMap entries with pool-related map tags and {MAP_POOL_HOMESTAY_LEAD_COUNT} Homavia map-area leads for outreach and verification.
+        </p>
+      </section>
+
+      <div className="guide-card-grid" style={{ marginBottom: 24 }}>
+        <div className="guide-card">
+          <span>Confirmed Map Tags</span>
+          <h2>{CONFIRMED_OSM_POOL_STAY_COUNT} OSM pool-tagged stays</h2>
+          <p>Named accommodation entries where public map tags include pool access. Always confirm current access before publishing as bookable.</p>
+          <small>{OSM_ATTRIBUTION.label} • {OSM_ATTRIBUTION.license}</small>
+        </div>
+        <div className="guide-card">
+          <span>Verification Leads</span>
+          <h2>{MAP_POOL_HOMESTAY_LEAD_COUNT} map-area pool leads</h2>
+          <p>Homavia area-led outreach candidates for private pool villas, family pool stays, couple suites, and workation pool properties.</p>
+          <small>Verify host, pool, price, photos</small>
+        </div>
+        <Link className="guide-card" to="/india-travel">
+          <span>SEO Cluster</span>
+          <h2>India travel hub</h2>
+          <p>Connect pool searches with destination guides, rentals, direct host contact, and verified Homavia stay workflows.</p>
+          <small>Internal link hub</small>
+        </Link>
+      </div>
+
+      <section className="guide-index-hero">
+        <span>Important</span>
+        <h2>Verification before booking</h2>
+        <p>
+          These entries are not automatically verified Homavia listings. Confirm pool access, property type, host identity, photos,
+          pricing, guest rules, safety, and live availability before booking or moving a candidate into the main Homavia listings.
+        </p>
+      </section>
+
+      <div className="guide-card-grid">
+        {featuredItems.map(item => (
+          <article className="guide-card" key={item.id}>
+            <span>{item.poolStatus === "confirmed_map_pool_tag" ? "OSM pool tag" : "Map lead"} • {item.city}</span>
+            <h2>{item.name}</h2>
+            <p>
+              {item.area}, {item.state}. {item.roomType ? `${item.roomType}. ` : ""}
+              {item.guestFit ? `${item.guestFit}. ` : ""}
+              {item.mapContext || `Pool tag: ${item.poolTag}.`}
+            </p>
+            <small>
+              {item.poolTag} • {item.verificationStatus}
+            </small>
+            <div style={{ marginTop: 12, display: 'grid', gap: 6, fontSize: 12, color: '#667085' }}>
+              <span>Map: {item.lat}, {item.lon}</span>
+              {item.sourceUrl ? (
+                <a href={item.sourceUrl} target="_blank" rel="noreferrer">Open map source</a>
+              ) : (
+                <span>Source: {item.source}</span>
+              )}
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <section style={{ ...styles.pageContent, marginTop: 24 }}>
+        <p style={{ margin: 0, color: '#667085', fontSize: 13 }}>
+          Map data attribution: confirmed map-tag entries use data from{" "}
+          <a href={OSM_ATTRIBUTION.url} target="_blank" rel="noreferrer">{OSM_ATTRIBUTION.label}</a>
+          {" "}under {OSM_ATTRIBUTION.license}. Homavia map-area leads are research leads for future verification, not final booking inventory.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function TravelGuideDetail() {
+  const { slug } = useParams();
+  const [guide, setGuide] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadGuide = async () => {
+      setLoading(true);
+      try {
+        const snapshot = await getDocs(
+          query(collection(db, SEO_CONTENT_COLLECTION), where("slug", "==", slug), limit(1))
+        );
+        const entry = snapshot.docs[0];
+        const data = entry ? { id: entry.id, ...entry.data() } : null;
+        const staticGuide = ACTIVE_STATIC_PUBLISHED_GUIDES.find(item => item.slug === slug);
+        if (data?.status === "published") {
+          setGuide(data);
+          return;
+        }
+
+        if (staticGuide) {
+          setGuide(staticGuide);
+          return;
+        }
+
+        setGuide(await fetchScheduledGuides(slug));
+      } catch (error) {
+        console.error("Failed to load guide:", error);
+        setGuide(
+          ACTIVE_STATIC_PUBLISHED_GUIDES.find(item => item.slug === slug) ||
+          await fetchScheduledGuides(slug)
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadGuide();
+  }, [slug]);
+
+  if (loading) {
+    return <div style={styles.pageContainer}><div style={styles.pageContent}>Loading guide...</div></div>;
+  }
+
+  if (!guide) {
+    return (
+      <div style={styles.pageContainer}>
+        <SeoHelmet title="Guide Not Found | Homavia" canonicalPath={`/travel-guides/${slug}`} robots={PRIVATE_ROBOTS} />
+        <div style={styles.pageContent}>This guide is not available.</div>
+      </div>
+    );
+  }
+
+  const keywords = guide.keywords?.length ? guide.keywords.join(", ") : DEFAULT_KEYWORDS;
+  const guideUrl = `/travel-guides/${guide.slug}`;
+  const publishedDate = formatGuideDate(guide.publishedAt || guide.createdAt);
+  const faqSchema = guide.faq?.length ? {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": guide.faq.map(item => ({
+      "@type": "Question",
+      "name": item.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": item.answer
+      }
+    }))
+  } : null;
+
+  return (
+    <article style={styles.pageContainer}>
+      <SeoHelmet
+        title={`${guide.metaTitle || guide.title} | Homavia`}
+        description={guide.metaDescription || guide.introduction || DEFAULT_DESCRIPTION}
+        canonicalPath={guideUrl}
+        keywords={keywords}
+        type="article"
+        schema={[
+          {
+            "@context": "https://schema.org",
+            "@type": "Article",
+            "headline": guide.title,
+            "description": guide.metaDescription || guide.introduction,
+            "datePublished": toGuideIsoDate(guide.publishedAt || guide.createdAt),
+            "dateModified": toGuideIsoDate(guide.updatedAt || guide.publishedAt || guide.createdAt),
+            "author": {
+              "@type": "Organization",
+              "name": SITE_NAME,
+              "url": SITE_URL
+            },
+            "publisher": {
+              "@type": "Organization",
+              "name": SITE_NAME,
+              "url": SITE_URL
+            },
+            "mainEntityOfPage": buildAbsoluteUrl(guideUrl),
+            "inLanguage": SITE_LANGUAGE
+          },
+          faqSchema
+        ]}
+      />
+
+      <header className="guide-detail-hero">
+        <Link to="/travel-guides">Travel Guides</Link>
+        <span>{guide.category || "Guide"} • {publishedDate}</span>
+        <h1>{guide.title}</h1>
+        <p>{guide.introduction || guide.metaDescription}</p>
+      </header>
+
+      <div className="guide-detail-layout">
+        <main className="guide-article">
+          {guide.sections?.map(section => (
+            <section key={section.heading}>
+              <h2>{section.heading}</h2>
+              <p>{section.body}</p>
+            </section>
+          ))}
+
+          {guide.faq?.length > 0 && (
+            <section>
+              <h2>Frequently Asked Questions</h2>
+              {guide.faq.map(item => (
+                <div className="guide-faq" key={item.question}>
+                  <h3>{item.question}</h3>
+                  <p>{item.answer}</p>
+                </div>
+              ))}
+            </section>
+          )}
+        </main>
+
+        <aside className="guide-sidebar">
+          <strong>Next step</strong>
+          <p>{guide.cta || "Explore verified Homavia stays and travel rentals before you book."}</p>
+          <Link to="/">Browse Homavia</Link>
+          <Link to="/my-listings">Open Host CRM</Link>
+          {guide.relatedLinks?.length > 0 && (
+            <>
+              <strong>Related pages</strong>
+              {guide.relatedLinks.map(link => {
+                const linkPath = link.path || "/";
+                const linkLabel = link.label || "Open page";
+                const linkKey = `${guide.slug}-${linkPath || linkLabel}`;
+
+                return /^https?:\/\//i.test(linkPath) ? (
+                  <a href={linkPath} key={linkKey} target="_blank" rel="noopener noreferrer">
+                    {linkLabel}
+                  </a>
+                ) : (
+                  <Link to={linkPath} key={linkKey}>
+                    {linkLabel}
+                  </Link>
+                );
+              })}
+            </>
+          )}
+        </aside>
+      </div>
+    </article>
+  );
+}
+
 function AboutPage() {
   return (
     <div style={styles.pageContainer}>
@@ -9218,6 +11555,1051 @@ function CarRentalPage() {
 }
 
 /* ------------------------------
+   Property Sale Page
+------------------------------ */
+const PROPERTY_ENQUIRY_PHONE = "918638572663";
+const PROPERTY_ENQUIRY_DISPLAY = "+91 86385 72663";
+const APARTMENT_PROJECT_STATUS_OPTIONS = [
+  "All statuses",
+  "Under Construction",
+  "Ready To Move",
+  "Ongoing",
+  "Completed",
+  "Upcoming"
+];
+const ACTIVE_APARTMENT_PROJECTS = [];
+const APARTMENT_PROJECT_CITIES = [
+  "All project cities",
+  ...Array.from(new Set(ACTIVE_APARTMENT_PROJECTS.map(project => project.city))).sort()
+];
+
+function PropertySalePage() {
+  const [selectedCity, setSelectedCity] = useState("All");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [projectSearch, setProjectSearch] = useState("");
+  const [selectedProjectCity, setSelectedProjectCity] = useState("All project cities");
+  const [selectedProjectStatus, setSelectedProjectStatus] = useState("All statuses");
+  const [properties, setProperties] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [user, setUser] = useState(null);
+
+  const PROPERTY_TYPES = ["Apartment Sale", "Land for Sale"];
+  const SIZE_UNITS = ["sq ft", "katha", "bigha", "acre"];
+  const STATUS_OPTIONS = ["Available", "Under Offer", "Sold"];
+  const FEATURE_OPTIONS = [
+    "Airport side",
+    "Road facing",
+    "Clear title",
+    "Parking",
+    "Lift",
+    "Security",
+    "Water supply",
+    "Power backup",
+    "Loan support",
+    "Ready to move",
+    "RERA available",
+    "Gated community",
+    "Gym",
+    "Clubhouse",
+    "Balcony",
+    "Vastu compliant"
+  ];
+  const emptyForm = {
+    title: "",
+    category: "Apartment Sale",
+    city: "Guwahati",
+    area: "",
+    price: "",
+    size: "",
+    sizeUnit: "sq ft",
+    projectName: "",
+    developerName: "",
+    reraId: "",
+    possession: "",
+    bedrooms: "",
+    bathrooms: "",
+    floor: "",
+    furnishingStatus: "Unfurnished",
+    parking: "Not mentioned",
+    balcony: "",
+    ownershipType: "Freehold",
+    status: "Available",
+    description: "",
+    googleMapLink: "",
+    contactNumber: PROPERTY_ENQUIRY_PHONE,
+    features: ["Clear title", "Loan support"]
+  };
+  const [form, setForm] = useState(emptyForm);
+
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged(setUser);
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, "propertySales"),
+      (snapshot) => {
+        const all = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        all.sort((a, b) => {
+          const aTime = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
+          const bTime = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
+          return bTime - aTime;
+        });
+        setProperties(all);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Error fetching property sales:", err);
+        setLoading(false);
+      }
+    );
+    return () => unsub();
+  }, []);
+
+  const filteredProperties = properties.filter(property => {
+    if (selectedCity !== "All" && property.city !== selectedCity) return false;
+    if (selectedCategory !== "All" && property.category !== selectedCategory) return false;
+    return true;
+  });
+
+  const filteredApartmentProjects = useMemo(() => {
+    const search = projectSearch.trim().toLowerCase();
+    return ACTIVE_APARTMENT_PROJECTS.filter(project => {
+      if (selectedProjectCity !== "All project cities" && project.city !== selectedProjectCity) return false;
+      if (selectedProjectStatus !== "All statuses" && project.status !== selectedProjectStatus) return false;
+      if (!search) return true;
+      return [
+        project.name,
+        project.city,
+        project.area,
+        project.developer,
+        project.category,
+        project.status
+      ].join(" ").toLowerCase().includes(search);
+    });
+  }, [projectSearch, selectedProjectCity, selectedProjectStatus]);
+
+  const formatPropertyPrice = (price) => {
+    const amount = Number(price || 0);
+    if (!amount) return "Price on request";
+    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(amount % 10000000 === 0 ? 0 : 2)} Cr`;
+    if (amount >= 100000) return `₹${(amount / 100000).toFixed(amount % 100000 === 0 ? 0 : 2)} L`;
+    return `₹${amount.toLocaleString("en-IN")}`;
+  };
+
+  const handleWhatsAppEnquiry = (property) => {
+    const phone = property.contactNumber || PROPERTY_ENQUIRY_PHONE;
+    const apartmentDetails = property.category === "Apartment Sale"
+      ? [
+          property.projectName ? `Project: ${property.projectName}` : "",
+          property.developerName ? `Developer: ${property.developerName}` : "",
+          property.bedrooms ? `${property.bedrooms} BHK` : "",
+          property.possession ? `Possession: ${property.possession}` : "",
+          property.reraId ? `RERA: ${property.reraId}` : ""
+        ].filter(Boolean).join(". ")
+      : "";
+    const message = `Hi! I'm interested in ${property.title} listed on Homavia. Category: ${property.category}. Location: ${property.area || property.city}. Price: ${formatPropertyPrice(property.price)}.${apartmentDetails ? ` ${apartmentDetails}.` : ""} Please share more details.`;
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
+  };
+
+  const handleApartmentProjectEnquiry = (project) => {
+    const message = `Hi Homavia, I want details for ${project.name} in ${project.area}, ${project.city}. Developer: ${project.developer}. Please share apartment availability and price.`;
+    window.open(`https://wa.me/${PROPERTY_ENQUIRY_PHONE}?text=${encodeURIComponent(message)}`, "_blank");
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleFeatureToggle = (feature) => {
+    setForm(prev => ({
+      ...prev,
+      features: prev.features.includes(feature)
+        ? prev.features.filter(item => item !== feature)
+        : [...prev.features, feature]
+    }));
+  };
+
+  const uploadImage = async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+      method: "POST",
+      body: formData
+    });
+    const data = await res.json();
+    return data.secure_url;
+  };
+
+  const handleAddProperty = async (e) => {
+    e.preventDefault();
+    if (!form.title || !form.price || !form.city || !form.area || !form.size) {
+      alert("Please fill in title, price, city, area, and size.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const imageUrl = imageFile ? await uploadImage(imageFile) : "";
+      await addDoc(collection(db, "propertySales"), {
+        title: form.title,
+        category: form.category,
+        city: form.city,
+        area: form.area,
+        price: Number(form.price),
+        size: Number(form.size),
+        sizeUnit: form.sizeUnit,
+        projectName: form.category === "Apartment Sale" ? form.projectName : "",
+        developerName: form.category === "Apartment Sale" ? form.developerName : "",
+        reraId: form.category === "Apartment Sale" ? form.reraId : "",
+        possession: form.category === "Apartment Sale" ? form.possession : "",
+        bedrooms: form.category === "Apartment Sale" ? Number(form.bedrooms || 0) : 0,
+        bathrooms: form.category === "Apartment Sale" ? Number(form.bathrooms || 0) : 0,
+        floor: form.category === "Apartment Sale" ? form.floor : "",
+        furnishingStatus: form.category === "Apartment Sale" ? form.furnishingStatus : "",
+        parking: form.category === "Apartment Sale" ? form.parking : "",
+        balcony: form.category === "Apartment Sale" ? form.balcony : "",
+        ownershipType: form.ownershipType,
+        status: form.status,
+        description: form.description,
+        googleMapLink: form.googleMapLink,
+        contactNumber: form.contactNumber || PROPERTY_ENQUIRY_PHONE,
+        features: form.features,
+        image: imageUrl,
+        createdAt: serverTimestamp(),
+        createdBy: user?.uid || "",
+        addedBy: user?.email || "anonymous"
+      });
+      setForm(emptyForm);
+      setImageFile(null);
+      setImagePreview(null);
+      setShowAddForm(false);
+      alert("Property sale listing added successfully!");
+    } catch (err) {
+      console.error("Error adding property sale:", err);
+      alert("Failed to add property sale listing. Please try again.");
+    }
+    setSubmitting(false);
+  };
+
+  const handleDeleteProperty = async (propertyId, propertyTitle) => {
+    if (!window.confirm(`Delete "${propertyTitle}" from property sale listings?`)) return;
+    try {
+      await deleteDoc(doc(db, "propertySales", propertyId));
+    } catch (err) {
+      console.error("Error deleting property sale:", err);
+      alert("Failed to delete property sale listing.");
+    }
+  };
+
+  const handleStatusChange = async (propertyId, status) => {
+    try {
+      await updateDoc(doc(db, "propertySales", propertyId), { status });
+    } catch (err) {
+      console.error("Error updating property status:", err);
+      alert("Failed to update status.");
+    }
+  };
+
+  const inputStyle = {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 10,
+    border: "1px solid #e0e0e0",
+    fontSize: 14,
+    fontWeight: 500,
+    backgroundColor: "#fff",
+    boxSizing: "border-box",
+    outline: "none"
+  };
+  const labelStyle = {
+    display: "block",
+    fontSize: 13,
+    fontWeight: 600,
+    color: "#374151",
+    marginBottom: 6,
+    letterSpacing: 0
+  };
+  const propertySaleDescription = "Explore apartments for sale, residential projects, and land for sale on Homavia with project enquiries across Guwahati and Tier 1 Indian cities.";
+  const propertyServiceSchema = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "name": "Homavia Property Sale",
+    "serviceType": "Apartment project and property sale enquiries",
+    "url": buildAbsoluteUrl("/property-sale"),
+    "description": propertySaleDescription,
+    "provider": {
+      "@type": "Organization",
+      "name": SITE_NAME,
+      "url": SITE_URL
+    },
+    "areaServed": APARTMENT_PROJECT_CITIES.filter(city => city !== "All project cities")
+  };
+  const apartmentProjectListSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": "Apartment and residential projects on Homavia",
+    "numberOfItems": filteredApartmentProjects.length,
+    "itemListElement": filteredApartmentProjects.slice(0, 20).map((project, index) => ({
+      "@type": "ListItem",
+      "position": index + 1,
+      "item": {
+        "@type": "Residence",
+        "name": project.name,
+        "address": `${project.area}, ${project.city}`,
+        "telephone": `+${PROPERTY_ENQUIRY_PHONE}`,
+        "description": `${project.category} project by ${project.developer} in ${project.area}, ${project.city}. Status: ${project.status}.`
+      }
+    }))
+  };
+  const propertyItemListSchema = filteredProperties.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": "Land and apartments for sale on Homavia",
+    "numberOfItems": filteredProperties.length,
+    "itemListElement": filteredProperties.slice(0, 10).map((property, index) => ({
+      "@type": "ListItem",
+      "position": index + 1,
+      "item": {
+        "@type": "Product",
+        "name": property.title,
+        "image": normalizeSeoImage(property.image),
+        "category": property.category || "Property sale",
+        "description": property.description || propertySaleDescription,
+        "offers": property.price ? {
+          "@type": "Offer",
+          "priceCurrency": "INR",
+          "price": property.price,
+          "availability": property.status === "Sold" ? "https://schema.org/SoldOut" : "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": SITE_NAME
+          }
+        } : undefined
+      }
+    }))
+  } : null;
+  const projectCityCount = APARTMENT_PROJECT_CITIES.length - 1;
+
+  return (
+    <div>
+      <SeoHelmet
+        title="Apartments for Sale & Residential Projects | Homavia Property"
+        description={propertySaleDescription}
+        keywords="apartments for sale Guwahati, residential projects Guwahati, apartment projects Mumbai, apartment projects Delhi NCR, apartment projects Bengaluru, property sale India, Homavia property"
+        canonicalPath="/property-sale"
+        schema={[propertyServiceSchema, apartmentProjectListSchema, propertyItemListSchema]}
+      />
+
+      <section style={{
+        background: "linear-gradient(135deg, #0f172a 0%, #14532d 55%, #166534 100%)",
+        borderRadius: 20,
+        padding: "40px 24px",
+        marginBottom: 28,
+        color: "#fff",
+        position: "relative",
+        overflow: "hidden"
+      }}>
+        <div style={{ position: "relative", zIndex: 1, maxWidth: 760 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, marginBottom: 12, color: "#bbf7d0" }}>
+            <FiHome /> Homavia Property
+          </span>
+          <h1 style={{ fontSize: 32, lineHeight: 1.15, fontWeight: 800, margin: "0 0 10px", letterSpacing: 0 }}>
+            Apartments for sale and residential projects
+          </h1>
+          <p style={{ color: "#dcfce7", fontSize: 15, lineHeight: 1.7, maxWidth: 620, margin: 0 }}>
+            Browse apartment project enquiries across Guwahati, Mumbai, Delhi NCR, Bengaluru, Hyderabad, Chennai, Pune, Kolkata, and Ahmedabad. Buyers can enquire directly on WhatsApp at {PROPERTY_ENQUIRY_DISPLAY}.
+          </p>
+        </div>
+      </section>
+
+      {ACTIVE_APARTMENT_PROJECTS.length > 0 && (
+      <section style={{
+        backgroundColor: "#fff",
+        borderRadius: 18,
+        padding: 22,
+        marginBottom: 28,
+        boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+        border: "1px solid #f3f4f6"
+      }}>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) minmax(240px, 320px)",
+          gap: 18,
+          alignItems: "start",
+          marginBottom: 18
+        }} className="property-project-header">
+          <div>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 800, color: "#b42318", marginBottom: 8 }}>
+              <FiHome /> Apartment project directory
+            </span>
+            <h2 style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.18, margin: "0 0 8px", color: "#111827" }}>
+              Tier 1 city apartment projects with one Homavia enquiry number
+            </h2>
+            <p style={{ fontSize: 14, color: "#667085", lineHeight: 1.65, maxWidth: 760, margin: 0 }}>
+              Search public project leads by city, locality, developer, category, or status. Every project card uses {PROPERTY_ENQUIRY_DISPLAY} for call and WhatsApp enquiries.
+            </p>
+          </div>
+
+          <div style={{
+            border: "1px solid #fee4e2",
+            background: "#fff7f6",
+            borderRadius: 14,
+            padding: 16
+          }}>
+            <span style={{ display: "block", fontSize: 12, fontWeight: 900, color: "#b42318", textTransform: "uppercase", marginBottom: 8 }}>
+              Project enquiry contact
+            </span>
+            <a href={`tel:+${PROPERTY_ENQUIRY_PHONE}`} style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              color: "#111827",
+              textDecoration: "none",
+              fontSize: 20,
+              fontWeight: 900
+            }}>
+              <FiPhone /> {PROPERTY_ENQUIRY_DISPLAY}
+            </a>
+            <p style={{ color: "#667085", fontSize: 13, margin: "8px 0 0", lineHeight: 1.5 }}>
+              {ACTIVE_APARTMENT_PROJECTS.length} project leads across {projectCityCount} cities.
+            </p>
+          </div>
+        </div>
+
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(220px, 1fr) repeat(2, minmax(180px, 0.5fr)) auto",
+          gap: 12,
+          alignItems: "end",
+          marginBottom: 18
+        }} className="property-project-toolbar">
+          <div>
+            <label style={labelStyle}>Search project</label>
+            <div style={{ position: "relative" }}>
+              <FiSearch size={17} style={{ position: "absolute", left: 12, top: 14, color: "#98a2b3" }} />
+              <input
+                aria-label="Search apartment projects"
+                style={{ ...inputStyle, paddingLeft: 38 }}
+                placeholder="Project, developer, area"
+                value={projectSearch}
+                onChange={(e) => setProjectSearch(e.target.value)}
+              />
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>City</label>
+            <select
+              aria-label="Apartment project city"
+              style={inputStyle}
+              value={selectedProjectCity}
+              onChange={(e) => setSelectedProjectCity(e.target.value)}
+            >
+              {APARTMENT_PROJECT_CITIES.map(city => <option key={city} value={city}>{city}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Status</label>
+            <select
+              aria-label="Apartment project status"
+              style={inputStyle}
+              value={selectedProjectStatus}
+              onChange={(e) => setSelectedProjectStatus(e.target.value)}
+            >
+              {APARTMENT_PROJECT_STATUS_OPTIONS.map(status => <option key={status} value={status}>{status}</option>)}
+            </select>
+          </div>
+          <div style={{
+            minHeight: 46,
+            border: "1px solid #eaecf0",
+            borderRadius: 10,
+            padding: "8px 12px",
+            backgroundColor: "#f9fafb",
+            minWidth: 130
+          }}>
+            <strong style={{ display: "block", color: "#111827", fontSize: 18, lineHeight: 1 }}>
+              {filteredApartmentProjects.length}
+            </strong>
+            <span style={{ fontSize: 11, color: "#667085", fontWeight: 800, textTransform: "uppercase" }}>
+              Projects
+            </span>
+          </div>
+        </div>
+
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gap: 14
+        }}>
+          {filteredApartmentProjects.map(project => (
+            <article key={project.id} style={{
+              border: "1px solid #eaecf0",
+              borderRadius: 14,
+              padding: 16,
+              background: "#fff",
+              boxShadow: "0 2px 10px rgba(15,23,42,0.05)"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", marginBottom: 10 }}>
+                <span style={{
+                  fontSize: 11,
+                  fontWeight: 900,
+                  color: "#166534",
+                  backgroundColor: "#dcfce7",
+                  padding: "4px 8px",
+                  borderRadius: 999
+                }}>
+                  {project.category}
+                </span>
+                <span style={{
+                  fontSize: 11,
+                  fontWeight: 900,
+                  color: "#7c2d12",
+                  backgroundColor: "#ffedd5",
+                  padding: "4px 8px",
+                  borderRadius: 999,
+                  textAlign: "right"
+                }}>
+                  {project.status}
+                </span>
+              </div>
+
+              <h3 style={{ fontSize: 18, fontWeight: 900, lineHeight: 1.25, margin: "0 0 8px", color: "#111827" }}>
+                {project.name}
+              </h3>
+              <p style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#667085", margin: "0 0 10px" }}>
+                <FiMapPin size={14} /> {project.area}, {project.city}
+              </p>
+
+              <div style={{ display: "grid", gap: 8, marginBottom: 14 }}>
+                <div>
+                  <span style={{ display: "block", fontSize: 11, color: "#667085", fontWeight: 900, textTransform: "uppercase" }}>Developer</span>
+                  <strong style={{ fontSize: 13, color: "#111827" }}>{project.developer}</strong>
+                </div>
+                <div>
+                  <span style={{ display: "block", fontSize: 11, color: "#667085", fontWeight: 900, textTransform: "uppercase" }}>Contact</span>
+                  <strong style={{ fontSize: 13, color: "#111827" }}>{PROPERTY_ENQUIRY_DISPLAY}</strong>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", borderTop: "1px solid #f2f4f7", paddingTop: 12 }}>
+                <a href={`tel:+${PROPERTY_ENQUIRY_PHONE}`} style={{
+                  flex: "1 1 90px",
+                  minHeight: 38,
+                  borderRadius: 10,
+                  backgroundColor: "#111827",
+                  color: "#fff",
+                  textDecoration: "none",
+                  fontSize: 13,
+                  fontWeight: 900,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6
+                }}>
+                  <FiPhone size={14} /> Call
+                </a>
+                <button type="button" onClick={() => handleApartmentProjectEnquiry(project)} style={{
+                  flex: "1 1 120px",
+                  minHeight: 38,
+                  borderRadius: 10,
+                  border: "none",
+                  backgroundColor: "#25d366",
+                  color: "#fff",
+                  fontSize: 13,
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6
+                }}>
+                  <FiMessageCircle size={14} /> WhatsApp
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+      )}
+
+      {user && (
+        <div style={{ marginBottom: 20, display: "flex", justifyContent: "flex-end" }}>
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            style={{
+              padding: "10px 20px",
+              borderRadius: 12,
+              border: "none",
+              background: showAddForm ? "#6b7280" : "linear-gradient(135deg, #15803d 0%, #22c55e 100%)",
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              boxShadow: "0 4px 12px rgba(34,197,94,0.25)"
+            }}
+          >
+            {showAddForm ? <><FiX size={16} /> Cancel</> : <><FiHome size={16} /> Add Property</>}
+          </button>
+        </div>
+      )}
+
+      {showAddForm && user && (
+        <form onSubmit={handleAddProperty} style={{
+          backgroundColor: "#fff",
+          borderRadius: 16,
+          padding: 24,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+          border: "1px solid #f3f4f6",
+          marginBottom: 28
+        }}>
+          <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20, color: "#111827" }}>
+            Add Land or Apartment Sale
+          </h2>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+            <div>
+              <label style={labelStyle}>Listing Title *</label>
+              <input style={inputStyle} placeholder="e.g. Airport-side residential land" value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+            </div>
+            <div>
+              <label style={labelStyle}>Sale Type *</label>
+              <select style={inputStyle} value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                {PROPERTY_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>City *</label>
+              <select style={inputStyle} value={form.city}
+                onChange={(e) => setForm({ ...form, city: e.target.value })}>
+                {ALL_CITIES.map(city => <option key={city} value={city}>{city}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Area / Locality *</label>
+              <input style={inputStyle} placeholder="e.g. Borjhar, Garal, Six Mile" value={form.area}
+                onChange={(e) => setForm({ ...form, area: e.target.value })} required />
+            </div>
+            <div>
+              <label style={labelStyle}>Price (INR) *</label>
+              <input style={inputStyle} type="number" placeholder="e.g. 3500000" value={form.price}
+                onChange={(e) => setForm({ ...form, price: e.target.value })} required min="0" />
+            </div>
+            <div>
+              <label style={labelStyle}>Size *</label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 110px", gap: 8 }}>
+                <input style={inputStyle} type="number" placeholder="e.g. 1440" value={form.size}
+                  onChange={(e) => setForm({ ...form, size: e.target.value })} required min="0" />
+                <select style={inputStyle} value={form.sizeUnit}
+                  onChange={(e) => setForm({ ...form, sizeUnit: e.target.value })}>
+                  {SIZE_UNITS.map(unit => <option key={unit} value={unit}>{unit}</option>)}
+                </select>
+              </div>
+            </div>
+            {form.category === "Apartment Sale" && (
+              <>
+                <div>
+                  <label style={labelStyle}>Project / Building Name</label>
+                  <input style={inputStyle} placeholder="e.g. Airport Residency, Takeoff Heights" value={form.projectName}
+                    onChange={(e) => setForm({ ...form, projectName: e.target.value })} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Developer / Builder</label>
+                  <input style={inputStyle} placeholder="e.g. Owner name, builder name" value={form.developerName}
+                    onChange={(e) => setForm({ ...form, developerName: e.target.value })} />
+                </div>
+                <div>
+                  <label style={labelStyle}>RERA ID</label>
+                  <input style={inputStyle} placeholder="RERA number if available" value={form.reraId}
+                    onChange={(e) => setForm({ ...form, reraId: e.target.value })} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Possession / Availability</label>
+                  <input style={inputStyle} placeholder="e.g. Ready to move, Dec 2027" value={form.possession}
+                    onChange={(e) => setForm({ ...form, possession: e.target.value })} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Bedrooms</label>
+                  <input style={inputStyle} type="number" min="0" placeholder="e.g. 2" value={form.bedrooms}
+                    onChange={(e) => setForm({ ...form, bedrooms: e.target.value })} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Bathrooms</label>
+                  <input style={inputStyle} type="number" min="0" placeholder="e.g. 2" value={form.bathrooms}
+                    onChange={(e) => setForm({ ...form, bathrooms: e.target.value })} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Floor</label>
+                  <input style={inputStyle} placeholder="e.g. 3rd floor" value={form.floor}
+                    onChange={(e) => setForm({ ...form, floor: e.target.value })} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Furnishing</label>
+                  <select style={inputStyle} value={form.furnishingStatus}
+                    onChange={(e) => setForm({ ...form, furnishingStatus: e.target.value })}>
+                    <option>Unfurnished</option>
+                    <option>Semi furnished</option>
+                    <option>Fully furnished</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Parking</label>
+                  <select style={inputStyle} value={form.parking}
+                    onChange={(e) => setForm({ ...form, parking: e.target.value })}>
+                    <option>Not mentioned</option>
+                    <option>1 covered parking</option>
+                    <option>1 open parking</option>
+                    <option>2 parkings</option>
+                    <option>No parking</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Balcony</label>
+                  <input style={inputStyle} placeholder="e.g. 1 balcony, road-facing" value={form.balcony}
+                    onChange={(e) => setForm({ ...form, balcony: e.target.value })} />
+                </div>
+              </>
+            )}
+            <div>
+              <label style={labelStyle}>Ownership</label>
+              <input style={inputStyle} placeholder="e.g. Freehold, Patta, Leasehold" value={form.ownershipType}
+                onChange={(e) => setForm({ ...form, ownershipType: e.target.value })} />
+            </div>
+            <div>
+              <label style={labelStyle}>Status</label>
+              <select style={inputStyle} value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                {STATUS_OPTIONS.map(status => <option key={status} value={status}>{status}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>WhatsApp Number</label>
+              <input style={inputStyle} placeholder="e.g. 918638572663" value={form.contactNumber}
+                onChange={(e) => setForm({ ...form, contactNumber: e.target.value })} />
+            </div>
+            <div>
+              <label style={labelStyle}>Google Map Link</label>
+              <input style={inputStyle} placeholder="https://maps.google.com/..." value={form.googleMapLink}
+                onChange={(e) => setForm({ ...form, googleMapLink: e.target.value })} />
+            </div>
+          </div>
+
+          <div style={{ marginTop: 18 }}>
+            <label style={labelStyle}>Highlights</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+              {FEATURE_OPTIONS.map(feature => (
+                <button key={feature} type="button" onClick={() => handleFeatureToggle(feature)}
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: 20,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    border: form.features.includes(feature) ? "2px solid #16a34a" : "1px solid #e5e7eb",
+                    backgroundColor: form.features.includes(feature) ? "#dcfce7" : "#fff",
+                    color: form.features.includes(feature) ? "#166534" : "#6b7280",
+                    cursor: "pointer"
+                  }}>
+                  {feature}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginTop: 18 }}>
+            <label style={labelStyle}>Description</label>
+            <textarea style={{ ...inputStyle, minHeight: 110, resize: "vertical" }} value={form.description}
+              placeholder="Share nearby landmarks, road width, apartment condition, paperwork, or buyer notes."
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
+          </div>
+
+          <div style={{ marginTop: 18 }}>
+            <label style={labelStyle}>Property Image</label>
+            <input type="file" accept="image/*" onChange={handleImageChange}
+              style={{ ...inputStyle, padding: "10px 12px" }} />
+            {imagePreview && (
+              <img src={imagePreview} alt="Property preview" style={{
+                width: 220,
+                height: 140,
+                objectFit: "cover",
+                borderRadius: 12,
+                marginTop: 12,
+                border: "1px solid #e5e7eb"
+              }} />
+            )}
+          </div>
+
+          <button type="submit" disabled={submitting} style={{
+            marginTop: 24,
+            width: "100%",
+            padding: "14px 24px",
+            borderRadius: 12,
+            border: "none",
+            background: submitting ? "#d1d5db" : "linear-gradient(135deg, #15803d 0%, #22c55e 100%)",
+            color: "#fff",
+            fontSize: 16,
+            fontWeight: 700,
+            cursor: submitting ? "not-allowed" : "pointer",
+            boxShadow: "0 4px 16px rgba(34,197,94,0.25)"
+          }}>
+            {submitting ? "Adding Property..." : "Add Property Sale Listing"}
+          </button>
+        </form>
+      )}
+
+      <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+        <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)}
+          style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #e0e0e0", fontSize: 14, fontWeight: 500, backgroundColor: "#fff", flex: "1 1 150px", minWidth: 150 }}>
+          <option value="All">All Cities</option>
+          {ALL_CITIES.map(city => <option key={city} value={city}>{city}</option>)}
+        </select>
+        <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}
+          style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #e0e0e0", fontSize: 14, fontWeight: 500, backgroundColor: "#fff", flex: "1 1 180px", minWidth: 180 }}>
+          <option value="All">Land and Apartments</option>
+          {PROPERTY_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+        </select>
+      </div>
+
+      <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 16, fontWeight: 500 }}>
+        {filteredProperties.length} property sale listing{filteredProperties.length !== 1 ? "s" : ""} available
+      </p>
+
+      {loading && (
+        <div style={{ textAlign: "center", padding: "60px 20px" }}>
+          <div style={{ width: 40, height: 40, border: "3px solid #e0e0e0", borderTop: "3px solid #16a34a", borderRadius: "50%", animation: "spin 1s linear infinite", margin: "0 auto 16px" }}></div>
+          <p style={{ fontSize: 14, color: "#6b7280" }}>Loading property sale listings...</p>
+        </div>
+      )}
+
+      {!loading && (
+        <div className="bike-rental-grid">
+          {filteredProperties.map(property => {
+            const canManage = user && (isAdminUser(user) || property.createdBy === user.uid || property.addedBy === user.email);
+            return (
+              <div key={property.id} style={{
+                borderRadius: 16,
+                overflow: "hidden",
+                backgroundColor: "#fff",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                border: "1px solid #f3f4f6",
+                transition: "all 0.3s ease",
+                position: "relative"
+              }}>
+                {property.image ? (
+                  <img src={property.image} alt={property.title} loading="lazy"
+                    style={{ width: "100%", height: 210, objectFit: "cover" }} />
+                ) : (
+                  <div style={{
+                    height: 210,
+                    background: "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#166534",
+                    fontWeight: 800,
+                    fontSize: 18
+                  }}>
+                    {property.category}
+                  </div>
+                )}
+
+                <div style={{ padding: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 8 }}>
+                    <h2 style={{ fontSize: 17, fontWeight: 800, color: "#111827", margin: 0, lineHeight: 1.3 }}>
+                      {property.title}
+                    </h2>
+                    <span style={{
+                      fontSize: 11,
+                      fontWeight: 800,
+                      color: property.status === "Sold" ? "#991b1b" : "#166534",
+                      backgroundColor: property.status === "Sold" ? "#fee2e2" : "#dcfce7",
+                      padding: "4px 8px",
+                      borderRadius: 999,
+                      whiteSpace: "nowrap"
+                    }}>
+                      {property.status || "Available"}
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: 13, color: "#6b7280", display: "flex", alignItems: "center", gap: 5, margin: "0 0 10px" }}>
+                    <FiMapPin size={14} /> {property.area}, {property.city}
+                  </p>
+
+                  {property.category === "Apartment Sale" && (
+                    <div style={{
+                      display: "grid",
+                      gap: 8,
+                      padding: 12,
+                      borderRadius: 12,
+                      backgroundColor: "#f9fafb",
+                      border: "1px solid #f2f4f7",
+                      marginBottom: 12
+                    }}>
+                      {property.projectName && (
+                        <div>
+                          <span style={{ display: "block", fontSize: 10, color: "#667085", fontWeight: 900, textTransform: "uppercase" }}>Project</span>
+                          <strong style={{ fontSize: 13, color: "#111827" }}>{property.projectName}</strong>
+                        </div>
+                      )}
+                      {property.developerName && (
+                        <div>
+                          <span style={{ display: "block", fontSize: 10, color: "#667085", fontWeight: 900, textTransform: "uppercase" }}>Developer</span>
+                          <strong style={{ fontSize: 13, color: "#111827" }}>{property.developerName}</strong>
+                        </div>
+                      )}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {property.possession && (
+                          <span style={{ fontSize: 11, color: "#344054", backgroundColor: "#fff", border: "1px solid #eaecf0", padding: "4px 8px", borderRadius: 999, fontWeight: 800 }}>
+                            Possession: {property.possession}
+                          </span>
+                        )}
+                        {property.furnishingStatus && (
+                          <span style={{ fontSize: 11, color: "#344054", backgroundColor: "#fff", border: "1px solid #eaecf0", padding: "4px 8px", borderRadius: 999, fontWeight: 800 }}>
+                            {property.furnishingStatus}
+                          </span>
+                        )}
+                        {property.parking && property.parking !== "Not mentioned" && (
+                          <span style={{ fontSize: 11, color: "#344054", backgroundColor: "#fff", border: "1px solid #eaecf0", padding: "4px 8px", borderRadius: 999, fontWeight: 800 }}>
+                            {property.parking}
+                          </span>
+                        )}
+                        {property.balcony && (
+                          <span style={{ fontSize: 11, color: "#344054", backgroundColor: "#fff", border: "1px solid #eaecf0", padding: "4px 8px", borderRadius: 999, fontWeight: 800 }}>
+                            {property.balcony}
+                          </span>
+                        )}
+                        {property.reraId && (
+                          <span style={{ fontSize: 11, color: "#166534", backgroundColor: "#dcfce7", border: "1px solid #bbf7d0", padding: "4px 8px", borderRadius: 999, fontWeight: 900 }}>
+                            RERA: {property.reraId}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+                    <span style={{ fontSize: 12, color: "#374151", backgroundColor: "#f3f4f6", padding: "4px 8px", borderRadius: 8, fontWeight: 600 }}>
+                      {property.category}
+                    </span>
+                    <span style={{ fontSize: 12, color: "#374151", backgroundColor: "#f3f4f6", padding: "4px 8px", borderRadius: 8, fontWeight: 600 }}>
+                      {property.size} {property.sizeUnit}
+                    </span>
+                    {property.category === "Apartment Sale" && property.bedrooms > 0 && (
+                      <span style={{ fontSize: 12, color: "#374151", backgroundColor: "#f3f4f6", padding: "4px 8px", borderRadius: 8, fontWeight: 600 }}>
+                        {property.bedrooms} BHK
+                      </span>
+                    )}
+                    {property.ownershipType && (
+                      <span style={{ fontSize: 12, color: "#374151", backgroundColor: "#f3f4f6", padding: "4px 8px", borderRadius: 8, fontWeight: 600 }}>
+                        {property.ownershipType}
+                      </span>
+                    )}
+                  </div>
+
+                  {property.description && (
+                    <p style={{ fontSize: 13, color: "#4b5563", lineHeight: 1.55, margin: "0 0 12px" }}>
+                      {property.description}
+                    </p>
+                  )}
+
+                  {property.features?.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+                      {property.features.slice(0, 5).map(feature => (
+                        <span key={feature} style={{
+                          fontSize: 11,
+                          color: "#166534",
+                          backgroundColor: "#dcfce7",
+                          padding: "3px 8px",
+                          borderRadius: 999,
+                          fontWeight: 600
+                        }}>
+                          <FiCheck size={10} style={{ marginRight: 2 }} />{feature}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                    <div>
+                      <strong style={{ fontSize: 22, color: "#15803d", fontWeight: 900 }}>
+                        {formatPropertyPrice(property.price)}
+                      </strong>
+                    </div>
+                    <button
+                      onClick={() => handleWhatsAppEnquiry(property)}
+                      disabled={property.status === "Sold"}
+                      style={{
+                        padding: "9px 14px",
+                        borderRadius: 10,
+                        border: "none",
+                        backgroundColor: property.status === "Sold" ? "#d1d5db" : "#25d366",
+                        color: "#fff",
+                        fontSize: 13,
+                        fontWeight: 800,
+                        cursor: property.status === "Sold" ? "not-allowed" : "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6
+                      }}
+                    >
+                      <FiMessageCircle size={14} /> Enquire
+                    </button>
+                  </div>
+
+                  {property.googleMapLink && (
+                    <a href={property.googleMapLink} target="_blank" rel="noopener noreferrer"
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#15803d", fontSize: 13, fontWeight: 700, marginTop: 12, textDecoration: "none" }}>
+                      <FiMap /> View location
+                    </a>
+                  )}
+
+                  {canManage && (
+                    <div style={{ display: "flex", gap: 8, marginTop: 12, borderTop: "1px solid #f3f4f6", paddingTop: 12 }}>
+                      <select value={property.status || "Available"} onChange={(e) => handleStatusChange(property.id, e.target.value)}
+                        style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 12, fontWeight: 700 }}>
+                        {STATUS_OPTIONS.map(status => <option key={status} value={status}>{status}</option>)}
+                      </select>
+                      <button onClick={() => handleDeleteProperty(property.id, property.title)}
+                        style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #fee2e2", backgroundColor: "#fff", color: "#ef4444", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {!loading && filteredProperties.length === 0 && (
+        <div style={{ textAlign: "center", padding: "60px 20px", background: "#fff", borderRadius: 16, border: "1px solid #f3f4f6" }}>
+          <FiHome size={42} color="#16a34a" style={{ marginBottom: 14 }} />
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: "#111827", marginBottom: 8 }}>No property sale listings yet</h2>
+          <p style={{ fontSize: 14, color: "#6b7280", margin: 0 }}>
+            Add land or apartment sale listings after logging in.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------
    Footer
 ------------------------------ */
 function Footer() {
@@ -9239,8 +12621,12 @@ function Footer() {
           <Link to="/about" style={styles.footerLink} className="footer-link-hover"><FiInfo /> About Us</Link>
           <Link to="/contact" style={styles.footerLink} className="footer-link-hover"><FiPhone /> Contact</Link>
           <Link to="/premium" style={styles.footerLink} className="footer-link-hover"><FiStar /> Premium</Link>
+          <Link to="/india-travel" style={styles.footerLink} className="footer-link-hover"><FiMap /> India Travel</Link>
+          <Link to="/pool-homestays" style={styles.footerLink} className="footer-link-hover"><FiDroplet /> Pool Homestays</Link>
+          <Link to="/travel-guides" style={styles.footerLink} className="footer-link-hover"><FiSearch /> Guides</Link>
           <Link to="/bike-rental" style={styles.footerLink} className="footer-link-hover"><FiNavigation /> Bike Rental</Link>
           <Link to="/car-rental" style={styles.footerLink} className="footer-link-hover"><FiNavigation /> Car Rental</Link>
+          <Link to="/property-sale" style={styles.footerLink} className="footer-link-hover"><FiHome /> Property Sale</Link>
           <Link to="/add-homestay" style={styles.footerLink} className="footer-link-hover"><FiHome /> List Your Homestay</Link>
         </div>
 
@@ -9262,12 +12648,12 @@ function Footer() {
    Mobile App
 ------------------------------ */
 function MobileApp() {
-  const [homestays, setHomestays] = useState([]);
+  const [homestays, setHomestays] = useState(PUBLIC_GOOGLE_HOMESTAYS);
   const [user, setUser] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(false);
   const isDesktop = useIsDesktop(1024);
 
   // PWA Install Prompt
@@ -9309,36 +12695,13 @@ function MobileApp() {
       collection(db, "homestays"),
       (snapshot) => {
         clearTimeout(loaderTimeout);
-        const all = snapshot.docs.map(docu => ({
-          id: docu.id,
-          ...docu.data()
-        }));
-
-        const cutoffIST = new Date("2025-11-01T00:00:00+05:30").getTime();
-
-        const normalizeCreatedAtMs = (ca) => {
-          if (!ca) return 0;
-          if (ca instanceof Timestamp) return ca.toDate().getTime();
-          if (typeof ca === "string") {
-            const parsed = Date.parse(ca);
-            return Number.isNaN(parsed) ? 0 : parsed;
-          }
-          if (ca?.toDate) {
-            try { return ca.toDate().getTime(); } catch { return 0; }
-          }
-          return 0;
-        };
-
-        const filtered = all
-          .filter(x => normalizeCreatedAtMs(x.createdAt) >= cutoffIST)
-          .sort((a, b) => normalizeCreatedAtMs(b.createdAt) - normalizeCreatedAtMs(a.createdAt));
-
-        setHomestays(filtered);
+        setHomestays(normalizeHomestaySnapshot(snapshot));
         setInitialLoading(false);
       },
       (error) => {
         clearTimeout(loaderTimeout);
         console.error("Error fetching homestays:", error);
+        setHomestays(PUBLIC_GOOGLE_HOMESTAYS);
         setInitialLoading(false);
       }
     );
@@ -9371,19 +12734,9 @@ function MobileApp() {
   const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
-  // Show initial loader
-  if (initialLoading) {
-    return (
-      <div style={styles.loaderContainer}>
-        <div style={styles.spinner}></div>
-        <p style={styles.loaderText}>Loading Homavia...</p>
-        <p style={styles.loaderSubtext}>Finding the best homestays for you</p>
-      </div>
-    );
-  }
-
   return (
     <Router>
+      <WebsiteTrafficTracker />
       <div style={styles.container}>
         <header style={styles.header}>
           <Link to="/" style={styles.logoContainer} onClick={closeMobileMenu}>
@@ -9396,8 +12749,12 @@ function MobileApp() {
             <Link to="/about" style={styles.desktopNavLink}>About Us</Link>
             <Link to="/contact" style={styles.desktopNavLink}>Contact</Link>
             <Link to="/premium" style={styles.desktopNavLink}>Premium</Link>
+            <Link to="/india-travel" style={styles.desktopNavLink}>India Travel</Link>
+            <Link to="/pool-homestays" style={styles.desktopNavLink}>Pool Stays</Link>
+            <Link to="/travel-guides" style={styles.desktopNavLink}>Guides</Link>
             <Link to="/bike-rental" style={styles.desktopNavLink}>Bike Rental</Link>
             <Link to="/car-rental" style={styles.desktopNavLink}>Car Rental</Link>
+            <Link to="/property-sale" style={styles.desktopNavLink}>Property Sale</Link>
             {user && <Link to="/my-listings" style={styles.desktopNavLink}>My Listings</Link>}
             {user && isAdminUser(user) && <Link to="/admin" style={styles.desktopNavLink}>Admin</Link>}
             
@@ -9482,8 +12839,12 @@ function MobileApp() {
             <Link to="/about" style={styles.navLink} onClick={closeMobileMenu}>About Us</Link>
             <Link to="/contact" style={styles.navLink} onClick={closeMobileMenu}>Contact</Link>
             <Link to="/premium" style={styles.navLink} onClick={closeMobileMenu}>Premium</Link>
+            <Link to="/india-travel" style={styles.navLink} onClick={closeMobileMenu}>India Travel</Link>
+            <Link to="/pool-homestays" style={styles.navLink} onClick={closeMobileMenu}>Pool Stays</Link>
+            <Link to="/travel-guides" style={styles.navLink} onClick={closeMobileMenu}>Guides</Link>
             <Link to="/bike-rental" style={styles.navLink} onClick={closeMobileMenu}>Bike Rental</Link>
             <Link to="/car-rental" style={styles.navLink} onClick={closeMobileMenu}>Car Rental</Link>
+            <Link to="/property-sale" style={styles.navLink} onClick={closeMobileMenu}>Property Sale</Link>
             {user && (
               <Link to="/my-listings" style={styles.navLink} onClick={closeMobileMenu}>
                 My Listings
@@ -9525,7 +12886,7 @@ function MobileApp() {
         <main style={{ flex: 1 }}>
           <div className="main-content page-fade-in" style={styles.mainContent}>
             <Routes>
-              <Route path="/" element={<HomestayListing homestays={homestays} />} />
+              <Route path="/" element={<HomestayListing homestays={homestays} loading={initialLoading} />} />
               <Route path="/add-homestay" element={<AddHomestayForm />} />
               <Route path="/edit-homestay/:id" element={<EditHomestayForm />} />
             <Route path="/my-listings" element={<MyListings />} />
@@ -9533,8 +12894,13 @@ function MobileApp() {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/premium" element={<PremiumPage />} />
+            <Route path="/india-travel" element={<IndiaTravelPage />} />
+            <Route path="/pool-homestays" element={<PoolHomestaysPage />} />
+            <Route path="/travel-guides" element={<TravelGuidesPage />} />
+            <Route path="/travel-guides/:slug" element={<TravelGuideDetail />} />
             <Route path="/bike-rental" element={<BikeRentalPage />} />
             <Route path="/car-rental" element={<CarRentalPage />} />
+            <Route path="/property-sale" element={<PropertySalePage />} />
             <Route
               path="/admin"
               element={

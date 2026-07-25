@@ -15,6 +15,9 @@ node_modules/
 .env.development.local
 .env.test.local
 .env.production.local
+functions/.env
+functions/.env.*
+!functions/.env.example
 
 npm-debug.log*
 yarn-debug.log*
@@ -31,3 +34,6 @@ firebase-debug.log
 *.swp
 *.swo
 *~
+
+# Local Netlify folder
+.netlify

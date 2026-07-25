@@ -23,5 +23,10 @@ Allow: /homestays/
 Allow: /about
 Allow: /contact
 Allow: /premium
+Allow: /india-travel
+Allow: /pool-homestays
 Allow: /bike-rental
 Allow: /car-rental
+Allow: /property-sale
+Allow: /travel-guides
+Allow: /travel-guides/

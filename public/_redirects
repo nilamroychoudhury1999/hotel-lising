@@ -1,1 +1,12 @@
+/about  /.netlify/functions/seo-shell/about  200!
+/contact  /.netlify/functions/seo-shell/contact  200!
+/premium  /.netlify/functions/seo-shell/premium  200!
+/india-travel  /.netlify/functions/seo-shell/india-travel  200!
+/pool-homestays  /.netlify/functions/seo-shell/pool-homestays  200!
+/travel-guides  /.netlify/functions/seo-shell/travel-guides  200!
+/travel-guides/*  /.netlify/functions/seo-shell/travel-guides/:splat  200!
+/bike-rental  /.netlify/functions/seo-shell/bike-rental  200!
+/car-rental  /.netlify/functions/seo-shell/car-rental  200!
+/property-sale  /.netlify/functions/seo-shell/property-sale  200!
+/homestays/*  /.netlify/functions/seo-shell/homestays/:splat  200!
 /*  /index.html  200

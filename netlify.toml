@@ -8,6 +8,81 @@
   # Force new build by changing this value
   BUILD_ID = "v3"
 
+[functions."auto-publish-seo"]
+  schedule = "8 12 * * *"
+
+[[redirects]]
+  from = "/about"
+  to = "/.netlify/functions/seo-shell/about"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/contact"
+  to = "/.netlify/functions/seo-shell/contact"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/premium"
+  to = "/.netlify/functions/seo-shell/premium"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/india-travel"
+  to = "/.netlify/functions/seo-shell/india-travel"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/pool-homestays"
+  to = "/.netlify/functions/seo-shell/pool-homestays"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/travel-guides"
+  to = "/.netlify/functions/seo-shell/travel-guides"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/travel-guides/*"
+  to = "/.netlify/functions/seo-shell/travel-guides/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/bike-rental"
+  to = "/.netlify/functions/seo-shell/bike-rental"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/car-rental"
+  to = "/.netlify/functions/seo-shell/car-rental"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/property-sale"
+  to = "/.netlify/functions/seo-shell/property-sale"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/homestays/*"
+  to = "/.netlify/functions/seo-shell/homestays/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/sitemap.xml"
+  to = "/.netlify/functions/sitemap"
+  status = 200
+  force = true
+
 # Redirect all requests to index.html for client-side routing
 [[redirects]]
   from = "/*"
