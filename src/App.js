@@ -348,7 +348,6 @@ const DEFAULT_ROBOTS = "index, follow, max-image-preview:large, max-snippet:-1, 
 const PRIVATE_ROBOTS = "noindex, nofollow, noarchive";
 const HOST_MANUAL_BOOKINGS_COLLECTION = "hostManualBookings";
 const HOST_MANUAL_EXPENSES_COLLECTION = "hostManualExpenses";
-const HOST_MANUAL_GUESTS_COLLECTION = "hostManualGuests";
 const HOST_MANUAL_TASKS_COLLECTION = "hostManualTasks";
 const HOST_MANUAL_PLATFORMS = MANUAL_BLOCK_SOURCE_OPTIONS.map(option => option.name);
 const HOST_MANUAL_FALLBACK_LISTING_ID = "manual-property";
@@ -1058,6 +1057,40 @@ const getPlatformPriceKey = (source) => {
 
 const getListingUnitCount = (listing) => {
   return normalizeUnitCount(listing?.unitCount || listing?.units || 1);
+};
+
+const createPublishedUnits = (unitCount = 1) => (
+  Array.from({ length: normalizeUnitCount(unitCount) }, (_, index) => {
+    const unitNumber = index + 1;
+    return {
+      id: `unit-${unitNumber}`,
+      unitNumber,
+      label: `Unit ${unitNumber}`,
+      status: "published",
+      published: true
+    };
+  })
+);
+
+const getListingPublishedUnits = (listing) => {
+  const rawUnits = Array.isArray(listing?.publishedUnits) ? listing.publishedUnits : [];
+
+  return rawUnits
+    .map((unit, index) => {
+      const data = typeof unit === "string" ? { label: unit } : (unit || {});
+      const unitNumber = normalizeUnitCount(data.unitNumber || data.number || index + 1);
+      const status = data.status || (data.published === false ? "draft" : "published");
+
+      return {
+        id: data.id || `unit-${unitNumber}`,
+        unitNumber,
+        label: data.label || data.name || `Unit ${unitNumber}`,
+        status,
+        published: data.published !== false
+      };
+    })
+    .filter(unit => unit.published && unit.status === "published")
+    .sort((a, b) => a.unitNumber - b.unitNumber);
 };
 
 const getManualBlockUnitCount = (entry) => {
@@ -4673,6 +4706,7 @@ function AddHomestayForm() {
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [mapCenter, setMapCenter] = useState([23.6345, 85.3803]); // Center of India
   const [locationSearchQuery, setLocationSearchQuery] = useState("");
+  const [showPublishPreview, setShowPublishPreview] = useState(false);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(setUser);
@@ -4851,6 +4885,21 @@ function AddHomestayForm() {
     }
   };
 
+  const handlePreviewRequest = (e) => {
+    e.preventDefault();
+    if (!user) return;
+    if (imageError) return;
+    if (hasInvalidCalendarLinks()) {
+      alert("Please enter valid calendar links (https://, http://, or webcal://).");
+      return;
+    }
+
+    setShowPublishPreview(true);
+    window.setTimeout(() => {
+      document.getElementById("property-publish-preview")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!user) return;
@@ -4929,6 +4978,7 @@ function AddHomestayForm() {
         address: ""
       });
       setImageFile(null);
+      setShowPublishPreview(false);
       alert("Homestay added successfully!");
     } catch (error) {
       console.error("Error:", error);
@@ -4961,7 +5011,7 @@ function AddHomestayForm() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={showPublishPreview ? handleSubmit : handlePreviewRequest}>
         <div style={styles.formSection}>
           <h2 style={styles.sectionTitle}>Basic Information</h2>
 
@@ -5341,13 +5391,86 @@ function AddHomestayForm() {
           </div>
         </div>
 
-        <button
-          style={styles.submitButton}
-          type="submit"
-          disabled={loading || !user || imageError}
-        >
-          {loading ? "Submitting..." : "List Your Homestay"}
-        </button>
+        {showPublishPreview && (
+          <section id="property-publish-preview" className="property-publish-preview">
+            <div className="property-publish-preview-media">
+              {form.imagePreview ? (
+                <img src={form.imagePreview} alt={`${form.name || "Property"} preview`} />
+              ) : (
+                <div>No photo selected</div>
+              )}
+            </div>
+            <div className="property-publish-preview-body">
+              <span>Preview before publish</span>
+              <h2>{form.name || "Property name"}</h2>
+              <p>{form.description || "Property description will appear here."}</p>
+              <div className="property-publish-preview-grid">
+                <div>
+                  <small>Location</small>
+                  <strong>{[form.area, form.city].filter(Boolean).join(", ") || "Not set"}</strong>
+                </div>
+                <div>
+                  <small>Price</small>
+                  <strong>
+                    ₹{form.price || "0"} / {PRICE_TYPES.find(type => type.id === form.priceType)?.suffix || "night"}
+                  </strong>
+                </div>
+                <div>
+                  <small>Units</small>
+                  <strong>{normalizeUnitCount(form.unitCount)} unit{normalizeUnitCount(form.unitCount) === 1 ? "" : "s"}</strong>
+                </div>
+                <div>
+                  <small>Max Guests</small>
+                  <strong>{form.maxGuests || 1}</strong>
+                </div>
+                <div>
+                  <small>Room Type</small>
+                  <strong>{form.roomType || "Not set"}</strong>
+                </div>
+                <div>
+                  <small>Contact</small>
+                  <strong>{form.contact || "Not set"}</strong>
+                </div>
+              </div>
+              {form.amenities.length > 0 && (
+                <div className="property-publish-preview-tags">
+                  {form.amenities.map(amenityId => {
+                    const amenity = AMENITIES.find(item => item.id === amenityId);
+                    return <span key={amenityId}>{amenity?.name || amenityId}</span>;
+                  })}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {showPublishPreview ? (
+          <div className="property-publish-actions">
+            <button
+              type="button"
+              style={{ ...styles.filterButton, margin: 0 }}
+              onClick={() => setShowPublishPreview(false)}
+              disabled={loading}
+            >
+              Edit Details
+            </button>
+            <button
+              style={{ ...styles.submitButton, marginTop: 0 }}
+              type="submit"
+              disabled={loading || !user || imageError}
+            >
+              {loading ? "Publishing..." : "Publish Property"}
+            </button>
+          </div>
+        ) : (
+          <button
+            style={styles.submitButton}
+            type="submit"
+            disabled={loading || !user || imageError}
+          >
+            Preview Property
+          </button>
+        )}
       </form>
     </div>
   );
@@ -6613,15 +6736,69 @@ function HomestayDetail() {
 /* ------------------------------
    Manual Host CRM Panel
 ------------------------------ */
+const getDailyEntryGuestCount = (value) => {
+  const count = Math.round(Number(value) || 1);
+  return Math.min(Math.max(count, 1), 20);
+};
+
+const createDailyGuestDetail = () => ({
+  name: "",
+  phone: "",
+  address: ""
+});
+
+const createDailyGuestDetails = (count = 1, existingDetails = []) => {
+  const normalizedCount = getDailyEntryGuestCount(count);
+  return Array.from({ length: normalizedCount }, (_, index) => ({
+    ...createDailyGuestDetail(),
+    ...(existingDetails[index] || {})
+  }));
+};
+
+const cleanDailyGuestDetails = (guestDetails = [], guestCount = 1) => (
+  createDailyGuestDetails(guestCount, guestDetails)
+    .map(guest => ({
+      name: toPlainText(guest.name).trim(),
+      phone: toPlainText(guest.phone).trim(),
+      address: toPlainText(guest.address).trim()
+    }))
+);
+
+const getSavedDailyGuestDetails = (entry = {}) => {
+  const savedDetails = Array.isArray(entry.guestDetails)
+    ? entry.guestDetails
+    : Array.isArray(entry.guests)
+      ? entry.guests
+      : [];
+  const cleaned = savedDetails
+    .map(guest => ({
+      name: toPlainText(guest.name).trim(),
+      phone: toPlainText(guest.phone).trim(),
+      address: toPlainText(guest.address).trim()
+    }))
+    .filter(guest => guest.name || guest.phone || guest.address);
+
+  if (cleaned.length) return cleaned;
+
+  const fallbackGuest = {
+    name: toPlainText(entry.guestName).trim(),
+    phone: toPlainText(entry.guestPhone).trim(),
+    address: toPlainText(entry.guestAddress).trim()
+  };
+
+  return fallbackGuest.name || fallbackGuest.phone || fallbackGuest.address
+    ? [fallbackGuest]
+    : [];
+};
+
 const createDailyEntryForm = (listingId = "") => ({
   listingId,
   entryDate: getLocalDateKey(new Date()),
   unitNumber: "1",
   status: "Occupied",
   platform: "Homavia / Direct booking",
-  guestName: "",
-  guestPhone: "",
-  guestAddress: "",
+  guestCount: "1",
+  guestDetails: createDailyGuestDetails(1),
   price: "",
   paymentStatus: "Paid",
   notes: ""
@@ -6642,7 +6819,6 @@ function HostManualCrmPanel({ listings, user }) {
   const [activeTab, setActiveTab] = useState("daily");
   const [bookings, setBookings] = useState([]);
   const [expenses, setExpenses] = useState([]);
-  const [guests, setGuests] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState("");
@@ -6655,16 +6831,6 @@ function HostManualCrmPanel({ listings, user }) {
   const firstListingId = propertyOptions[0]?.id || HOST_MANUAL_FALLBACK_LISTING_ID;
   const hostPaidByName = user?.displayName || user?.email || "Host";
   const [dailyEntryForm, setDailyEntryForm] = useState(createDailyEntryForm(firstListingId));
-  const [bookingForm, setBookingForm] = useState({
-    listingId: firstListingId,
-    platform: "Homavia / Direct booking",
-    checkIn: "",
-    checkOut: "",
-    amount: "",
-    guestName: "",
-    paymentStatus: "Paid",
-    notes: ""
-  });
   const [expenseForm, setExpenseForm] = useState({
     listingId: firstListingId,
     expenseDate: getLocalDateKey(new Date()),
@@ -6686,12 +6852,6 @@ function HostManualCrmPanel({ listings, user }) {
     return [hostPaidByName, activePaidByName, ...savedPaidByNames, ...HOST_EXPENSE_PAID_BY_OPTIONS]
       .filter((option, index, options) => option && options.indexOf(option) === index);
   }, [expenses, expenseForm.paidBy, hostPaidByName]);
-  const [guestForm, setGuestForm] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    notes: ""
-  });
   const [taskForm, setTaskForm] = useState({
     listingId: firstListingId,
     title: "",
@@ -6711,7 +6871,6 @@ function HostManualCrmPanel({ listings, user }) {
     if (!firstListingId) return;
 
     setDailyEntryForm(current => current.listingId ? current : { ...current, listingId: firstListingId });
-    setBookingForm(current => current.listingId ? current : { ...current, listingId: firstListingId });
     setExpenseForm(current => current.listingId ? current : { ...current, listingId: firstListingId });
     setTaskForm(current => current.listingId ? current : { ...current, listingId: firstListingId });
     setCalendarListingId(current => current || firstListingId);
@@ -6762,7 +6921,6 @@ function HostManualCrmPanel({ listings, user }) {
 
     subscribeToCollection(HOST_MANUAL_BOOKINGS_COLLECTION, setBookings);
     subscribeToCollection(HOST_MANUAL_EXPENSES_COLLECTION, setExpenses);
-    subscribeToCollection(HOST_MANUAL_GUESTS_COLLECTION, setGuests);
     subscribeToCollection(HOST_MANUAL_TASKS_COLLECTION, setTasks);
 
     return () => cleanups.forEach((cleanup) => cleanup());
@@ -6775,17 +6933,9 @@ function HostManualCrmPanel({ listings, user }) {
     }, {});
   }, [propertyOptions]);
 
-  const manualBookings = useMemo(() => (
-    bookings.filter(booking => booking.recordType !== HOST_DAILY_ENTRY_RECORD_TYPE)
-  ), [bookings]);
-
   const dailyEntries = useMemo(() => (
     bookings.filter(booking => booking.recordType === HOST_DAILY_ENTRY_RECORD_TYPE)
   ), [bookings]);
-
-  const monthBookings = useMemo(() => (
-    manualBookings.filter(booking => String(booking.checkIn || "").startsWith(monthValue))
-  ), [manualBookings, monthValue]);
 
   const monthDailyEntries = useMemo(() => (
     dailyEntries.filter(entry => String(entry.entryDate || "").startsWith(monthValue))
@@ -6796,34 +6946,42 @@ function HostManualCrmPanel({ listings, user }) {
   ), [expenses, monthValue]);
 
   const selectedDailyListing = listingsById[dailyEntryForm.listingId] || propertyOptions[0];
-  const dailyEntryUnitOptions = useMemo(() => {
-    if (!hasRealListings) return [];
-    const unitCount = getListingUnitCount(selectedDailyListing);
-    return Array.from({ length: unitCount }, (_, index) => String(index + 1));
-  }, [hasRealListings, selectedDailyListing]);
+  const publishedDailyUnitOptions = useMemo(
+    () => getListingPublishedUnits(selectedDailyListing),
+    [selectedDailyListing]
+  );
+  const selectedDailyUnit = publishedDailyUnitOptions.find(unit => String(unit.unitNumber) === String(dailyEntryForm.unitNumber));
 
   useEffect(() => {
-    if (!dailyEntryUnitOptions.length) return;
+    if (!publishedDailyUnitOptions.length) {
+      setDailyEntryForm(current => current.unitNumber ? { ...current, unitNumber: "" } : current);
+      return;
+    }
+
+    const publishedUnitNumbers = publishedDailyUnitOptions.map(unit => String(unit.unitNumber));
     setDailyEntryForm(current => (
-      dailyEntryUnitOptions.includes(String(current.unitNumber))
+      publishedUnitNumbers.includes(String(current.unitNumber))
         ? current
-        : { ...current, unitNumber: dailyEntryUnitOptions[0] }
+        : { ...current, unitNumber: publishedUnitNumbers[0] }
     ));
-  }, [dailyEntryUnitOptions]);
+  }, [publishedDailyUnitOptions]);
 
   const dailyEntryTotals = useMemo(() => {
     const unitMap = {};
     let totalPrice = 0;
     let occupiedDays = 0;
+    let guestCount = 0;
 
     monthDailyEntries.forEach(entry => {
       const price = getDailyEntryPrice(entry);
       const unitNumber = String(entry.unitNumber || "1");
       const listingName = entry.listingName || listingsById[entry.listingId]?.name || "Property";
       const unitKey = `${entry.listingId || listingName}_${unitNumber}`;
+      const entryGuestCount = Number(entry.guestCount) || getSavedDailyGuestDetails(entry).length;
 
       totalPrice += price;
       if (entry.status === "Occupied") occupiedDays += 1;
+      guestCount += entryGuestCount;
 
       if (!unitMap[unitKey]) {
         unitMap[unitKey] = {
@@ -6848,6 +7006,7 @@ function HostManualCrmPanel({ listings, user }) {
     return {
       totalPrice,
       occupiedDays,
+      guestCount,
       unitSummaries: Object.values(unitMap).sort((a, b) => (
         a.listingName.localeCompare(b.listingName) ||
         Number(a.unitNumber) - Number(b.unitNumber)
@@ -6864,30 +7023,8 @@ function HostManualCrmPanel({ listings, user }) {
   }, [listingsById, monthDailyEntries]);
 
   const crmTotals = useMemo(() => {
-    const platformMap = {};
     const expensePaidByMap = {};
-    let totalRevenue = 0;
     let totalExpenses = 0;
-    let totalNights = 0;
-    let pendingRevenue = 0;
-
-    monthBookings.forEach(booking => {
-      const amount = Number(booking.amount) || 0;
-      const nights = getDateKeysInStayRange(booking.checkIn, booking.checkOut).length;
-      const platform = booking.platform || "Manual booking";
-
-      totalRevenue += amount;
-      totalNights += nights;
-      if (booking.paymentStatus !== "Paid") pendingRevenue += amount;
-
-      if (!platformMap[platform]) {
-        platformMap[platform] = { platform, bookings: 0, nights: 0, revenue: 0 };
-      }
-
-      platformMap[platform].bookings += 1;
-      platformMap[platform].nights += nights;
-      platformMap[platform].revenue += amount;
-    });
 
     monthExpenses.forEach(expense => {
       const amount = Number(expense.amount) || 0;
@@ -6903,15 +7040,10 @@ function HostManualCrmPanel({ listings, user }) {
     });
 
     return {
-      totalRevenue,
       totalExpenses,
-      netRevenue: totalRevenue - totalExpenses,
-      totalNights,
-      pendingRevenue,
-      platformTotals: Object.values(platformMap).sort((a, b) => b.revenue - a.revenue || a.platform.localeCompare(b.platform)),
       expensesByPaidBy: Object.values(expensePaidByMap).sort((a, b) => b.amount - a.amount || a.paidBy.localeCompare(b.paidBy))
     };
-  }, [monthBookings, monthExpenses]);
+  }, [monthExpenses]);
 
   const selectedCalendarListing = listingsById[calendarListingId] || listings[0];
   const calendarBlocks = useMemo(
@@ -6950,14 +7082,42 @@ function HostManualCrmPanel({ listings, user }) {
     setCalendarBlockUnits(current => Math.min(normalizeUnitCount(current), calendarBlockUnitLimit));
   }, [calendarBlockUnitLimit]);
 
+  const handleDailyGuestCountChange = (value) => {
+    const nextGuestCount = getDailyEntryGuestCount(value);
+    setDailyEntryForm(current => ({
+      ...current,
+      guestCount: String(nextGuestCount),
+      guestDetails: createDailyGuestDetails(nextGuestCount, current.guestDetails)
+    }));
+  };
+
+  const handleDailyGuestDetailChange = (index, field, value) => {
+    setDailyEntryForm(current => {
+      const nextDetails = createDailyGuestDetails(current.guestCount, current.guestDetails);
+      nextDetails[index] = {
+        ...nextDetails[index],
+        [field]: value
+      };
+      return { ...current, guestDetails: nextDetails };
+    });
+  };
+
   const handleDailyEntrySubmit = async (event) => {
     event.preventDefault();
     if (!user || !dailyEntryForm.listingId) return;
+    if (!publishedDailyUnitOptions.length) {
+      setSaveError("Admin must publish units for this property before manual daily entry.");
+      return;
+    }
 
     const entryDate = dailyEntryForm.entryDate || getLocalDateKey(new Date());
     const unitNumber = Math.max(1, Math.round(Number(dailyEntryForm.unitNumber) || 1));
     const price = Math.max(0, Math.round(Number(dailyEntryForm.price) || 0));
     const listingName = listingsById[dailyEntryForm.listingId]?.name || HOST_MANUAL_FALLBACK_LISTING_NAME;
+    const guestCount = getDailyEntryGuestCount(dailyEntryForm.guestCount);
+    const guestDetails = cleanDailyGuestDetails(dailyEntryForm.guestDetails, guestCount);
+    const filledGuestDetails = guestDetails.filter(guest => guest.name || guest.phone || guest.address);
+    const primaryGuest = filledGuestDetails[0] || guestDetails[0] || createDailyGuestDetail();
     const docId = createDailyEntryDocId(user.uid, dailyEntryForm.listingId, entryDate, unitNumber);
 
     setSaveError("");
@@ -6968,12 +7128,16 @@ function HostManualCrmPanel({ listings, user }) {
         listingName,
         entryDate,
         unitNumber,
-        unitLabel: `Unit ${unitNumber}`,
+        unitId: selectedDailyUnit?.id || `unit-${unitNumber}`,
+        unitLabel: selectedDailyUnit?.label || `Unit ${unitNumber}`,
         status: dailyEntryForm.status || "Occupied",
         platform: toPlainText(dailyEntryForm.platform).trim() || "Manual",
-        guestName: toPlainText(dailyEntryForm.guestName).trim(),
-        guestPhone: toPlainText(dailyEntryForm.guestPhone).trim(),
-        guestAddress: toPlainText(dailyEntryForm.guestAddress).trim(),
+        guestCount,
+        guestDetails: filledGuestDetails,
+        guests: filledGuestDetails,
+        guestName: primaryGuest.name,
+        guestPhone: primaryGuest.phone,
+        guestAddress: primaryGuest.address,
         price,
         amount: price,
         revenue: price,
@@ -6989,52 +7153,13 @@ function HostManualCrmPanel({ listings, user }) {
 
       setDailyEntryForm(current => ({
         ...current,
-        guestName: "",
-        guestPhone: "",
-        guestAddress: "",
+        guestDetails: createDailyGuestDetails(current.guestCount),
         price: "",
         notes: ""
       }));
     } catch (error) {
       console.error("Failed to save daily unit entry:", error);
       setSaveError("Daily unit entry could not be saved to Firebase.");
-    }
-  };
-
-  const handleBookingSubmit = async (event) => {
-    event.preventDefault();
-    if (!user || !bookingForm.listingId) return;
-
-    const stayNights = getDateKeysInStayRange(bookingForm.checkIn, bookingForm.checkOut).length;
-    if (!stayNights) {
-      setSaveError("Check-out must be after check-in.");
-      return;
-    }
-
-    setSaveError("");
-    try {
-      await addDoc(collection(db, HOST_MANUAL_BOOKINGS_COLLECTION), {
-        ...bookingForm,
-        listingId: bookingForm.listingId,
-        listingName: listingsById[bookingForm.listingId]?.name || HOST_MANUAL_FALLBACK_LISTING_NAME,
-        amount: Math.max(0, Math.round(Number(bookingForm.amount) || 0)),
-        nights: stayNights,
-        source: "manual",
-        createdBy: user.uid,
-        createdByName: user.displayName || user.email || "Host",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-
-      setBookingForm(current => ({
-        ...current,
-        guestName: "",
-        amount: "",
-        notes: ""
-      }));
-    } catch (error) {
-      console.error("Failed to save manual booking:", error);
-      setSaveError("Manual booking could not be saved to Firebase.");
     }
   };
 
@@ -7086,29 +7211,6 @@ function HostManualCrmPanel({ listings, user }) {
     } catch (error) {
       console.error("Failed to save manual expense:", error);
       setSaveError("Expense could not be saved to Firebase.");
-    }
-  };
-
-  const handleGuestSubmit = async (event) => {
-    event.preventDefault();
-    if (!user || !guestForm.name.trim()) return;
-
-    setSaveError("");
-    try {
-      await addDoc(collection(db, HOST_MANUAL_GUESTS_COLLECTION), {
-        ...guestForm,
-        name: guestForm.name.trim(),
-        source: "manual",
-        createdBy: user.uid,
-        createdByName: user.displayName || user.email || "Host",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-
-      setGuestForm({ name: "", phone: "", email: "", notes: "" });
-    } catch (error) {
-      console.error("Failed to save manual guest:", error);
-      setSaveError("Guest could not be saved to Firebase.");
     }
   };
 
@@ -7218,7 +7320,7 @@ function HostManualCrmPanel({ listings, user }) {
       <div className="manual-crm-stats">
         <div>
           <span>Total Price</span>
-          <strong>{formatCurrency(crmTotals.totalRevenue + dailyEntryTotals.totalPrice)}</strong>
+          <strong>{formatCurrency(dailyEntryTotals.totalPrice)}</strong>
           <small>{getMonthLabel(monthValue)}</small>
         </div>
         <div>
@@ -7228,7 +7330,7 @@ function HostManualCrmPanel({ listings, user }) {
         </div>
         <div>
           <span>Net Price</span>
-          <strong>{formatCurrency((crmTotals.totalRevenue + dailyEntryTotals.totalPrice) - crmTotals.totalExpenses)}</strong>
+          <strong>{formatCurrency(dailyEntryTotals.totalPrice - crmTotals.totalExpenses)}</strong>
           <small>Price minus expenses</small>
         </div>
         <div>
@@ -7242,9 +7344,14 @@ function HostManualCrmPanel({ listings, user }) {
           <small>Manual unit status</small>
         </div>
         <div>
+          <span>Guest Count</span>
+          <strong>{dailyEntryTotals.guestCount}</strong>
+          <small>From daily entries</small>
+        </div>
+        <div>
           <span>Open Tasks</span>
           <strong>{tasks.filter(task => task.status !== "Done").length}</strong>
-          <small>{guests.length} saved guests</small>
+          <small>{tasks.length} total tasks</small>
         </div>
       </div>
 
@@ -7253,10 +7360,8 @@ function HostManualCrmPanel({ listings, user }) {
       <div className="manual-crm-tabs" role="tablist" aria-label="Manual CRM sections">
         {[
           ["daily", "Daily Entries"],
-          ["bookings", "Bookings"],
           ["expenses", "Expenses"],
           ...(hasRealListings ? [["calendar", "Calendar"]] : []),
-          ["guests", "Guests"],
           ["tasks", "Tasks"]
         ].map(([tabId, label]) => (
           <button
@@ -7281,7 +7386,7 @@ function HostManualCrmPanel({ listings, user }) {
                 onChange={(event) => setDailyEntryForm({
                   ...dailyEntryForm,
                   listingId: event.target.value,
-                  unitNumber: "1"
+                  unitNumber: ""
                 })}
                 required
               >
@@ -7302,27 +7407,25 @@ function HostManualCrmPanel({ listings, user }) {
               </label>
               <label>
                 Unit
-                {hasRealListings ? (
-                  <select
-                    value={dailyEntryForm.unitNumber}
-                    onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, unitNumber: event.target.value })}
-                    required
-                  >
-                    {dailyEntryUnitOptions.map(unitNumber => (
-                      <option key={unitNumber} value={unitNumber}>Unit {unitNumber}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="number"
-                    min="1"
-                    value={dailyEntryForm.unitNumber}
-                    onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, unitNumber: event.target.value })}
-                    required
-                  />
-                )}
+                <select
+                  value={dailyEntryForm.unitNumber}
+                  onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, unitNumber: event.target.value })}
+                  disabled={!publishedDailyUnitOptions.length}
+                  required
+                >
+                  {publishedDailyUnitOptions.length === 0 ? (
+                    <option value="">Admin must publish units first</option>
+                  ) : publishedDailyUnitOptions.map(unit => (
+                    <option key={unit.id} value={unit.unitNumber}>{unit.label}</option>
+                  ))}
+                </select>
               </label>
             </div>
+            {!publishedDailyUnitOptions.length && (
+              <p className="manual-unit-warning">
+                Admin must publish units for this property before manual daily entry can be saved.
+              </p>
+            )}
             <div className="manual-crm-form-row">
               <label>
                 Status
@@ -7350,33 +7453,51 @@ function HostManualCrmPanel({ listings, user }) {
                 </datalist>
               </label>
             </div>
-            <div className="manual-crm-form-row">
-              <label>
-                Guest Name
-                <input
-                  value={dailyEntryForm.guestName}
-                  onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, guestName: event.target.value })}
-                  placeholder="Manual guest name"
-                />
-              </label>
-              <label>
-                Guest Phone
-                <input
-                  type="tel"
-                  value={dailyEntryForm.guestPhone}
-                  onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, guestPhone: event.target.value })}
-                  placeholder="+91..."
-                />
-              </label>
-            </div>
             <label>
-              Guest Address
+              Guest Count
               <input
-                value={dailyEntryForm.guestAddress}
-                onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, guestAddress: event.target.value })}
-                placeholder="Guest address"
+                type="number"
+                min="1"
+                max="20"
+                value={dailyEntryForm.guestCount}
+                onChange={(event) => handleDailyGuestCountChange(event.target.value)}
+                required
               />
             </label>
+            <div className="manual-guest-detail-list">
+              {createDailyGuestDetails(dailyEntryForm.guestCount, dailyEntryForm.guestDetails).map((guest, index) => (
+                <div className="manual-guest-detail-card" key={`guest-${index}`}>
+                  <h4>Guest {index + 1}</h4>
+                  <div className="manual-crm-form-row">
+                    <label>
+                      Name
+                      <input
+                        value={guest.name}
+                        onChange={(event) => handleDailyGuestDetailChange(index, "name", event.target.value)}
+                        placeholder={`Guest ${index + 1} name`}
+                      />
+                    </label>
+                    <label>
+                      Phone
+                      <input
+                        type="tel"
+                        value={guest.phone}
+                        onChange={(event) => handleDailyGuestDetailChange(index, "phone", event.target.value)}
+                        placeholder="+91..."
+                      />
+                    </label>
+                  </div>
+                  <label>
+                    Address
+                    <input
+                      value={guest.address}
+                      onChange={(event) => handleDailyGuestDetailChange(index, "address", event.target.value)}
+                      placeholder={`Guest ${index + 1} address`}
+                    />
+                  </label>
+                </div>
+              ))}
+            </div>
             <div className="manual-crm-form-row">
               <label>
                 Price
@@ -7409,7 +7530,13 @@ function HostManualCrmPanel({ listings, user }) {
                 placeholder="Cleaning, checkout, repair, guest note"
               />
             </label>
-            <button className="manual-crm-primary" type="submit">Save Daily Unit Entry</button>
+            <button
+              className="manual-crm-primary"
+              type="submit"
+              disabled={!publishedDailyUnitOptions.length}
+            >
+              Save Daily Unit Entry
+            </button>
           </form>
 
           <div className="manual-crm-list manual-daily-ledger">
@@ -7427,6 +7554,10 @@ function HostManualCrmPanel({ listings, user }) {
                 <span>Occupied Unit Days</span>
                 <strong>{dailyEntryTotals.occupiedDays}</strong>
               </div>
+              <div>
+                <span>Guest Count</span>
+                <strong>{dailyEntryTotals.guestCount}</strong>
+              </div>
             </div>
 
             {dailyEntryTotals.unitSummaries.length > 0 && (
@@ -7443,144 +7574,43 @@ function HostManualCrmPanel({ listings, user }) {
 
             {sortedMonthDailyEntries.length === 0 ? (
               <p className="host-revenue-empty">No daily unit entries saved for this month.</p>
-	            ) : sortedMonthDailyEntries.map(entry => (
-	              <div className="manual-crm-row manual-daily-row" key={entry.id}>
-	                <div>
-	                  <strong>{entry.entryDate} • Unit {entry.unitNumber || 1}</strong>
-                  <span>{entry.listingName || listingsById[entry.listingId]?.name || "Property"} • {entry.status || "Manual status"} • {entry.platform || "Manual"}</span>
-                  <small>
-                    {entry.guestName || "No guest"}{entry.guestPhone ? ` • ${entry.guestPhone}` : ""}{entry.guestAddress ? ` • ${entry.guestAddress}` : ""}{entry.notes ? ` • ${entry.notes}` : ""}
-                  </small>
-                </div>
-                <div className="manual-daily-money">
-                  <strong>{formatCurrency(getDailyEntryPrice(entry))}</strong>
-                  <small>{entry.paymentStatus || "Manual"}</small>
-                </div>
-                <button
-                  type="button"
-                  aria-label="Delete daily unit entry"
-                  onClick={() => deleteManualRecord(HOST_MANUAL_BOOKINGS_COLLECTION, entry.id)}
-                >
-                  <FiX />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+            ) : sortedMonthDailyEntries.map(entry => {
+              const entryGuestDetails = getSavedDailyGuestDetails(entry);
+              const guestSummary = entryGuestDetails.length
+                ? entryGuestDetails
+                  .map((guest, index) => (
+                    [
+                      `Guest ${index + 1}${guest.name ? `: ${guest.name}` : ""}`,
+                      guest.phone,
+                      guest.address
+                    ].filter(Boolean).join(" • ")
+                  ))
+                  .join(" | ")
+                : "No guest details";
 
-      {activeTab === "bookings" && (
-        <div className="manual-crm-grid">
-          <form className="manual-crm-form" onSubmit={handleBookingSubmit}>
-            <h3>Add Manual Booking</h3>
-            <label>
-              Property
-              <select
-                value={bookingForm.listingId}
-                onChange={(event) => setBookingForm({ ...bookingForm, listingId: event.target.value })}
-                required
-              >
-                {propertyOptions.map(listing => (
-                  <option key={listing.id} value={listing.id}>{listing.name || "(No name)"}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Platform
-              <select
-                value={bookingForm.platform}
-                onChange={(event) => setBookingForm({ ...bookingForm, platform: event.target.value })}
-              >
-                {HOST_MANUAL_PLATFORMS.map(platform => (
-                  <option key={platform}>{platform}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Guest Name
-              <input
-                value={bookingForm.guestName}
-                onChange={(event) => setBookingForm({ ...bookingForm, guestName: event.target.value })}
-                placeholder="Guest name"
-                required
-              />
-            </label>
-            <div className="manual-crm-form-row">
-              <label>
-                Check In
-                <input
-                  type="date"
-                  value={bookingForm.checkIn}
-                  onChange={(event) => setBookingForm({ ...bookingForm, checkIn: event.target.value })}
-                  required
-                />
-              </label>
-              <label>
-                Check Out
-                <input
-                  type="date"
-                  value={bookingForm.checkOut}
-                  onChange={(event) => setBookingForm({ ...bookingForm, checkOut: event.target.value })}
-                  required
-                />
-              </label>
-            </div>
-            <div className="manual-crm-form-row">
-              <label>
-                Total Price
-                <input
-                  type="number"
-                  min="0"
-                  value={bookingForm.amount}
-                  onChange={(event) => setBookingForm({ ...bookingForm, amount: event.target.value })}
-                  placeholder="0"
-                  required
-                />
-              </label>
-              <label>
-                Payment
-                <select
-                  value={bookingForm.paymentStatus}
-                  onChange={(event) => setBookingForm({ ...bookingForm, paymentStatus: event.target.value })}
-                >
-                  <option>Paid</option>
-                  <option>Partial</option>
-                  <option>Pending</option>
-                </select>
-              </label>
-            </div>
-            <label>
-              Notes
-              <input
-                value={bookingForm.notes}
-                onChange={(event) => setBookingForm({ ...bookingForm, notes: event.target.value })}
-                placeholder="Manual note"
-              />
-            </label>
-            <button className="manual-crm-primary" type="submit">Save Booking</button>
-          </form>
-
-          <div className="manual-crm-list">
-            <h3>{loading ? "Loading..." : "Manual Booking Ledger"}</h3>
-            {monthBookings.length === 0 ? (
-              <p className="host-revenue-empty">No manual bookings saved for this month.</p>
-            ) : monthBookings.map(booking => (
-              <div className="manual-crm-row" key={booking.id}>
-                <div>
-                  <strong>{booking.guestName || "Manual guest"}</strong>
-                  <span>{booking.listingName || listingsById[booking.listingId]?.name || "Property"} • {booking.platform}</span>
-                  <small>{booking.checkIn} to {booking.checkOut} • {booking.paymentStatus}</small>
+              return (
+                <div className="manual-crm-row manual-daily-row" key={entry.id}>
+                  <div>
+                    <strong>{entry.entryDate} • Unit {entry.unitNumber || 1}</strong>
+                    <span>{entry.listingName || listingsById[entry.listingId]?.name || "Property"} • {entry.status || "Manual status"} • {entry.platform || "Manual"}</span>
+                    <small>
+                      {guestSummary}{entry.notes ? ` | ${entry.notes}` : ""}
+                    </small>
+                  </div>
+                  <div className="manual-daily-money">
+                    <strong>{formatCurrency(getDailyEntryPrice(entry))}</strong>
+                    <small>{entry.paymentStatus || "Manual"}</small>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Delete daily unit entry"
+                    onClick={() => deleteManualRecord(HOST_MANUAL_BOOKINGS_COLLECTION, entry.id)}
+                  >
+                    <FiX />
+                  </button>
                 </div>
-                <strong>{formatCurrency(booking.amount)}</strong>
-                <button
-                  type="button"
-                  aria-label="Delete manual booking"
-                  onClick={() => deleteManualRecord(HOST_MANUAL_BOOKINGS_COLLECTION, booking.id)}
-                >
-                  <FiX />
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -7852,71 +7882,6 @@ function HostManualCrmPanel({ listings, user }) {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === "guests" && (
-        <div className="manual-crm-grid">
-          <form className="manual-crm-form" onSubmit={handleGuestSubmit}>
-            <h3>Add Manual Guest</h3>
-            <label>
-              Name
-              <input
-                value={guestForm.name}
-                onChange={(event) => setGuestForm({ ...guestForm, name: event.target.value })}
-                placeholder="Guest name"
-                required
-              />
-            </label>
-            <label>
-              Phone
-              <input
-                value={guestForm.phone}
-                onChange={(event) => setGuestForm({ ...guestForm, phone: event.target.value })}
-                placeholder="+91..."
-              />
-            </label>
-            <label>
-              Email
-              <input
-                type="email"
-                value={guestForm.email}
-                onChange={(event) => setGuestForm({ ...guestForm, email: event.target.value })}
-                placeholder="guest@example.com"
-              />
-            </label>
-            <label>
-              Notes
-              <input
-                value={guestForm.notes}
-                onChange={(event) => setGuestForm({ ...guestForm, notes: event.target.value })}
-                placeholder="Preferences, ID note, follow-up"
-              />
-            </label>
-            <button className="manual-crm-primary" type="submit">Save Guest data</button>
-          </form>
-
-          <div className="manual-crm-list">
-            <h3>Saved Guests</h3>
-            {guests.length === 0 ? (
-              <p className="host-revenue-empty">No manual guest profiles saved yet.</p>
-            ) : guests.map(guest => (
-              <div className="manual-crm-row" key={guest.id}>
-                <div>
-                  <strong>{guest.name}</strong>
-                  <span>{guest.phone || "No phone"} • {guest.email || "No email"}</span>
-                  <small>{guest.notes || "No notes"}</small>
-                </div>
-                <button
-                  type="button"
-                  aria-label="Delete manual guest"
-                  onClick={() => deleteManualRecord(HOST_MANUAL_GUESTS_COLLECTION, guest.id)}
-                >
-                  <FiX />
-                </button>
-              </div>
-            ))}
           </div>
         </div>
       )}
@@ -8566,7 +8531,7 @@ function AdminTools() {
         const listings = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
-        }));
+        })).filter(listing => listing.recordType !== "hostProfile");
         setAllListings(listings);
       }
     );
@@ -8673,6 +8638,28 @@ function AdminTools() {
     } catch (e) {
       console.error(e);
       alert("Delete failed.");
+    }
+  };
+
+  const publishListingUnits = async (listing) => {
+    if (!isAdminUser(currentUser)) {
+      alert("Not allowed.");
+      return;
+    }
+
+    const unitCount = getListingUnitCount(listing);
+    try {
+      await updateDoc(doc(db, "homestays", listing.id), {
+        unitCount,
+        publishedUnits: createPublishedUnits(unitCount),
+        unitsPublished: true,
+        unitsPublishedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      alert(`${unitCount} unit${unitCount === 1 ? "" : "s"} published for ${listing.name || "property"}.`);
+    } catch (error) {
+      console.error("Failed to publish units:", error);
+      alert("Unit publish failed.");
     }
   };
 
@@ -8943,6 +8930,9 @@ function AdminTools() {
                   h.icalUrl ? calendarPortalName : null,
                   manualBlockCount > 0 ? `Homavia portal (${manualBlockCount})` : null
                 ].filter(Boolean).join(' + ') || calendarPortalName;
+                const publishedUnits = getListingPublishedUnits(h);
+                const expectedUnitCount = getListingUnitCount(h);
+                const unitsReady = publishedUnits.length > 0;
                 return (
                   <li key={h.id} style={styles.homestayItem}>
                     <div style={{ padding: 12 }}>
@@ -8980,6 +8970,23 @@ function AdminTools() {
                           <div style={{ fontSize: 12, color: '#0284c7', marginTop: 4 }}>
                             ₹{h.price} / {PRICE_TYPES.find(pt => pt.id === h.priceType)?.suffix || 'night'}
                           </div>
+                          <div style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            marginTop: 6,
+                            padding: '4px 8px',
+                            borderRadius: designTokens.radius.full,
+                            backgroundColor: unitsReady ? '#dcfce7' : '#fff7ed',
+                            color: unitsReady ? '#166534' : '#9a3412',
+                            fontSize: 12,
+                            fontWeight: 800
+                          }}>
+                            <FiHome size={12} />
+                            {unitsReady
+                              ? `${publishedUnits.length}/${expectedUnitCount} units published`
+                              : `Units not published (${expectedUnitCount})`}
+                          </div>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 100 }}>
                           <Link 
@@ -8995,7 +9002,20 @@ function AdminTools() {
                             <FiInfo size={14} /> View
                           </Link>
                           <button
-                            style={{ 
+                            style={{
+                              ...styles.filterButton,
+                              backgroundColor: unitsReady ? '#166534' : '#15803d',
+                              color: 'white',
+                              border: 'none',
+                              padding: '8px 16px',
+                              fontSize: 14
+                            }}
+                            onClick={() => publishListingUnits(h)}
+                          >
+                            {unitsReady ? "Republish Units" : "Publish Units"}
+                          </button>
+                          <button
+                            style={{
                               ...styles.filterButton,
                               backgroundColor: '#1565c0',
                               color: 'white',
