@@ -350,8 +350,9 @@ const HOST_MANUAL_BOOKINGS_COLLECTION = "hostManualBookings";
 const HOST_MANUAL_EXPENSES_COLLECTION = "hostManualExpenses";
 const HOST_MANUAL_GUESTS_COLLECTION = "hostManualGuests";
 const HOST_MANUAL_TASKS_COLLECTION = "hostManualTasks";
-const HOST_PROFILE_DOC_PREFIX = "hostProfile";
 const HOST_MANUAL_PLATFORMS = MANUAL_BLOCK_SOURCE_OPTIONS.map(option => option.name);
+const HOST_MANUAL_FALLBACK_LISTING_ID = "manual-property";
+const HOST_MANUAL_FALLBACK_LISTING_NAME = "Manual Property";
 const HOST_DAILY_ENTRY_RECORD_TYPE = "dailyEntry";
 const HOST_DAILY_ENTRY_STATUSES = [
   "Occupied",
@@ -934,7 +935,7 @@ function WebsiteTrafficTracker() {
 // Create SEO-friendly URL slug from homestay name, city, and ID
 const createSlug = (name, id, city = '') => {
   // Clean and normalize the name
-  let slug = name
+  let slug = String(name || "homestay")
     .toLowerCase()
     .trim()
     // Replace common symbols and special characters
@@ -952,18 +953,20 @@ const createSlug = (name, id, city = '') => {
     // Limit to 50 characters for cleaner URLs
     .substring(0, 50)
     .replace(/-+$/g, ''); // Remove trailing hyphen if substring cut in middle
+
+  if (!slug) slug = "homestay";
   
   // Add city for better SEO context (optional)
   if (city) {
-    const citySlug = city
+    const citySlug = String(city)
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
-    slug = `${slug}-${citySlug}`;
+    if (citySlug) slug = `${slug}-${citySlug}`;
   }
   
   // Always append ID at the end for uniqueness
-  return `${slug}-${id}`;
+  return id ? `${slug}-${id}` : slug;
 };
 
 // Extract ID from slug (always the last segment after final hyphen)
@@ -6643,7 +6646,13 @@ function HostManualCrmPanel({ listings, user }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState("");
-  const firstListingId = listings[0]?.id || "";
+  const hasRealListings = listings.length > 0;
+  const propertyOptions = useMemo(() => (
+    hasRealListings
+      ? listings
+      : [{ id: HOST_MANUAL_FALLBACK_LISTING_ID, name: HOST_MANUAL_FALLBACK_LISTING_NAME }]
+  ), [hasRealListings, listings]);
+  const firstListingId = propertyOptions[0]?.id || HOST_MANUAL_FALLBACK_LISTING_ID;
   const hostPaidByName = user?.displayName || user?.email || "Host";
   const [dailyEntryForm, setDailyEntryForm] = useState(createDailyEntryForm(firstListingId));
   const [bookingForm, setBookingForm] = useState({
@@ -6709,6 +6718,12 @@ function HostManualCrmPanel({ listings, user }) {
   }, [firstListingId]);
 
   useEffect(() => {
+    if (!hasRealListings && activeTab === "calendar") {
+      setActiveTab("daily");
+    }
+  }, [activeTab, hasRealListings]);
+
+  useEffect(() => {
     setExpenseForm(current => {
       if (current.paidBy && current.paidBy !== "Host") return current;
       return { ...current, paidBy: hostPaidByName };
@@ -6754,11 +6769,11 @@ function HostManualCrmPanel({ listings, user }) {
   }, [user]);
 
   const listingsById = useMemo(() => {
-    return listings.reduce((acc, listing) => {
+    return propertyOptions.reduce((acc, listing) => {
       acc[listing.id] = listing;
       return acc;
     }, {});
-  }, [listings]);
+  }, [propertyOptions]);
 
   const manualBookings = useMemo(() => (
     bookings.filter(booking => booking.recordType !== HOST_DAILY_ENTRY_RECORD_TYPE)
@@ -6780,11 +6795,12 @@ function HostManualCrmPanel({ listings, user }) {
     expenses.filter(expense => String(expense.expenseDate || "").startsWith(monthValue))
   ), [expenses, monthValue]);
 
-  const selectedDailyListing = listingsById[dailyEntryForm.listingId] || listings[0];
+  const selectedDailyListing = listingsById[dailyEntryForm.listingId] || propertyOptions[0];
   const dailyEntryUnitOptions = useMemo(() => {
+    if (!hasRealListings) return [];
     const unitCount = getListingUnitCount(selectedDailyListing);
     return Array.from({ length: unitCount }, (_, index) => String(index + 1));
-  }, [selectedDailyListing]);
+  }, [hasRealListings, selectedDailyListing]);
 
   useEffect(() => {
     if (!dailyEntryUnitOptions.length) return;
@@ -6941,7 +6957,7 @@ function HostManualCrmPanel({ listings, user }) {
     const entryDate = dailyEntryForm.entryDate || getLocalDateKey(new Date());
     const unitNumber = Math.max(1, Math.round(Number(dailyEntryForm.unitNumber) || 1));
     const price = Math.max(0, Math.round(Number(dailyEntryForm.price) || 0));
-    const listingName = listingsById[dailyEntryForm.listingId]?.name || "";
+    const listingName = listingsById[dailyEntryForm.listingId]?.name || HOST_MANUAL_FALLBACK_LISTING_NAME;
     const docId = createDailyEntryDocId(user.uid, dailyEntryForm.listingId, entryDate, unitNumber);
 
     setSaveError("");
@@ -7000,7 +7016,7 @@ function HostManualCrmPanel({ listings, user }) {
       await addDoc(collection(db, HOST_MANUAL_BOOKINGS_COLLECTION), {
         ...bookingForm,
         listingId: bookingForm.listingId,
-        listingName: listingsById[bookingForm.listingId]?.name || "",
+        listingName: listingsById[bookingForm.listingId]?.name || HOST_MANUAL_FALLBACK_LISTING_NAME,
         amount: Math.max(0, Math.round(Number(bookingForm.amount) || 0)),
         nights: stayNights,
         source: "manual",
@@ -7048,7 +7064,7 @@ function HostManualCrmPanel({ listings, user }) {
       await addDoc(collection(db, HOST_MANUAL_EXPENSES_COLLECTION), {
         ...expensePayload,
         listingId: expenseForm.listingId,
-        listingName: listingsById[expenseForm.listingId]?.name || "",
+        listingName: listingsById[expenseForm.listingId]?.name || HOST_MANUAL_FALLBACK_LISTING_NAME,
         amount,
         category: expenseForm.category || "Other",
         paidBy: paidByName,
@@ -7105,7 +7121,7 @@ function HostManualCrmPanel({ listings, user }) {
       await addDoc(collection(db, HOST_MANUAL_TASKS_COLLECTION), {
         ...taskForm,
         title: taskForm.title.trim(),
-        listingName: listingsById[taskForm.listingId]?.name || "",
+        listingName: listingsById[taskForm.listingId]?.name || HOST_MANUAL_FALLBACK_LISTING_NAME,
         source: "manual",
         createdBy: user.uid,
         createdByName: user.displayName || user.email || "Host",
@@ -7133,7 +7149,7 @@ function HostManualCrmPanel({ listings, user }) {
   };
 
   const updateListingManualBlocks = async (nextBlocks) => {
-    if (!selectedCalendarListing?.id) return;
+    if (!hasRealListings || !selectedCalendarListing?.id) return;
 
     setCalendarSaving(true);
     setSaveError("");
@@ -7186,8 +7202,8 @@ function HostManualCrmPanel({ listings, user }) {
     <section className="manual-crm-panel">
       <div className="manual-crm-header">
         <div>
-          <h2>Manual CRM & Revenue</h2>
-          <p>Manual entries are the source of truth for host revenue, guests, tasks, and property calendar blocks.</p>
+          <h2>Manual Host Dashboard</h2>
+          <p>Manual entries are the source of truth for unit status, guests, price, tasks, and property calendar blocks.</p>
         </div>
         <label className="host-revenue-month">
           <span>Month</span>
@@ -7201,7 +7217,7 @@ function HostManualCrmPanel({ listings, user }) {
 
       <div className="manual-crm-stats">
         <div>
-          <span>Manual Revenue</span>
+          <span>Total Price</span>
           <strong>{formatCurrency(crmTotals.totalRevenue + dailyEntryTotals.totalPrice)}</strong>
           <small>{getMonthLabel(monthValue)}</small>
         </div>
@@ -7211,9 +7227,9 @@ function HostManualCrmPanel({ listings, user }) {
           <small>{monthExpenses.length} manual records</small>
         </div>
         <div>
-          <span>Net Revenue</span>
+          <span>Net Price</span>
           <strong>{formatCurrency((crmTotals.totalRevenue + dailyEntryTotals.totalPrice) - crmTotals.totalExpenses)}</strong>
-          <small>Revenue minus expenses</small>
+          <small>Price minus expenses</small>
         </div>
         <div>
           <span>Daily Entries</span>
@@ -7239,7 +7255,7 @@ function HostManualCrmPanel({ listings, user }) {
           ["daily", "Daily Entries"],
           ["bookings", "Bookings"],
           ["expenses", "Expenses"],
-          ["calendar", "Calendar"],
+          ...(hasRealListings ? [["calendar", "Calendar"]] : []),
           ["guests", "Guests"],
           ["tasks", "Tasks"]
         ].map(([tabId, label]) => (
@@ -7269,7 +7285,7 @@ function HostManualCrmPanel({ listings, user }) {
                 })}
                 required
               >
-                {listings.map(listing => (
+                {propertyOptions.map(listing => (
                   <option key={listing.id} value={listing.id}>{listing.name || "(No name)"}</option>
                 ))}
               </select>
@@ -7286,15 +7302,25 @@ function HostManualCrmPanel({ listings, user }) {
               </label>
               <label>
                 Unit
-                <select
-                  value={dailyEntryForm.unitNumber}
-                  onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, unitNumber: event.target.value })}
-                  required
-                >
-                  {dailyEntryUnitOptions.map(unitNumber => (
-                    <option key={unitNumber} value={unitNumber}>Unit {unitNumber}</option>
-                  ))}
-                </select>
+                {hasRealListings ? (
+                  <select
+                    value={dailyEntryForm.unitNumber}
+                    onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, unitNumber: event.target.value })}
+                    required
+                  >
+                    {dailyEntryUnitOptions.map(unitNumber => (
+                      <option key={unitNumber} value={unitNumber}>Unit {unitNumber}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="number"
+                    min="1"
+                    value={dailyEntryForm.unitNumber}
+                    onChange={(event) => setDailyEntryForm({ ...dailyEntryForm, unitNumber: event.target.value })}
+                    required
+                  />
+                )}
               </label>
             </div>
             <div className="manual-crm-form-row">
@@ -7454,7 +7480,7 @@ function HostManualCrmPanel({ listings, user }) {
                 onChange={(event) => setBookingForm({ ...bookingForm, listingId: event.target.value })}
                 required
               >
-                {listings.map(listing => (
+                {propertyOptions.map(listing => (
                   <option key={listing.id} value={listing.id}>{listing.name || "(No name)"}</option>
                 ))}
               </select>
@@ -7501,7 +7527,7 @@ function HostManualCrmPanel({ listings, user }) {
             </div>
             <div className="manual-crm-form-row">
               <label>
-                Total Revenue
+                Total Price
                 <input
                   type="number"
                   min="0"
@@ -7570,7 +7596,7 @@ function HostManualCrmPanel({ listings, user }) {
                 onChange={(event) => setExpenseForm({ ...expenseForm, listingId: event.target.value })}
                 required
               >
-                {listings.map(listing => (
+                {propertyOptions.map(listing => (
                   <option key={listing.id} value={listing.id}>{listing.name || "(No name)"}</option>
                 ))}
               </select>
@@ -7688,7 +7714,7 @@ function HostManualCrmPanel({ listings, user }) {
         </div>
       )}
 
-      {activeTab === "calendar" && (
+      {activeTab === "calendar" && hasRealListings && (
         <div className="manual-crm-calendar-grid">
           <div className="manual-crm-form manual-crm-calendar-controls">
             <h3>Manual Property Calendar</h3>
@@ -7906,7 +7932,7 @@ function HostManualCrmPanel({ listings, user }) {
                 onChange={(event) => setTaskForm({ ...taskForm, listingId: event.target.value })}
                 required
               >
-                {listings.map(listing => (
+                {propertyOptions.map(listing => (
                   <option key={listing.id} value={listing.id}>{listing.name || "(No name)"}</option>
                 ))}
               </select>
@@ -8003,85 +8029,33 @@ function HostManualCrmPanel({ listings, user }) {
 /* ------------------------------
    My Listings (Host's own homestays)
 ------------------------------ */
-const createHostRegistrationForm = (user = null) => ({
-  fullName: user?.displayName || "",
-  propertyName: "",
-  propertyLocation: ""
-});
-
-const getHostProfileDocId = (uid) => `${HOST_PROFILE_DOC_PREFIX}_${uid}`;
-
 function MyListings() {
   const [user, setUser] = useState(null);
   const [myHomestays, setMyHomestays] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [profileLoading, setProfileLoading] = useState(true);
-  const [hostProfile, setHostProfile] = useState(null);
-  const [hostForm, setHostForm] = useState(createHostRegistrationForm());
-  const [savingHostProfile, setSavingHostProfile] = useState(false);
-  const [editingHostProfile, setEditingHostProfile] = useState(false);
-  const [hostProfileError, setHostProfileError] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
     let unsubscribeListings = null;
-    let unsubscribeHostProfile = null;
 
     const cleanupHostStreams = () => {
       if (unsubscribeListings) {
         unsubscribeListings();
         unsubscribeListings = null;
       }
-      if (unsubscribeHostProfile) {
-        unsubscribeHostProfile();
-        unsubscribeHostProfile = null;
-      }
     };
 
     const unsubAuth = auth.onAuthStateChanged((u) => {
       cleanupHostStreams();
       setUser(u);
-      setHostProfileError("");
 
       if (!u) {
         setMyHomestays([]);
-        setHostProfile(null);
-        setHostForm(createHostRegistrationForm());
-        setEditingHostProfile(false);
         setLoading(false);
-        setProfileLoading(false);
         return;
       }
 
       setLoading(true);
-      setProfileLoading(true);
-      setHostForm(createHostRegistrationForm(u));
-
-      unsubscribeHostProfile = onSnapshot(
-        doc(db, "homestays", getHostProfileDocId(u.uid)),
-        (snapshot) => {
-          if (snapshot.exists()) {
-            const data = snapshot.data();
-            setHostProfile({ id: snapshot.id, ...data });
-            setHostForm({
-              fullName: data.fullName || u.displayName || "",
-              propertyName: data.propertyName || "",
-              propertyLocation: data.propertyLocation || ""
-            });
-            setEditingHostProfile(false);
-          } else {
-            setHostProfile(null);
-            setHostForm(createHostRegistrationForm(u));
-            setEditingHostProfile(true);
-          }
-          setProfileLoading(false);
-        },
-        (error) => {
-          console.error("Error loading host profile:", error);
-          setHostProfileError("Could not load your host setup. Please refresh and try again.");
-          setProfileLoading(false);
-        }
-      );
 
       const qRef = query(
         collection(db, "homestays"),
@@ -8094,7 +8068,7 @@ function MyListings() {
         (snapshot) => {
           const docs = snapshot.docs
             .map((d) => ({ id: d.id, ...d.data() }))
-            .filter((homestay) => homestay.recordType !== HOST_PROFILE_DOC_PREFIX);
+            .filter((homestay) => homestay.recordType !== "hostProfile");
           setMyHomestays(docs);
           setLoading(false);
         },
@@ -8112,56 +8086,6 @@ function MyListings() {
     };
   }, []);
 
-  const handleHostFormChange = (field, value) => {
-    setHostForm((current) => ({ ...current, [field]: value }));
-  };
-
-  const handleHostRegistration = async (e) => {
-    e.preventDefault();
-    if (!user) return;
-
-    const fullName = hostForm.fullName.trim();
-    const propertyName = hostForm.propertyName.trim();
-    const propertyLocation = hostForm.propertyLocation.trim();
-
-    if (!fullName || !propertyName || !propertyLocation) {
-      setHostProfileError("Please enter your full name, property name, and city/state.");
-      return;
-    }
-
-    setSavingHostProfile(true);
-    setHostProfileError("");
-
-    try {
-      const profileRef = doc(db, "homestays", getHostProfileDocId(user.uid));
-      const profilePayload = {
-        recordType: HOST_PROFILE_DOC_PREFIX,
-        fullName,
-        propertyName,
-        propertyLocation,
-        createdBy: user.uid,
-        status: "private",
-        listingStatus: "private",
-        published: false,
-        isPublished: false,
-        updatedAt: serverTimestamp()
-      };
-
-      if (!hostProfile) {
-        profilePayload.createdAt = serverTimestamp();
-        profilePayload.status = "active";
-      }
-
-      await setDoc(profileRef, profilePayload, { merge: true });
-      setEditingHostProfile(false);
-    } catch (error) {
-      console.error("Error saving host profile:", error);
-      setHostProfileError("Could not save your host setup. Please try again.");
-    }
-
-    setSavingHostProfile(false);
-  };
-
   if (!user) {
     return (
       <div style={{ padding: 24, textAlign: "center" }}>
@@ -8170,7 +8094,7 @@ function MyListings() {
     );
   }
 
-  if (loading || profileLoading) {
+  if (loading) {
     return (
       <div style={styles.loaderContainer}>
         <div style={styles.spinner}></div>
@@ -8179,8 +8103,6 @@ function MyListings() {
       </div>
     );
   }
-
-  const showHostRegistration = !hostProfile || editingHostProfile;
 
   return (
     <div style={styles.pageContainer}>
@@ -8193,209 +8115,67 @@ function MyListings() {
 
       <h1 style={styles.pageTitle}>Host Dashboard</h1>
 
-      {showHostRegistration ? (
-        <section style={{ ...styles.formSection, maxWidth: 760 }}>
-          <div style={{ marginBottom: 20 }}>
-            <p style={{
-              margin: "0 0 8px",
-              color: designTokens.colors.primary,
-              fontSize: 13,
-              fontWeight: 800,
-              textTransform: "uppercase",
-              letterSpacing: 0
-            }}>
-              Quick host setup
-            </p>
-            <h2 style={{ ...styles.sectionTitle, marginBottom: 8 }}>
-              Register your property in under a minute
-            </h2>
-            <p style={{ margin: 0, color: designTokens.colors.textMuted, lineHeight: 1.6 }}>
-              Add only the essentials now. Photos, amenities, pricing, map links, and drive links can be completed later from this dashboard.
-            </p>
-          </div>
+      <HostManualCrmPanel listings={myHomestays} user={user} />
 
-          <form onSubmit={handleHostRegistration}>
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Full Name *</label>
-              <input
-                style={styles.input}
-                value={hostForm.fullName}
-                onChange={(e) => handleHostFormChange("fullName", e.target.value)}
-                required
-                autoComplete="name"
-              />
-            </div>
-
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Property Name *</label>
-              <input
-                style={styles.input}
-                value={hostForm.propertyName}
-                onChange={(e) => handleHostFormChange("propertyName", e.target.value)}
-                required
-                autoComplete="organization"
-              />
-            </div>
-
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Property Location (City/State) *</label>
-              <input
-                style={styles.input}
-                value={hostForm.propertyLocation}
-                onChange={(e) => handleHostFormChange("propertyLocation", e.target.value)}
-                required
-                placeholder="Guwahati, Assam"
-                autoComplete="address-level2"
-              />
-            </div>
-
-            {hostProfileError && (
-              <div className="host-revenue-alert" style={{ marginBottom: 16 }}>
-                {hostProfileError}
+      {myHomestays.length > 0 && (
+        <ul style={styles.homestayList} className="homestay-list-grid">
+          {myHomestays.map((h) => (
+            <li key={h.id} style={styles.homestayItem}>
+              <div style={{ position: "relative" }}>
+                <img
+                  src={h.imageUrl}
+                  alt={h.name}
+                  style={styles.homestayImage}
+                />
               </div>
-            )}
+              <div style={styles.homestayInfo}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <h3 style={styles.title}>{h.name || "(No name)"}</h3>
+                  <span style={{ fontSize: 12, color: "#666" }}>
+                    {h.city} • {h.area}
+                  </span>
+                </div>
+                <p style={styles.price}>
+                  ₹{h.price} /{" "}
+                  {PRICE_TYPES.find((pt) => pt.id === h.priceType)?.suffix ||
+                    "night"}
+                </p>
+                <div style={{ fontSize: 12, color: '#667085', marginTop: -6, marginBottom: 8 }}>
+                  {getListingUnitCount(h)} {getListingUnitCount(h) === 1 ? 'unit' : 'units'} • Platform prices configurable
+                </div>
 
-            <button
-              style={styles.submitButton}
-              type="submit"
-              disabled={savingHostProfile}
-            >
-              {savingHostProfile ? "Saving..." : "Open Dashboard"}
-            </button>
-          </form>
-        </section>
-      ) : (
-        <>
-          <section style={{
-            ...styles.formSection,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 18,
-            flexWrap: "wrap"
-          }}>
-            <div>
-              <p style={{
-                margin: "0 0 8px",
-                color: designTokens.colors.primary,
-                fontSize: 13,
-                fontWeight: 800,
-                textTransform: "uppercase",
-                letterSpacing: 0
-              }}>
-                Registered host
-              </p>
-              <h2 style={{ margin: "0 0 10px", fontSize: 24, color: designTokens.colors.dark }}>
-                {hostProfile.propertyName}
-              </h2>
-              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", color: designTokens.colors.textMuted, fontSize: 14 }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <FiUser /> {hostProfile.fullName}
-                </span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <FiMapPin /> {hostProfile.propertyLocation}
-                </span>
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button
+                    style={{
+                      ...styles.filterButton,
+                      borderColor: "#B42318",
+                      color: "#B42318"
+                    }}
+                    onClick={() => navigate(`/homestays/${createSlug(h.name, h.id, h.city)}`)}
+                  >
+                    View
+                  </button>
+                  <button
+                    style={{
+                      ...styles.filterButton,
+                      borderColor: "#1565c0",
+                      color: "#1565c0"
+                    }}
+                    onClick={() => navigate(`/edit-homestay/${h.id}`)}
+                  >
+                    Edit
+                  </button>
+                </div>
               </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button
-                type="button"
-                style={{ ...styles.filterButton, margin: 0 }}
-                onClick={() => setEditingHostProfile(true)}
-              >
-                Edit Setup
-              </button>
-              <button
-                type="button"
-                style={{ ...styles.submitButton, width: "auto", marginTop: 0 }}
-                onClick={() => navigate("/add-homestay")}
-              >
-                <FiHome /> Add Listing
-              </button>
-            </div>
-          </section>
-
-          {myHomestays.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "28px 0" }}>
-              <h2 style={{ margin: "0 0 8px", fontSize: 22, color: designTokens.colors.dark }}>
-                No listings yet
-              </h2>
-              <p style={{ margin: "0 0 18px", color: designTokens.colors.textMuted }}>
-                Start with your first listing, then complete photos, amenities, pricing, maps, and files as you go.
-              </p>
-              <button
-                style={{ ...styles.submitButton, maxWidth: 320 }}
-                onClick={() => navigate("/add-homestay")}
-              >
-                List Your First Homestay
-              </button>
-            </div>
-          ) : (
-            <>
-              <HostManualCrmPanel listings={myHomestays} user={user} />
-
-              <ul style={styles.homestayList} className="homestay-list-grid">
-                {myHomestays.map((h) => (
-                  <li key={h.id} style={styles.homestayItem}>
-                    <div style={{ position: "relative" }}>
-                      <img
-                        src={h.imageUrl}
-                        alt={h.name}
-                        style={styles.homestayImage}
-                      />
-                    </div>
-                    <div style={styles.homestayInfo}>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "flex-start",
-                        }}
-                      >
-                        <h3 style={styles.title}>{h.name || "(No name)"}</h3>
-                        <span style={{ fontSize: 12, color: "#666" }}>
-                          {h.city} • {h.area}
-                        </span>
-                      </div>
-                      <p style={styles.price}>
-                        ₹{h.price} /{" "}
-                        {PRICE_TYPES.find((pt) => pt.id === h.priceType)?.suffix ||
-                          "night"}
-                      </p>
-                      <div style={{ fontSize: 12, color: '#667085', marginTop: -6, marginBottom: 8 }}>
-                        {getListingUnitCount(h)} {getListingUnitCount(h) === 1 ? 'unit' : 'units'} • Platform prices configurable
-                      </div>
-
-                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                        <button
-                          style={{
-                            ...styles.filterButton,
-                            borderColor: "#B42318",
-                            color: "#B42318"
-                          }}
-                          onClick={() => navigate(`/homestays/${createSlug(h.name, h.id, h.city)}`)}
-                        >
-                          View
-                        </button>
-                        <button
-                          style={{
-                            ...styles.filterButton,
-                            borderColor: "#1565c0",
-                            color: "#1565c0"
-                          }}
-                          onClick={() => navigate(`/edit-homestay/${h.id}`)}
-                        >
-                          Edit
-                        </button>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
