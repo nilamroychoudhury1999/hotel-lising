@@ -1,0 +1,8 @@
+{
+  "short_name": "PrepBoard",
+  "name": "PrepBoard Mock Test Platform",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#0f766e",
+  "background_color": "#f8fafc"
+}

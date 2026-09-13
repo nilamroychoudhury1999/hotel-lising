@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email in [
+        'nilamroychoudhury216@gmail.com'
+      ];
+    }
+
+    function isText(value, maxSize) {
+      return value is string && value.size() > 0 && value.size() <= maxSize;
+    }
+
+    match /examTests/{testId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /examLeads/{leadId} {
+      allow create: if isText(request.resource.data.name, 120)
+        && isText(request.resource.data.email, 160)
+        && isText(request.resource.data.mobile, 40)
+        && isText(request.resource.data.targetExam, 120);
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /examAttempts/{attemptId} {
+      allow create: if request.resource.data.summary is map
+        && request.resource.data.summary.correct is int
+        && request.resource.data.summary.total is int
+        && request.resource.data.summary.attempted is int
+        && request.resource.data.summary.accuracy is int
+        && request.resource.data.summary.scorePercent is int
+        && request.resource.data.summary.total > 0
+        && request.resource.data.summary.scorePercent >= 0
+        && request.resource.data.summary.scorePercent <= 100;
+      allow read: if isAdmin() || (isSignedIn() && resource.data.createdBy == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+  }
+}
