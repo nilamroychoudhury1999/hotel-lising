@@ -469,6 +469,15 @@ const getSummary = (test, answers, markedForReview, timeSpentSeconds) => {
   };
 };
 
+const getAttemptSummary = (attempt) => {
+  const summary = attempt?.summary || {};
+  const score = summary.score ?? attempt?.score ?? 0;
+  const maxScore = summary.maxScore ?? attempt?.maxScore ?? attempt?.total ?? 0;
+  const accuracy = summary.accuracy ?? attempt?.accuracy ?? 0;
+
+  return { score, maxScore, accuracy };
+};
+
 function App() {
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [tests, setTests] = useState(FALLBACK_TESTS);
@@ -1561,18 +1570,21 @@ function App() {
                 <strong>No attempts yet</strong>
                 <span>Attempt a free mock test to see history here.</span>
               </div>
-            ) : attemptHistory.map((attempt) => (
-              <div className="history-row" key={attempt.id}>
-                <div>
-                  <strong>{attempt.testTitle}</strong>
-                  <span>{attempt.createdAtText}</span>
+            ) : attemptHistory.map((attempt) => {
+              const summary = getAttemptSummary(attempt);
+              return (
+                <div className="history-row" key={attempt.id || `${attempt.testTitle}-${attempt.createdAtText}`}>
+                  <div>
+                    <strong>{attempt.testTitle || "Mock test attempt"}</strong>
+                    <span>{attempt.createdAtText || "Saved attempt"}</span>
+                  </div>
+                  <div>
+                    <strong>{summary.score}/{summary.maxScore}</strong>
+                    <span>{summary.accuracy}% accuracy</span>
+                  </div>
                 </div>
-                <div>
-                  <strong>{attempt.summary.score}/{attempt.summary.maxScore}</strong>
-                  <span>{attempt.summary.accuracy}% accuracy</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       </main>
