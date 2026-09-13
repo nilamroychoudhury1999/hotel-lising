@@ -13,22 +13,33 @@ import {
   Award,
   BarChart3,
   BookOpen,
+  Bookmark,
+  BookmarkCheck,
+  CalendarDays,
   CheckCircle2,
+  ChevronDown,
   ClipboardList,
   Clock3,
+  Eye,
+  FileText,
   FilePlus2,
   Flag,
+  Layers,
   LockKeyhole,
   LogOut,
   Mail,
   Play,
+  RotateCcw,
   Search,
   ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
   Trash2,
   Target,
   Trophy,
   UnlockKeyhole,
   User,
+  Users,
   X,
   XCircle
 } from "lucide-react";
@@ -38,9 +49,25 @@ const LOCAL_PROFILE_KEY = "prepboard_profile";
 const LOCAL_ATTEMPTS_KEY = "prepboard_attempts";
 const LOCAL_UNLOCKS_KEY = "prepboard_unlocked_tests";
 const LOCAL_HOST_TESTS_KEY = "prepboard_host_tests";
+const LOCAL_BOOKMARKS_KEY = "prepboard_bookmarked_tests";
+const LOCAL_LIVE_ENROLLMENTS_KEY = "prepboard_live_enrollments";
+const LOCAL_PROGRESS_KEY = "prepboard_test_progress";
 const FREE_UNLOCK_CODE = "PREP100";
 const HOST_ACCESS_CODE = "HOST100";
 const HOST_EMAILS = ["nilamroychoudhury216@gmail.com"];
+
+const NAV_ITEMS = [
+  "Dashboard",
+  "Courses",
+  "Tests",
+  "PYPs",
+  "Mentorship",
+  "Bookmarks",
+  "Subscription",
+  "Videos",
+  "Current Affairs",
+  "Success Stories"
+];
 
 const CATEGORIES = [
   { id: "banking", label: "Banking", exams: "IBPS RRB Officer, IBPS PO, SBI PO" },
@@ -49,30 +76,77 @@ const CATEGORIES = [
   { id: "regulatory", label: "Regulatory", exams: "RBI, NABARD, SEBI" }
 ];
 
+const COURSE_CATALOG = [
+  {
+    id: "rrbposecpre",
+    title: "IBPS RRB PO Prelims Sectional",
+    category: "banking",
+    exam: "IBPS RRB Officer Scale I",
+    totalTests: 40,
+    freeTests: 2,
+    testPattern: "Sectional",
+    sections: ["Reasoning", "Quantitative Aptitude"],
+    description: "Section-wise prelims practice with real timer, palette states, and analysis."
+  },
+  {
+    id: "banking-super-practice",
+    title: "Banking Super Practice",
+    category: "banking",
+    exam: "Banking & Insurance",
+    totalTests: 1000,
+    freeTests: 8,
+    testPattern: "Prelims, mains, PYP, revision",
+    sections: ["Reasoning", "Quantitative Aptitude", "English", "General Awareness"],
+    description: "Beginner to advanced tests across banking exams."
+  }
+];
+
 const LIVE_TESTS = [
-  { title: "RRB PO Live Practice", date: "Today", meta: "All India ranking" },
-  { title: "SSC CPO Live Drill", date: "Tomorrow", meta: "Timed leaderboard" },
-  { title: "RRB Technician Sprint", date: "Sep 15", meta: "Free weekly test" }
+  { id: "live-ssc-cpo", title: "SSC CPO Live Test", date: "Sep 14", startsAt: "10:00 AM", meta: "Free weekly live test", category: "ssc" },
+  { id: "live-rrb-po", title: "IBPS RRB PO Live Test", date: "Sep 14", startsAt: "7:00 PM", meta: "All India ranking", category: "banking" },
+  { id: "live-technician", title: "RRB Grade III Technician", date: "Sep 15", startsAt: "6:00 PM", meta: "Timed leaderboard", category: "railways" }
 ];
 
 const PYP_EXAMS = [
-  "SBI Clerk Past Live Tests",
-  "RRB PO Past Live Tests",
-  "IBPS PO Pre PYP",
-  "SBI PO Past Live Tests",
-  "IBPS RRB Officer Pre PYP",
-  "RBI Assistant Pre PYP"
+  { title: "SBI Clerk Past Live Tests", category: "banking", exam: "SBI Clerk" },
+  { title: "SBI Clerk Pre PYP", category: "banking", exam: "SBI Clerk" },
+  { title: "IBPS Clerk Pre PYP", category: "banking", exam: "IBPS Clerk" },
+  { title: "RRB Clerk Pre PYP", category: "banking", exam: "IBPS RRB Clerk" },
+  { title: "RRB PO Past Live Tests", category: "banking", exam: "IBPS RRB Officer" },
+  { title: "RRB Asst Past Live Tests", category: "banking", exam: "IBPS RRB Assistant" },
+  { title: "SBI PO Past Live Tests", category: "banking", exam: "SBI PO" },
+  { title: "SBI PO Pre PYP", category: "banking", exam: "SBI PO" },
+  { title: "IBPS PO Pre PYP", category: "banking", exam: "IBPS PO" },
+  { title: "LIC AAO Pre PYP", category: "regulatory", exam: "LIC AAO" },
+  { title: "IBPS RRB Officer Pre PYP", category: "banking", exam: "IBPS RRB Officer" },
+  { title: "IBPS RRB Asst. Pre PYP", category: "banking", exam: "IBPS RRB Assistant" },
+  { title: "RBI Assistant Pre PYP", category: "regulatory", exam: "RBI Assistant" }
 ];
 
 const POPULAR_TESTS = [
-  "SBI Clerk",
-  "IBPS Clerk",
-  "IBPS RRB Officer",
-  "IBPS RRB Assistant",
-  "SBI PO",
-  "IBPS PO",
-  "RBI Assistant",
-  "NICL Assistant"
+  { title: "SBI Clerk", category: "banking" },
+  { title: "IBPS Clerk", category: "banking" },
+  { title: "IBPS RRB Officer", category: "banking" },
+  { title: "IBPS RRB Assistant", category: "banking" },
+  { title: "SBI PO", category: "banking" },
+  { title: "IBPS PO", category: "banking" },
+  { title: "IBPS SO", category: "banking" },
+  { title: "UIIC AO", category: "regulatory" },
+  { title: "NICL Assistant", category: "regulatory" },
+  { title: "RBI Assistant", category: "regulatory" }
+];
+
+const PROMO_CARDS = [
+  {
+    title: "Monthly Current Affairs Magazine",
+    badge: "New",
+    description: "Downloadable current affairs practice set for revision."
+  },
+  {
+    title: "Banking Super Practice: 1000+ Tests",
+    badge: "Bundle",
+    description: "Includes prelims, mains, PYP, revision tests, and speed drills."
+  }
 ];
 
 const createEmptyQuestion = () => ({
@@ -200,7 +274,132 @@ const QUESTION_BANK = [
   }
 ];
 
+const buildQuestionSet = (sections, count, testId) => {
+  const sectionList = Array.isArray(sections) && sections.length ? sections : ["Reasoning"];
+  return Array.from({ length: count }, (_, index) => {
+    const section = sectionList[index % sectionList.length];
+    const sectionPool = QUESTION_BANK.filter((question) => question.section === section);
+    const pool = sectionPool.length ? sectionPool : QUESTION_BANK;
+    const source = pool[index % pool.length];
+
+    return {
+      ...source,
+      id: `${testId}_q${index + 1}`,
+      section,
+      text: `${source.text}`,
+      options: [...source.options]
+    };
+  });
+};
+
+const getPypPattern = (exam) => {
+  const lowerExam = exam.toLowerCase();
+  if (lowerExam.includes("sbi clerk") || lowerExam.includes("ibps clerk")) {
+    return {
+      questions: 100,
+      marks: 100,
+      durationMinutes: 60,
+      sections: ["English", "Numerical Ability", "Reasoning Ability"]
+    };
+  }
+
+  if (lowerExam.includes("rrb clerk") || lowerExam.includes("rrb assistant")) {
+    return {
+      questions: 80,
+      marks: 80,
+      durationMinutes: 45,
+      sections: ["Reasoning", "Quantitative Aptitude"]
+    };
+  }
+
+  return {
+    questions: 50,
+    marks: 50,
+    durationMinutes: 35,
+    sections: ["Reasoning", "Quantitative Aptitude"]
+  };
+};
+
+const GENERATED_RRB_SECTIONALS = Array.from({ length: 20 }, (_, index) => {
+  const setNumber = index + 1;
+  const quantId = `rrb-quant-sectional-${setNumber}`;
+  const reasoningId = `rrb-reasoning-sectional-${setNumber}`;
+
+  return [
+    {
+      id: quantId,
+      sortOrder: setNumber * 2 - 1,
+      category: "banking",
+      courseCode: "rrbposecpre",
+      seriesTitle: "IBPS RRB PO Prelims Sectional Mock Tests",
+      type: "sectional",
+      title: `IBPS RRB Quant Sectional - ${setNumber}`,
+      exam: "IBPS RRB Officer Scale I",
+      stage: "Prelims",
+      questions: 40,
+      marks: 40,
+      durationMinutes: 20,
+      language: "English and Hindi",
+      level: setNumber <= 5 ? "Foundation speed drill" : setNumber <= 12 ? "Exam level" : "Advanced accuracy drill",
+      free: setNumber === 1,
+      sections: ["Quantitative Aptitude"],
+      negativeMarks: 0.25,
+      marksPerQuestion: 1,
+      questionSet: buildQuestionSet(["Quantitative Aptitude"], 40, quantId)
+    },
+    {
+      id: reasoningId,
+      sortOrder: setNumber * 2,
+      category: "banking",
+      courseCode: "rrbposecpre",
+      seriesTitle: "IBPS RRB PO Prelims Sectional Mock Tests",
+      type: "sectional",
+      title: `IBPS RRB Reasoning Sectional - ${setNumber}`,
+      exam: "IBPS RRB Officer Scale I",
+      stage: "Prelims",
+      questions: 40,
+      marks: 40,
+      durationMinutes: 25,
+      language: "English and Hindi",
+      level: setNumber <= 5 ? "Foundation speed drill" : setNumber <= 12 ? "Exam level" : "Advanced accuracy drill",
+      free: setNumber === 1,
+      sections: ["Reasoning"],
+      negativeMarks: 0.25,
+      marksPerQuestion: 1,
+      questionSet: buildQuestionSet(["Reasoning"], 40, reasoningId)
+    }
+  ];
+}).flat();
+
+const PYP_TEST_LIBRARY = PYP_EXAMS.map((item, index) => {
+  const testId = `pyp-${item.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+  const pattern = getPypPattern(item.exam);
+  return {
+    id: testId,
+    sortOrder: 100 + index,
+    category: item.category,
+    courseCode: testId,
+    seriesTitle: "Previous Year Practice",
+    type: "pyp",
+    title: item.title,
+    exam: item.exam,
+    stage: "PYP",
+    questions: pattern.questions,
+    marks: pattern.marks,
+    durationMinutes: pattern.durationMinutes,
+    language: "English and Hindi",
+    level: "Previous year pattern",
+    free: index < 2,
+    sections: pattern.sections,
+    negativeMarks: 0.25,
+    marksPerQuestion: 1,
+    questionSet: buildQuestionSet(pattern.sections, pattern.questions, testId)
+  };
+});
+
 const FALLBACK_TESTS = [
+  ...GENERATED_RRB_SECTIONALS,
+  ...PYP_TEST_LIBRARY,
   {
     id: "rrbposecpre-free-1",
     sortOrder: 1,
@@ -351,6 +550,8 @@ const normalizeTest = (test) => ({
   sortOrder: Number(test.sortOrder || 999),
   category: test.category || "banking",
   courseCode: test.courseCode || test.code || "rrbposecpre",
+  seriesTitle: test.seriesTitle || "Mock Test Series",
+  type: test.type || "mock",
   title: test.title || "Mock Test",
   exam: test.exam || "Competitive Exam",
   stage: test.stage || "Mock",
@@ -360,7 +561,16 @@ const normalizeTest = (test) => ({
   language: test.language || "English and Hindi",
   level: test.level || test.difficulty || "Exam level",
   free: test.free !== false && test.locked !== true,
-  sections: Array.isArray(test.sections) && test.sections.length ? test.sections : ["Reasoning", "Quantitative Aptitude"],
+  sections: Array.isArray(test.sections) && test.sections.length
+    ? test.sections
+    : typeof test.sections === "string" && test.sections.trim()
+      ? test.sections.split(",").map((section) => section.trim()).filter(Boolean)
+      : ["Reasoning", "Quantitative Aptitude"],
+  negativeMarks: Number(test.negativeMarks ?? test.negative ?? 0.25),
+  marksPerQuestion: Number(test.marksPerQuestion || 1),
+  attempts: Number(test.attempts || 0),
+  rankEnabled: test.rankEnabled !== false,
+  status: test.status || "published",
   questionSet: Array.isArray(test.questionSet) && test.questionSet.length
     ? test.questionSet
     : Array.isArray(test.demoQuestions) && test.demoQuestions.length
@@ -416,6 +626,8 @@ const getSummary = (test, answers, markedForReview, timeSpentSeconds) => {
   const sectionMap = {};
   let correct = 0;
   let wrong = 0;
+  const marksPerQuestion = Number(test.marksPerQuestion || 1);
+  const negativeMarks = Number(test.negativeMarks ?? 0.25);
 
   test.questionSet.forEach((question) => {
     const section = question.section || "General";
@@ -429,19 +641,20 @@ const getSummary = (test, answers, markedForReview, timeSpentSeconds) => {
       if (answers[question.id] === question.answerIndex) {
         correct += 1;
         sectionMap[section].correct += 1;
-        sectionMap[section].score += 1;
+        sectionMap[section].score += marksPerQuestion;
       } else {
         wrong += 1;
         sectionMap[section].wrong += 1;
-        sectionMap[section].score -= 0.25;
+        sectionMap[section].score -= negativeMarks;
       }
     }
   });
 
   const total = test.questionSet.length;
   const attempted = Object.keys(answers).length;
-  const score = Number((correct - wrong * 0.25).toFixed(2));
-  const scorePercent = Math.max(0, Math.round((score / total) * 100));
+  const maxScore = Number(test.marks || total * marksPerQuestion);
+  const score = Number((correct * marksPerQuestion - wrong * negativeMarks).toFixed(2));
+  const scorePercent = maxScore ? Math.max(0, Math.round((score / maxScore) * 100)) : 0;
   const accuracy = attempted ? Math.round((correct / attempted) * 100) : 0;
   const percentile = Math.min(99.9, Math.max(35, Number((45 + scorePercent * 0.52).toFixed(1))));
   const rank = Math.max(1, Math.round(9500 - percentile * 83 + wrong * 17));
@@ -457,7 +670,7 @@ const getSummary = (test, answers, markedForReview, timeSpentSeconds) => {
     attempted,
     markedForReview: markedForReview.length,
     score,
-    maxScore: total,
+    maxScore,
     scorePercent,
     accuracy,
     percentile,
@@ -478,7 +691,53 @@ const getAttemptSummary = (attempt) => {
   return { score, maxScore, accuracy };
 };
 
+const clampPercent = (value) => Math.max(0, Math.min(100, Number(value) || 0));
+
+const downloadFile = (filename, content, type = "application/json") => {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+function DonutChart({ value, label }) {
+  const percent = clampPercent(value);
+  const degrees = percent * 3.6;
+
+  return (
+    <div className="donut-chart" style={{ "--chart-value": `${degrees}deg` }}>
+      <div>
+        <strong>{Math.round(percent)}%</strong>
+        <span>{label}</span>
+      </div>
+    </div>
+  );
+}
+
+function BarChart({ data, maxValue }) {
+  const max = Math.max(1, maxValue || Math.max(...data.map((item) => Number(item.value) || 0), 1));
+
+  return (
+    <div className="bar-chart">
+      {data.map((item) => {
+        const width = clampPercent(((Number(item.value) || 0) / max) * 100);
+        return (
+          <div className="bar-row" key={item.label}>
+            <span>{item.label}</span>
+            <div><i style={{ width: `${width}%` }} /></div>
+            <strong>{item.value}</strong>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function App() {
+  const [isExamWindow] = useState(() => new URLSearchParams(window.location.search).get("mode") === "exam");
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [tests, setTests] = useState(FALLBACK_TESTS);
   const [hostTests, setHostTests] = useState(() => loadJson(LOCAL_HOST_TESTS_KEY, []));
@@ -486,8 +745,14 @@ function App() {
   const [profileForm, setProfileForm] = useState(() => loadJson(LOCAL_PROFILE_KEY, defaultProfile) || defaultProfile);
   const [attemptHistory, setAttemptHistory] = useState(() => loadJson(LOCAL_ATTEMPTS_KEY, []));
   const [unlockedTests, setUnlockedTests] = useState(() => loadJson(LOCAL_UNLOCKS_KEY, []));
+  const [bookmarkedTests, setBookmarkedTests] = useState(() => loadJson(LOCAL_BOOKMARKS_KEY, []));
+  const [liveEnrollments, setLiveEnrollments] = useState(() => loadJson(LOCAL_LIVE_ENROLLMENTS_KEY, []));
+  const [testProgress, setTestProgress] = useState(() => loadJson(LOCAL_PROGRESS_KEY, {}));
   const [activeCategory, setActiveCategory] = useState("banking");
+  const [activeNav, setActiveNav] = useState("Tests");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortMode, setSortMode] = useState("recommended");
+  const [showAllTests, setShowAllTests] = useState(false);
   const [notice, setNotice] = useState(hasFirebaseConfig ? "Firebase ready" : "Local demo mode");
   const [loginOpen, setLoginOpen] = useState(false);
   const [selectedTest, setSelectedTest] = useState(null);
@@ -500,6 +765,8 @@ function App() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [startedAt, setStartedAt] = useState(null);
   const [result, setResult] = useState(null);
+  const [languageMode, setLanguageMode] = useState("English");
+  const [fontScale, setFontScale] = useState("normal");
   const [submitOpen, setSubmitOpen] = useState(false);
   const [unlockTest, setUnlockTest] = useState(null);
   const [coupon, setCoupon] = useState("");
@@ -537,7 +804,7 @@ function App() {
 
   const visibleTests = useMemo(() => {
     const search = searchQuery.trim().toLowerCase();
-    return allTests
+    const filtered = allTests
       .filter((test) => test.category === activeCategory)
       .filter((test) => {
         if (!search) return true;
@@ -546,7 +813,29 @@ function App() {
           .toLowerCase()
           .includes(search);
       });
-  }, [activeCategory, allTests, searchQuery]);
+
+    return [...filtered].sort((first, second) => {
+      if (sortMode === "free") return Number(second.free) - Number(first.free) || first.sortOrder - second.sortOrder;
+      if (sortMode === "duration") return first.durationMinutes - second.durationMinutes;
+      if (sortMode === "bookmarked") return Number(bookmarkedTests.includes(second.id)) - Number(bookmarkedTests.includes(first.id)) || first.sortOrder - second.sortOrder;
+      return first.sortOrder - second.sortOrder;
+    });
+  }, [activeCategory, allTests, bookmarkedTests, searchQuery, sortMode]);
+
+  const displayedTests = showAllTests ? visibleTests : visibleTests.slice(0, 10);
+  const activeCourse = COURSE_CATALOG.find((course) => course.category === activeCategory) || COURSE_CATALOG[0];
+  const dashboardStats = useMemo(() => {
+    const attempted = attemptHistory.length;
+    const bestScore = attemptHistory.reduce((best, attempt) => Math.max(best, Number(getAttemptSummary(attempt).score) || 0), 0);
+    const unlocked = allTests.filter((test) => test.free || unlockedTests.includes(test.id)).length;
+    return {
+      attempted,
+      bestScore,
+      unlocked,
+      bookmarks: bookmarkedTests.length,
+      live: liveEnrollments.length
+    };
+  }, [allTests, attemptHistory, bookmarkedTests.length, liveEnrollments.length, unlockedTests]);
 
   const currentQuestion = selectedTest?.questionSet?.[questionIndex];
   const filteredQuestionIndexes = useMemo(() => {
@@ -559,11 +848,64 @@ function App() {
   const category = CATEGORIES.find((item) => item.id === activeCategory);
   const counts = selectedTest ? getAttemptCounts(selectedTest, answers, markedForReview, visited) : null;
 
+  useEffect(() => {
+    if (!isExamWindow || !allTests.length) return;
+    const params = new URLSearchParams(window.location.search);
+    const testId = params.get("testId");
+    if (!testId || selectedTest?.id === testId) return;
+    const requestedTest = allTests.find((test) => test.id === testId);
+    if (!requestedTest) return;
+
+    setSelectedTest(requestedTest);
+    setWorkspace("instructions");
+    setActiveCategory(requestedTest.category);
+    setNotice("Exam window ready.");
+  }, [allTests, isExamWindow, selectedTest?.id]);
+
   const ensureLogin = () => {
     if (isLoggedIn) return true;
     setLoginOpen(true);
     setNotice("Login or create a free profile before attempting a test.");
     return false;
+  };
+
+  const handleNavigation = (item) => {
+    setActiveNav(item);
+    const targetMap = {
+      Dashboard: "dashboard",
+      Courses: "dashboard",
+      Tests: "tests",
+      PYPs: "pyp",
+      Mentorship: "dashboard",
+      Bookmarks: "tests",
+      Subscription: "tests",
+      Videos: "dashboard",
+      "Current Affairs": "dashboard",
+      "Success Stories": "history"
+    };
+
+    if (item === "Bookmarks") setSortMode("bookmarked");
+    document.getElementById(targetMap[item] || "tests")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const toggleBookmark = (testId) => {
+    const nextBookmarks = bookmarkedTests.includes(testId)
+      ? bookmarkedTests.filter((id) => id !== testId)
+      : [...bookmarkedTests, testId];
+
+    setBookmarkedTests(nextBookmarks);
+    saveJson(LOCAL_BOOKMARKS_KEY, nextBookmarks);
+    setNotice(nextBookmarks.includes(testId) ? "Test bookmarked." : "Bookmark removed.");
+  };
+
+  const toggleLiveEnrollment = (liveTestId) => {
+    const nextEnrollments = liveEnrollments.includes(liveTestId)
+      ? liveEnrollments.filter((id) => id !== liveTestId)
+      : [...liveEnrollments, liveTestId];
+
+    setLiveEnrollments(nextEnrollments);
+    saveJson(LOCAL_LIVE_ENROLLMENTS_KEY, nextEnrollments);
+    setNotice(nextEnrollments.includes(liveTestId) ? "Live test reminder added." : "Live test reminder removed.");
   };
 
   const handleProfileSubmit = async (event) => {
@@ -625,6 +967,10 @@ function App() {
     setNotice("Logged out.");
   };
 
+  useEffect(() => {
+    setShowAllTests(false);
+  }, [activeCategory, searchQuery]);
+
   const openTest = (test) => {
     if (!ensureLogin()) return;
     const unlocked = test.free || unlockedTests.includes(test.id);
@@ -641,6 +987,26 @@ function App() {
     window.setTimeout(() => {
       document.getElementById("workspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 0);
+  };
+
+  const openTestInWindow = (test) => {
+    if (!ensureLogin()) return;
+    const unlocked = test.free || unlockedTests.includes(test.id);
+    if (!unlocked) {
+      setUnlockTest(test);
+      setCoupon("");
+      return;
+    }
+
+    const params = new URLSearchParams({ mode: "exam", testId: test.id });
+    const examUrl = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+    const newWindow = window.open(examUrl, "_blank", "noopener,noreferrer,width=1280,height=860");
+    if (!newWindow) {
+      setNotice("Popup was blocked. Opening the test in the current window.");
+      openTest(test);
+      return;
+    }
+    setNotice(`${test.title} opened in a dedicated exam window.`);
   };
 
   const applyCoupon = () => {
@@ -766,6 +1132,35 @@ function App() {
     }
   };
 
+  const previewHostTest = () => {
+    if (!hostForm.title.trim() || hostForm.questionSet.length === 0) {
+      setNotice("Add a test title and at least one question before preview.");
+      return;
+    }
+
+    const previewTest = normalizeTest({
+      ...hostForm,
+      id: "host_preview",
+      title: `${hostForm.title.trim()} Preview`,
+      exam: hostForm.exam.trim() || "Host Exam",
+      courseCode: hostForm.courseCode.trim() || "host",
+      sections: hostForm.sections.split(",").map((section) => section.trim()).filter(Boolean),
+      questions: hostForm.questionSet.length,
+      marks: Number(hostForm.marks) || hostForm.questionSet.length,
+      durationMinutes: Number(hostForm.durationMinutes) || 20,
+      free: true,
+      type: "host-preview",
+      questionSet: hostForm.questionSet
+    });
+
+    setSelectedTest(previewTest);
+    setWorkspace("instructions");
+    setNotice("Preview opened. Publish from Host Studio when ready.");
+    window.setTimeout(() => {
+      document.getElementById("workspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  };
+
   const deleteHostTest = (testId) => {
     const nextHostTests = hostTests.filter((test) => test.id !== testId);
     setHostTests(nextHostTests);
@@ -773,8 +1168,98 @@ function App() {
     setNotice("Host test deleted locally.");
   };
 
-  const beginTest = () => {
+  const uploadHostTests = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result || ""));
+        const incoming = Array.isArray(parsed) ? parsed : [parsed];
+        const uploadedTests = incoming
+          .filter((item) => item && typeof item === "object")
+          .map((item, index) => normalizeTest({
+            ...item,
+            id: item.id || `upload_${Date.now()}_${index}`,
+            title: item.title || `Uploaded Test ${index + 1}`,
+            source: "json-upload",
+            status: "published"
+          }));
+
+        if (!uploadedTests.length) {
+          setNotice("Upload did not contain any valid test objects.");
+          return;
+        }
+
+        const nextHostTests = [...uploadedTests, ...hostTests];
+        setHostTests(nextHostTests);
+        saveJson(LOCAL_HOST_TESTS_KEY, nextHostTests);
+        setNotice(`${uploadedTests.length} uploaded test${uploadedTests.length > 1 ? "s" : ""} added locally.`);
+      } catch (error) {
+        console.error("Could not import tests:", error);
+        setNotice("Upload failed. Please use a valid JSON test file.");
+      } finally {
+        event.target.value = "";
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const exportCurrentResult = (format) => {
+    if (!selectedTest || !result) return;
+    const payload = {
+      test: {
+        id: selectedTest.id,
+        title: selectedTest.title,
+        exam: selectedTest.exam
+      },
+      result,
+      answers,
+      exportedAt: new Date().toISOString()
+    };
+
+    if (format === "csv") {
+      const rows = [
+        ["Metric", "Value"],
+        ["Score", result.score],
+        ["Max Score", result.maxScore],
+        ["Accuracy", result.accuracy],
+        ["Percentile", result.percentile],
+        ["Rank", result.rank],
+        ["Correct", result.correct],
+        ["Wrong", result.wrong],
+        ["Unattempted", result.unattempted]
+      ];
+      downloadFile(`${selectedTest.id}-result.csv`, rows.map((row) => row.join(",")).join("\n"), "text/csv");
+      return;
+    }
+
+    downloadFile(`${selectedTest.id}-result.json`, JSON.stringify(payload, null, 2));
+  };
+
+  const exportAttempts = () => {
+    downloadFile("prepboard-attempt-history.json", JSON.stringify(attemptHistory, null, 2));
+  };
+
+  const beginTest = (resume = false) => {
     if (!selectedTest) return;
+    const savedProgress = testProgress[selectedTest.id];
+    if (resume && savedProgress) {
+      setAnswers(savedProgress.answers || {});
+      setMarkedForReview(savedProgress.markedForReview || []);
+      setVisited(savedProgress.visited || []);
+      setQuestionIndex(Number(savedProgress.questionIndex || 0));
+      setActiveSection(savedProgress.activeSection || "All");
+      setTimeLeft(Number(savedProgress.timeLeft || selectedTest.durationMinutes * 60));
+      setStartedAt(Date.now() - Number(savedProgress.elapsedSeconds || 0) * 1000);
+      setResult(null);
+      setSubmitOpen(false);
+      setWorkspace("runner");
+      setNotice("Resumed saved attempt.");
+      return;
+    }
+
     const firstQuestionId = selectedTest.questionSet[0]?.id;
     setAnswers({});
     setMarkedForReview([]);
@@ -848,6 +1333,11 @@ function App() {
     setAttemptHistory(nextHistory);
     saveJson(LOCAL_ATTEMPTS_KEY, nextHistory);
 
+    const nextProgress = { ...testProgress };
+    delete nextProgress[selectedTest.id];
+    setTestProgress(nextProgress);
+    saveJson(LOCAL_PROGRESS_KEY, nextProgress);
+
     try {
       if (db) {
         await addDoc(collection(db, "examAttempts"), {
@@ -862,7 +1352,27 @@ function App() {
       console.error("Could not save attempt:", error);
       setNotice("Result calculated and saved locally. Check Firestore rules for cloud saving.");
     }
-  }, [answers, attemptHistory, firebaseUser, markedForReview, profile, result, selectedTest, startedAt]);
+  }, [answers, attemptHistory, firebaseUser, markedForReview, profile, result, selectedTest, startedAt, testProgress]);
+
+  useEffect(() => {
+    if (workspace !== "runner" || !selectedTest || result || !startedAt) return;
+    const progress = {
+      testId: selectedTest.id,
+      testTitle: selectedTest.title,
+      answers,
+      markedForReview,
+      visited,
+      questionIndex,
+      activeSection,
+      timeLeft,
+      elapsedSeconds: Math.max(0, Math.round((Date.now() - startedAt) / 1000)),
+      updatedAtText: new Date().toLocaleString()
+    };
+    const nextProgress = { ...testProgress, [selectedTest.id]: progress };
+    setTestProgress(nextProgress);
+    saveJson(LOCAL_PROGRESS_KEY, nextProgress);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, markedForReview, visited, questionIndex, activeSection, timeLeft, workspace, selectedTest?.id, result]);
 
   useEffect(() => {
     if (workspace !== "runner" || !selectedTest || result) return undefined;
@@ -886,6 +1396,7 @@ function App() {
     }
 
     if (workspace === "instructions") {
+      const savedProgress = testProgress[selectedTest.id];
       return (
         <section id="workspace" className="workspace instructions-panel">
           <div className="workspace-heading">
@@ -894,22 +1405,31 @@ function App() {
               <h2>{selectedTest.title}</h2>
               <p>Read the test rules before starting. The timer begins immediately after you start.</p>
             </div>
-            <button type="button" className="primary-button" onClick={beginTest}>
-              <Play size={16} /> Start Test
-            </button>
+            <div className="workspace-actions">
+              {savedProgress && (
+                <button type="button" className="secondary-button" onClick={() => beginTest(true)}>
+                  <RotateCcw size={16} /> Resume
+                </button>
+              )}
+              <button type="button" className="primary-button" onClick={() => beginTest(false)}>
+                <Play size={16} /> Start Test
+              </button>
+            </div>
           </div>
           <div className="instruction-grid">
             <div><strong>{selectedTest.questions}</strong><span>Questions</span></div>
             <div><strong>{selectedTest.marks}</strong><span>Marks</span></div>
             <div><strong>{selectedTest.durationMinutes} min</strong><span>Duration</span></div>
-            <div><strong>-0.25</strong><span>Negative marking</span></div>
+            <div><strong>-{selectedTest.negativeMarks}</strong><span>Negative marking</span></div>
           </div>
           <ul className="rules-list">
-            <li>Each question has one correct answer.</li>
+            <li>This is a {selectedTest.type} test for {selectedTest.exam}.</li>
+            <li>Each question has one correct answer and carries {selectedTest.marksPerQuestion} mark.</li>
             <li>Use Save & Next after selecting an answer.</li>
             <li>Use Mark for Review to revisit a question before submitting.</li>
             <li>You can switch sections using the section chips.</li>
-            <li>Submitting shows score, accuracy, rank estimate, weak areas, and solutions.</li>
+            <li>Your progress is saved locally while the timer is running.</li>
+            <li>Submitting shows score, accuracy, rank estimate, weak areas, recommendations, and solutions.</li>
           </ul>
         </section>
       );
@@ -923,9 +1443,26 @@ function App() {
               <span>{selectedTest.exam}</span>
               <strong>{selectedTest.title}</strong>
             </div>
-            <div className="timer-pill">
-              <Clock3 size={18} />
-              <strong>{formatTime(timeLeft)}</strong>
+            <div className="runner-tools">
+              <label>
+                Language
+                <select value={languageMode} onChange={(event) => setLanguageMode(event.target.value)}>
+                  <option>English</option>
+                  <option>Hindi</option>
+                </select>
+              </label>
+              <label>
+                Font
+                <select value={fontScale} onChange={(event) => setFontScale(event.target.value)}>
+                  <option value="normal">Normal</option>
+                  <option value="large">Large</option>
+                  <option value="xl">XL</option>
+                </select>
+              </label>
+              <div className="timer-pill">
+                <Clock3 size={18} />
+                <strong>{formatTime(timeLeft)}</strong>
+              </div>
             </div>
           </div>
 
@@ -949,18 +1486,19 @@ function App() {
           </div>
 
           <div className="runner-layout">
-            <article className="question-panel">
+            <article className={`question-panel font-${fontScale}`}>
               {currentQuestion && (
                 <>
                   <div className="question-header">
                     <span>{currentQuestion.section}</span>
-                    <strong>Question {questionIndex + 1} of {selectedTest.questionSet.length}</strong>
+                    <strong>Question {questionIndex + 1} of {selectedTest.questionSet.length} - {selectedTest.marksPerQuestion} mark</strong>
                   </div>
+                  <div className="question-language-note">{languageMode} version</div>
                   <h3>{currentQuestion.text}</h3>
                   <div className="option-list">
                     {currentQuestion.options.map((option, optionIndex) => (
                       <button
-                        key={option}
+                        key={`${currentQuestion.id}-${optionIndex}`}
                         type="button"
                         className={answers[currentQuestion.id] === optionIndex ? "selected" : ""}
                         onClick={() => {
@@ -1042,6 +1580,43 @@ function App() {
               <div><strong>{formatTime(result.timeSpentSeconds)}</strong><span>Time spent</span></div>
             </div>
 
+            <div className="chart-grid">
+              <div className="analysis-card chart-card">
+                <h3>Score graph</h3>
+                <DonutChart value={result.scorePercent} label="Score" />
+              </div>
+              <div className="analysis-card chart-card">
+                <h3>Attempt graph</h3>
+                <BarChart
+                  maxValue={result.total}
+                  data={[
+                    { label: "Correct", value: result.correct },
+                    { label: "Wrong", value: result.wrong },
+                    { label: "Unattempted", value: result.unattempted },
+                    { label: "Marked", value: result.markedForReview }
+                  ]}
+                />
+              </div>
+              <div className="analysis-card chart-card">
+                <h3>Section graph</h3>
+                <BarChart
+                  data={result.sections.map((section) => ({
+                    label: section.section,
+                    value: Number(section.score.toFixed(2))
+                  }))}
+                />
+              </div>
+            </div>
+
+            <div className="export-row">
+              <button type="button" className="secondary-button" onClick={() => exportCurrentResult("json")}>
+                <FileText size={16} /> Download JSON
+              </button>
+              <button type="button" className="secondary-button" onClick={() => exportCurrentResult("csv")}>
+                <FileText size={16} /> Download CSV
+              </button>
+            </div>
+
             <div className="analysis-grid">
               <div className="analysis-card">
                 <h3>Attempt summary</h3>
@@ -1101,7 +1676,7 @@ function App() {
   };
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${isExamWindow ? "exam-window-shell" : ""}`}>
       <header className="site-header">
         <a href="#top" className="brand" aria-label="PrepBoard home">
           <span>PB</span>
@@ -1174,6 +1749,64 @@ function App() {
           </div>
         </section>
 
+        <section id="dashboard" className="platform-layout">
+          <aside className="learning-nav" aria-label="Learning navigation">
+            {NAV_ITEMS.map((item) => (
+              <button
+                key={item}
+                type="button"
+                className={activeNav === item ? "active" : ""}
+                onClick={() => handleNavigation(item)}
+              >
+                {item === "Dashboard" && <BarChart3 size={16} />}
+                {item === "Courses" && <Layers size={16} />}
+                {item === "Tests" && <ClipboardList size={16} />}
+                {item === "PYPs" && <FileText size={16} />}
+                {item === "Bookmarks" && <Bookmark size={16} />}
+                {item === "Subscription" && <UnlockKeyhole size={16} />}
+                {!["Dashboard", "Courses", "Tests", "PYPs", "Bookmarks", "Subscription"].includes(item) && <Sparkles size={16} />}
+                <span>{item}</span>
+              </button>
+            ))}
+          </aside>
+
+          <div className="course-dashboard">
+            <div className="course-overview">
+              <div>
+                <span className="eyebrow">Course overview</span>
+                <h2>{activeCourse.title}</h2>
+                <p>{activeCourse.description}</p>
+              </div>
+              <div className="course-badges">
+                <span>{activeCourse.testPattern}</span>
+                <span>{activeCourse.totalTests} tests</span>
+                <span>{activeCourse.freeTests} free</span>
+              </div>
+            </div>
+
+            <div className="dashboard-metrics">
+              <div><strong>{dashboardStats.attempted}</strong><span>Attempts</span></div>
+              <div><strong>{dashboardStats.bestScore}</strong><span>Best score</span></div>
+              <div><strong>{dashboardStats.unlocked}</strong><span>Unlocked tests</span></div>
+              <div><strong>{dashboardStats.bookmarks}</strong><span>Bookmarks</span></div>
+              <div><strong>{dashboardStats.live}</strong><span>Live reminders</span></div>
+            </div>
+
+            <div className="promo-grid">
+              {PROMO_CARDS.map((promo) => (
+                <article key={promo.title} className="promo-card">
+                  <span>{promo.badge}</span>
+                  <strong>{promo.title}</strong>
+                  <p>{promo.description}</p>
+                  <button type="button" onClick={() => setNotice(`${promo.title} opened in demo mode.`)}>
+                    <Eye size={15} /> View
+                  </button>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section className="feature-row" aria-label="Platform features">
           <div><ClipboardList /><strong>Instructions Screen</strong><span>Rules before starting every test.</span></div>
           <div><Target /><strong>Question Palette</strong><span>Answered, review, not visited states.</span></div>
@@ -1191,9 +1824,16 @@ function App() {
           <div className="tile-grid three">
             {LIVE_TESTS.map((item) => (
               <article className="mini-tile" key={item.title}>
-                <strong>{item.title}</strong>
-                <span>{item.date}</span>
+                <div className="mini-tile-top">
+                  <strong>{item.title}</strong>
+                  <span>{liveEnrollments.includes(item.id) ? "Enrolled" : "Free"}</span>
+                </div>
+                <span>{item.date} - {item.startsAt}</span>
                 <small>{item.meta}</small>
+                <button type="button" onClick={() => toggleLiveEnrollment(item.id)}>
+                  <CalendarDays size={15} />
+                  {liveEnrollments.includes(item.id) ? "Remove Reminder" : "Remind Me"}
+                </button>
               </article>
             ))}
           </div>
@@ -1203,17 +1843,28 @@ function App() {
           <div className="section-heading">
             <div>
               <span className="eyebrow">Test series</span>
-              <h2>{category?.label} tests</h2>
-              <p>{category?.exams}</p>
+              <h2>{category?.label} tests [{visibleTests.length}]</h2>
+              <p>{category?.exams} - showing {displayedTests.length} of {visibleTests.length}</p>
             </div>
-            <label className="search-box">
-              <Search size={16} />
-              <input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search mock tests"
-              />
-            </label>
+            <div className="catalog-tools">
+              <label className="search-box">
+                <Search size={16} />
+                <input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search mock tests"
+                />
+              </label>
+              <label className="sort-box">
+                <SlidersHorizontal size={16} />
+                <select value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
+                  <option value="recommended">Recommended</option>
+                  <option value="free">Free first</option>
+                  <option value="duration">Duration</option>
+                  <option value="bookmarked">Bookmarked</option>
+                </select>
+              </label>
+            </div>
           </div>
 
           <div className="category-tabs" role="tablist" aria-label="Exam categories">
@@ -1231,13 +1882,26 @@ function App() {
           </div>
 
           <div className="test-grid">
-            {visibleTests.map((test) => {
+            {displayedTests.map((test) => {
               const unlocked = test.free || unlockedTests.includes(test.id);
+              const bookmarked = bookmarkedTests.includes(test.id);
+              const savedProgress = testProgress[test.id];
               return (
                 <article className="test-card" key={test.id}>
                   <div className="test-topline">
-                    <span>{test.stage}</span>
-                    <strong className={unlocked ? "free" : "locked"}>{unlocked ? "Free" : "Locked"}</strong>
+                    <span>{test.stage} - {test.type}</span>
+                    <div className="test-card-actions">
+                      {savedProgress && <strong className="resume-chip">Resume</strong>}
+                      <strong className={unlocked ? "free" : "locked"}>{unlocked ? "Free" : "Locked"}</strong>
+                      <button
+                        type="button"
+                        className="bookmark-button"
+                        onClick={() => toggleBookmark(test.id)}
+                        aria-label={bookmarked ? `Remove bookmark for ${test.title}` : `Bookmark ${test.title}`}
+                      >
+                        {bookmarked ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
+                      </button>
+                    </div>
                   </div>
                   <h3>{test.title}</h3>
                   <p>{test.exam} - {test.level}</p>
@@ -1245,6 +1909,7 @@ function App() {
                     <span><BookOpen size={14} /> {test.questions} Qs</span>
                     <span><Award size={14} /> {test.marks} Marks</span>
                     <span><Clock3 size={14} /> {test.durationMinutes} Mins</span>
+                    <span><Users size={14} /> {test.attempts + attemptHistory.filter((attempt) => attempt.testId === test.id).length} Attempts</span>
                   </div>
                   <div className="tag-list">
                     {test.sections.map((section) => <span key={section}>{section}</span>)}
@@ -1252,15 +1917,22 @@ function App() {
                   <button
                     type="button"
                     className={unlocked ? "attempt-button" : "lock-button"}
-                    onClick={() => openTest(test)}
+                    onClick={() => openTestInWindow(test)}
                   >
                     {unlocked ? <Play size={16} /> : <LockKeyhole size={16} />}
-                    {unlocked ? "Attempt Now" : "Unlock Now"}
+                    {unlocked ? "Open Exam Window" : "Unlock Now"}
                   </button>
                 </article>
               );
             })}
           </div>
+          {visibleTests.length > 10 && (
+            <div className="view-more-row">
+              <button type="button" className="secondary-button" onClick={() => setShowAllTests((current) => !current)}>
+                <ChevronDown size={16} /> {showAllTests ? "Show Less" : `View More (${visibleTests.length - 10})`}
+              </button>
+            </div>
+          )}
         </section>
 
         {renderWorkspace()}
@@ -1279,15 +1951,15 @@ function App() {
                 <button
                   type="button"
                   className="exam-tile"
-                  key={item}
+                  key={item.title}
                   onClick={() => {
-                    setSearchQuery(item.split(" ")[0]);
-                    setActiveCategory("banking");
+                    setSearchQuery(item.exam);
+                    setActiveCategory(item.category);
                     document.getElementById("tests")?.scrollIntoView({ behavior: "smooth", block: "start" });
                   }}
                 >
                   <FilePlus2 size={18} />
-                  <span>{item}</span>
+                  <span>{item.title}</span>
                 </button>
               ))}
             </div>
@@ -1306,15 +1978,15 @@ function App() {
                 <button
                   type="button"
                   className="exam-tile subtle"
-                  key={item}
+                  key={item.title}
                   onClick={() => {
-                    setSearchQuery(item);
-                    setActiveCategory(item.includes("RBI") || item.includes("NICL") ? "regulatory" : "banking");
+                    setSearchQuery(item.title);
+                    setActiveCategory(item.category);
                     document.getElementById("tests")?.scrollIntoView({ behavior: "smooth", block: "start" });
                   }}
                 >
                   <Search size={17} />
-                  <span>{item}</span>
+                  <span>{item.title}</span>
                 </button>
               ))}
             </div>
@@ -1507,12 +2179,26 @@ function App() {
                   </button>
                 </div>
 
-                <button type="submit" className="primary-button publish-button">
-                  <ShieldCheck size={16} /> Publish Test
-                </button>
+                <div className="host-publish-actions">
+                  <button type="button" className="secondary-button" onClick={previewHostTest}>
+                    <Eye size={16} /> Preview Test
+                  </button>
+                  <button type="submit" className="primary-button publish-button">
+                    <ShieldCheck size={16} /> Publish Test
+                  </button>
+                </div>
               </form>
 
               <aside className="host-sidebar">
+                <div className="host-card upload-card">
+                  <strong>Upload tests</strong>
+                  <span className="muted-line">Import one JSON test object or an array of tests. Each item can include title, exam, category, questions, marks, durationMinutes, sections, and questionSet.</span>
+                  <label className="file-upload">
+                    <FilePlus2 size={16} /> Upload JSON
+                    <input type="file" accept="application/json,.json" onChange={uploadHostTests} />
+                  </label>
+                </div>
+
                 <div className="host-card">
                   <strong>Draft questions</strong>
                   <div className="question-list">
@@ -1562,6 +2248,9 @@ function App() {
               <h2>Recent attempts</h2>
               <p>Saved locally and sent to Firebase when your project values are configured.</p>
             </div>
+            <button type="button" className="secondary-button" onClick={exportAttempts} disabled={!attemptHistory.length}>
+              <FileText size={16} /> Export Attempts
+            </button>
           </div>
           <div className="history-list">
             {attemptHistory.length === 0 ? (
