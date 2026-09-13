@@ -271,14 +271,68 @@ const QUESTION_BANK = [
     options: ["24%", "26%", "28%", "30%"],
     answerIndex: 1,
     solution: "Let cost be 100. Marked price = 140. Selling price after 10% discount = 126. Profit = 26%."
+  },
+  {
+    id: "e1",
+    section: "English",
+    text: "Choose the word that best completes the sentence: The manager asked the team to ___ the report before lunch.",
+    options: ["submit", "submits", "submitted", "submitting"],
+    answerIndex: 0,
+    solution: "The infinitive phrase 'to submit' requires the base form of the verb."
+  },
+  {
+    id: "e2",
+    section: "English",
+    text: "Choose the correctly spelt word.",
+    options: ["Accomodate", "Acommodate", "Accommodate", "Acomodate"],
+    answerIndex: 2,
+    solution: "The correct spelling is 'Accommodate'."
+  },
+  {
+    id: "e3",
+    section: "English",
+    text: "Identify the synonym of 'brief'.",
+    options: ["Lengthy", "Short", "Complex", "Delayed"],
+    answerIndex: 1,
+    solution: "'Brief' means short or concise."
+  },
+  {
+    id: "e4",
+    section: "English",
+    text: "Choose the grammatically correct sentence.",
+    options: ["She do not agree.", "She does not agree.", "She did not agrees.", "She not agree."],
+    answerIndex: 1,
+    solution: "With third person singular, use 'does not' followed by the base verb."
+  },
+  {
+    id: "e5",
+    section: "English",
+    text: "Choose the antonym of 'expand'.",
+    options: ["Increase", "Extend", "Contract", "Develop"],
+    answerIndex: 2,
+    solution: "The antonym of expand is contract."
+  },
+  {
+    id: "e6",
+    section: "English",
+    text: "Select the phrase that means 'to postpone'.",
+    options: ["Call off", "Put off", "Take off", "Set off"],
+    answerIndex: 1,
+    solution: "'Put off' means to postpone."
   }
 ];
+
+const SECTION_ALIASES = {
+  "Numerical Ability": "Quantitative Aptitude",
+  "Reasoning Ability": "Reasoning"
+};
 
 const buildQuestionSet = (sections, count, testId) => {
   const sectionList = Array.isArray(sections) && sections.length ? sections : ["Reasoning"];
   return Array.from({ length: count }, (_, index) => {
     const section = sectionList[index % sectionList.length];
-    const sectionPool = QUESTION_BANK.filter((question) => question.section === section);
+    const sourceSection = SECTION_ALIASES[section] || section;
+    const sectionPool = QUESTION_BANK.filter((question) => question.section === sourceSection);
     const pool = sectionPool.length ? sectionPool : QUESTION_BANK;
     const source = pool[index % pool.length];
 
@@ -290,6 +344,12 @@ const buildQuestionSet = (sections, count, testId) => {
       options: [...source.options]
     };
   });
+};
+
+const buildSectionedQuestionSet = (sectionBlueprint, testId) => {
+  return sectionBlueprint.flatMap(({ section, count }) => (
+    buildQuestionSet([section], count, `${testId}_${section.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`)
+  ));
 };
 
 const getPypPattern = (exam) => {
@@ -397,7 +457,37 @@ const PYP_TEST_LIBRARY = PYP_EXAMS.map((item, index) => {
   };
 });
 
+const IBPS_CLERK_HOST_FULL_MOCK = {
+  id: "host-ibps-clerk-full-mock-1",
+  sortOrder: 60,
+  category: "banking",
+  courseCode: "ibpsclerkpre",
+  seriesTitle: "Host Published Full Mock Tests",
+  type: "host-full-mock",
+  title: "IBPS Clerk Full Mock Test 1",
+  exam: "IBPS Clerk",
+  stage: "Prelims",
+  questions: 100,
+  marks: 100,
+  durationMinutes: 60,
+  language: "English and Hindi",
+  level: "Host published full mock",
+  free: true,
+  sections: ["English", "Numerical Ability", "Reasoning Ability"],
+  negativeMarks: 0.25,
+  marksPerQuestion: 1,
+  attempts: 0,
+  source: "host-studio",
+  status: "published",
+  questionSet: buildSectionedQuestionSet([
+    { section: "English", count: 30 },
+    { section: "Numerical Ability", count: 35 },
+    { section: "Reasoning Ability", count: 35 }
+  ], "host_ibps_clerk_full_mock_1")
+};
+
 const FALLBACK_TESTS = [
+  IBPS_CLERK_HOST_FULL_MOCK,
   ...GENERATED_RRB_SECTIONALS,
   ...PYP_TEST_LIBRARY,
   {
@@ -571,6 +661,7 @@ const normalizeTest = (test) => ({
   attempts: Number(test.attempts || 0),
   rankEnabled: test.rankEnabled !== false,
   status: test.status || "published",
+  source: test.source || "catalog",
   questionSet: Array.isArray(test.questionSet) && test.questionSet.length
     ? test.questionSet
     : Array.isArray(test.demoQuestions) && test.demoQuestions.length
@@ -801,6 +892,13 @@ function App() {
   const activeIdentity = firebaseUser || profile;
   const isLoggedIn = Boolean(activeIdentity);
   const allTests = useMemo(() => [...tests, ...hostTests].map(normalizeTest), [hostTests, tests]);
+  const publishedHostTests = useMemo(() => {
+    const localIds = new Set(hostTests.map((test) => test.id));
+    return [
+      normalizeTest(IBPS_CLERK_HOST_FULL_MOCK),
+      ...hostTests.filter((test) => !localIds.has(IBPS_CLERK_HOST_FULL_MOCK.id) || test.id !== IBPS_CLERK_HOST_FULL_MOCK.id).map(normalizeTest)
+    ];
+  }, [hostTests]);
 
   const visibleTests = useMemo(() => {
     const search = searchQuery.trim().toLowerCase();
@@ -2218,19 +2316,26 @@ function App() {
                 <div className="host-card">
                   <strong>Published by host</strong>
                   <div className="published-list">
-                    {hostTests.length === 0 ? (
+                    {publishedHostTests.length === 0 ? (
                       <span className="muted-line">No host tests published yet.</span>
-                    ) : hostTests.map((test) => {
+                    ) : publishedHostTests.map((test) => {
                       const attempts = attemptHistory.filter((attempt) => attempt.testId === test.id);
+                      const isSeeded = test.id === IBPS_CLERK_HOST_FULL_MOCK.id;
                       return (
                         <article key={test.id}>
                           <div>
                             <strong>{test.title}</strong>
-                            <span>{test.exam} - {test.questions} Qs - {attempts.length} attempts</span>
+                            <span>{test.exam} - {test.questions} Qs - {attempts.length} attempts{isSeeded ? " - seeded host test" : ""}</span>
                           </div>
-                          <button type="button" onClick={() => deleteHostTest(test.id)} aria-label={`Delete ${test.title}`}>
-                            <Trash2 size={15} />
-                          </button>
+                          {isSeeded ? (
+                            <button type="button" disabled aria-label={`${test.title} is protected`}>
+                              <ShieldCheck size={15} />
+                            </button>
+                          ) : (
+                            <button type="button" onClick={() => deleteHostTest(test.id)} aria-label={`Delete ${test.title}`}>
+                              <Trash2 size={15} />
+                            </button>
+                          )}
                         </article>
                       );
                     })}
