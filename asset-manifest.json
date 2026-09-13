@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/hotel-lising/static/css/main.cc39145a.css",
+    "main.js": "/hotel-lising/static/js/main.dc368877.js",
+    "index.html": "/hotel-lising/index.html",
+    "main.cc39145a.css.map": "/hotel-lising/static/css/main.cc39145a.css.map",
+    "main.dc368877.js.map": "/hotel-lising/static/js/main.dc368877.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.cc39145a.css",
+    "static/js/main.dc368877.js"
+  ]
+}
