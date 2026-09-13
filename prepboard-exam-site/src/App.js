@@ -136,6 +136,69 @@ const POPULAR_TESTS = [
   { title: "RBI Assistant", category: "regulatory" }
 ];
 
+const PASS_FEATURES = [
+  { title: "Full mocks", value: "Prelims + Mains", detail: "Real timer, palette, section split" },
+  { title: "PYP vault", value: "Past papers", detail: "Previous-year and memory-based practice" },
+  { title: "Analytics", value: "AIR + weak areas", detail: "Score, accuracy, percentile, topics" },
+  { title: "Re-attempt", value: "Unlimited", detail: "Resume attempts and improve score" }
+];
+
+const EXAM_SERIES = [
+  {
+    id: "sbi-clerk-2026",
+    title: "SBI Clerk Complete Test Series 2026",
+    category: "banking",
+    exam: "SBI Clerk",
+    tests: 359,
+    freeTests: 5,
+    users: "215.8k+",
+    languages: "English, Hindi",
+    badge: "Trending",
+    description: "Prelims, mains, live tests, sectional drills, chapter tests, memory papers, and GA practice.",
+    includes: ["25 Prelims mocks", "10 Mains mocks", "Live mega tests", "Memory-based papers", "GA/CA specials"],
+    pattern: [
+      { section: "English Language", questions: 30, marks: 30, duration: "20 min" },
+      { section: "Numerical Ability", questions: 35, marks: 35, duration: "20 min" },
+      { section: "Reasoning Ability", questions: 35, marks: 35, duration: "20 min" }
+    ]
+  },
+  {
+    id: "ibps-clerk-2026",
+    title: "IBPS Clerk Prelims + Mains Pack",
+    category: "banking",
+    exam: "IBPS Clerk",
+    tests: 210,
+    freeTests: 6,
+    users: "96k+",
+    languages: "English, Hindi",
+    badge: "Host ready",
+    description: "Full mocks, sectional tests, speed drills, and host-published custom mocks.",
+    includes: ["20 Prelims mocks", "8 Mains mocks", "Topic drills", "PYP practice", "Solution review"],
+    pattern: [
+      { section: "English Language", questions: 30, marks: 30, duration: "20 min" },
+      { section: "Numerical Ability", questions: 35, marks: 35, duration: "20 min" },
+      { section: "Reasoning Ability", questions: 35, marks: 35, duration: "20 min" }
+    ]
+  },
+  {
+    id: "rrb-clerk-2026",
+    title: "IBPS RRB Clerk Speed Pack",
+    category: "banking",
+    exam: "IBPS RRB Clerk",
+    tests: 160,
+    freeTests: 4,
+    users: "72k+",
+    languages: "English, Hindi",
+    badge: "Speed",
+    description: "RRB Assistant prelims practice with heavy reasoning and numerical ability coverage.",
+    includes: ["20 Prelims mocks", "Friday live tests", "Speed improvement", "Weak-area analysis", "PYP based drills"],
+    pattern: [
+      { section: "Reasoning", questions: 40, marks: 40, duration: "25 min" },
+      { section: "Quantitative Aptitude", questions: 40, marks: 40, duration: "20 min" }
+    ]
+  }
+];
+
 const PROMO_CARDS = [
   {
     title: "Monthly Current Affairs Magazine",
@@ -324,10 +387,38 @@ const QUESTION_BANK = [
 
 const SECTION_ALIASES = {
   "Numerical Ability": "Quantitative Aptitude",
-  "Reasoning Ability": "Reasoning"
+  "Reasoning Ability": "Reasoning",
+  "English Language": "English",
+  "General/Financial Awareness": "General Awareness",
+  "Reasoning & Computer Ability": "Reasoning"
 };
 
-const buildQuestionSet = (sections, count, testId) => {
+const SECTION_TOPICS = {
+  Reasoning: ["Syllogism", "Puzzle", "Inequality", "Coding-Decoding", "Direction Sense", "Seating Arrangement"],
+  "Reasoning Ability": ["Syllogism", "Puzzle", "Inequality", "Coding-Decoding", "Direction Sense", "Seating Arrangement"],
+  "Reasoning & Computer Ability": ["Puzzle", "Input Output", "Data Sufficiency", "Computer Basics", "Coding-Decoding"],
+  "Quantitative Aptitude": ["Number Series", "Simplification", "Arithmetic", "DI", "Profit & Loss", "Time & Work"],
+  "Numerical Ability": ["Number Series", "Simplification", "Arithmetic", "DI", "Profit & Loss", "Time & Work"],
+  English: ["Grammar", "Vocabulary", "Error Spotting", "Cloze Test", "Reading Comprehension"],
+  "English Language": ["Grammar", "Vocabulary", "Error Spotting", "Cloze Test", "Reading Comprehension"],
+  "General Awareness": ["Banking Awareness", "Current Affairs", "Static GK", "Financial Awareness"],
+  "General/Financial Awareness": ["Banking Awareness", "Current Affairs", "Static GK", "Financial Awareness"],
+  GK: ["Current Affairs", "Static GK", "Economy", "Science"],
+  GA: ["Banking Awareness", "Current Affairs", "Static GK", "Financial Awareness"]
+};
+
+const getTopicForSection = (section, index) => {
+  const topics = SECTION_TOPICS[section] || SECTION_TOPICS[SECTION_ALIASES[section]] || ["General"];
+  return topics[index % topics.length];
+};
+
+const getDifficultyForIndex = (index) => {
+  if (index % 5 === 4) return "Difficult";
+  if (index % 3 === 2) return "Moderate";
+  return "Easy";
+};
+
+const buildQuestionSet = (sections, count, testId, options = {}) => {
   const sectionList = Array.isArray(sections) && sections.length ? sections : ["Reasoning"];
   return Array.from({ length: count }, (_, index) => {
     const section = sectionList[index % sectionList.length];
@@ -341,14 +432,26 @@ const buildQuestionSet = (sections, count, testId) => {
       id: `${testId}_q${index + 1}`,
       section,
       text: `${source.text}`,
-      options: [...source.options]
+      options: [...source.options],
+      topic: options.topic || getTopicForSection(section, index),
+      difficulty: options.difficulty || getDifficultyForIndex(index),
+      marks: Number(options.marksPerQuestion || source.marks || 1),
+      negativeMarks: Number(options.negativeMarks ?? source.negativeMarks ?? 0.25)
     };
   });
 };
 
 const buildSectionedQuestionSet = (sectionBlueprint, testId) => {
-  return sectionBlueprint.flatMap(({ section, count }) => (
-    buildQuestionSet([section], count, `${testId}_${section.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`)
+  return sectionBlueprint.flatMap(({ section, count, marksPerQuestion, negativeMarks }) => (
+    buildQuestionSet(
+      [section],
+      count,
+      `${testId}_${section.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
+      {
+        marksPerQuestion,
+        negativeMarks: negativeMarks ?? Number(marksPerQuestion || 1) * 0.25
+      }
+    )
   ));
 };
 
@@ -461,6 +564,7 @@ const IBPS_CLERK_HOST_FULL_MOCK = {
   id: "host-ibps-clerk-full-mock-1",
   sortOrder: 60,
   category: "banking",
+  seriesId: "ibps-clerk-2026",
   courseCode: "ibpsclerkpre",
   seriesTitle: "Host Published Full Mock Tests",
   type: "host-full-mock",
@@ -486,8 +590,138 @@ const IBPS_CLERK_HOST_FULL_MOCK = {
   ], "host_ibps_clerk_full_mock_1")
 };
 
+const createMockSeries = ({
+  prefix,
+  titlePrefix,
+  count,
+  sortStart,
+  seriesId,
+  courseCode,
+  exam,
+  stage,
+  durationMinutes,
+  level,
+  freeCount,
+  sectionBlueprint,
+  type = "full-mock",
+  attemptsBase = 12000
+}) => {
+  const sections = sectionBlueprint.map((item) => item.section);
+  const marks = sectionBlueprint.reduce((total, item) => total + item.count * Number(item.marksPerQuestion || 1), 0);
+  const questions = sectionBlueprint.reduce((total, item) => total + item.count, 0);
+
+  return Array.from({ length: count }, (_, index) => {
+    const setNumber = index + 1;
+    const id = `${prefix}-${setNumber}`;
+    return {
+      id,
+      sortOrder: sortStart + index,
+      category: "banking",
+      seriesId,
+      courseCode,
+      seriesTitle: EXAM_SERIES.find((series) => series.id === seriesId)?.title || "Banking Test Series",
+      type,
+      title: `${titlePrefix} ${setNumber}`,
+      exam,
+      stage,
+      questions,
+      marks,
+      durationMinutes,
+      language: "English and Hindi",
+      level: index < 3 ? "Foundation to exam level" : level,
+      free: index < freeCount,
+      sections,
+      negativeMarks: 0.25,
+      marksPerQuestion: 1,
+      attempts: Math.max(250, attemptsBase - index * 173),
+      rankEnabled: true,
+      questionSet: buildSectionedQuestionSet(sectionBlueprint, id)
+    };
+  });
+};
+
+const BANKING_SERIES_TESTS = [
+  ...createMockSeries({
+    prefix: "sbi-clerk-prelims-full",
+    titlePrefix: "SBI Clerk Prelims Full Mock Test",
+    count: 25,
+    sortStart: 10,
+    seriesId: "sbi-clerk-2026",
+    courseCode: "sbiclerkpre",
+    exam: "SBI Clerk",
+    stage: "Prelims",
+    durationMinutes: 60,
+    level: "Latest pattern",
+    freeCount: 2,
+    attemptsBase: 73900,
+    sectionBlueprint: [
+      { section: "English Language", count: 30, marksPerQuestion: 1 },
+      { section: "Numerical Ability", count: 35, marksPerQuestion: 1 },
+      { section: "Reasoning Ability", count: 35, marksPerQuestion: 1 }
+    ]
+  }),
+  ...createMockSeries({
+    prefix: "sbi-clerk-mains-full",
+    titlePrefix: "SBI Clerk Mains Full Mock Test",
+    count: 10,
+    sortStart: 36,
+    seriesId: "sbi-clerk-2026",
+    courseCode: "sbiclerkmains",
+    exam: "SBI Clerk",
+    stage: "Mains",
+    durationMinutes: 160,
+    level: "Mains specific",
+    freeCount: 1,
+    attemptsBase: 28500,
+    sectionBlueprint: [
+      { section: "English Language", count: 40, marksPerQuestion: 1 },
+      { section: "Quantitative Aptitude", count: 50, marksPerQuestion: 1 },
+      { section: "Reasoning & Computer Ability", count: 50, marksPerQuestion: 1.2 },
+      { section: "General/Financial Awareness", count: 50, marksPerQuestion: 1 }
+    ]
+  }),
+  ...createMockSeries({
+    prefix: "ibps-clerk-prelims-full",
+    titlePrefix: "IBPS Clerk Prelims Full Mock Test",
+    count: 20,
+    sortStart: 62,
+    seriesId: "ibps-clerk-2026",
+    courseCode: "ibpsclerkpre",
+    exam: "IBPS Clerk",
+    stage: "Prelims",
+    durationMinutes: 60,
+    level: "Latest pattern",
+    freeCount: 2,
+    attemptsBase: 42100,
+    sectionBlueprint: [
+      { section: "English Language", count: 30, marksPerQuestion: 1 },
+      { section: "Numerical Ability", count: 35, marksPerQuestion: 1 },
+      { section: "Reasoning Ability", count: 35, marksPerQuestion: 1 }
+    ]
+  }),
+  ...createMockSeries({
+    prefix: "rrb-clerk-prelims-full",
+    titlePrefix: "IBPS RRB Clerk Prelims Full Mock Test",
+    count: 20,
+    sortStart: 84,
+    seriesId: "rrb-clerk-2026",
+    courseCode: "rrbclerkpre",
+    exam: "IBPS RRB Clerk",
+    stage: "Prelims",
+    durationMinutes: 45,
+    level: "Speed improvement",
+    freeCount: 2,
+    attemptsBase: 36800,
+    sectionBlueprint: [
+      { section: "Reasoning", count: 40, marksPerQuestion: 1 },
+      { section: "Quantitative Aptitude", count: 40, marksPerQuestion: 1 }
+    ]
+  })
+];
+
 const FALLBACK_TESTS = [
   IBPS_CLERK_HOST_FULL_MOCK,
+  ...BANKING_SERIES_TESTS,
   ...GENERATED_RRB_SECTIONALS,
   ...PYP_TEST_LIBRARY,
   {
@@ -635,10 +869,32 @@ const defaultProfile = {
   targetExam: "IBPS RRB Officer Scale I"
 };
 
+const normalizeQuestionSet = (test) => {
+  const source = Array.isArray(test.questionSet) && test.questionSet.length
+    ? test.questionSet
+    : Array.isArray(test.demoQuestions) && test.demoQuestions.length
+      ? test.demoQuestions
+      : QUESTION_BANK;
+
+  return source.map((question, index) => ({
+    ...question,
+    id: question.id || `${test.id || "test"}_q${index + 1}`,
+    section: question.section || "General",
+    topic: question.topic || getTopicForSection(question.section || "General", index),
+    difficulty: question.difficulty || getDifficultyForIndex(index),
+    marks: Number(question.marks || test.marksPerQuestion || 1),
+    negativeMarks: Number(question.negativeMarks ?? test.negativeMarks ?? 0.25),
+    options: Array.isArray(question.options) && question.options.length ? question.options : ["", "", "", ""],
+    answerIndex: Number(question.answerIndex || 0),
+    solution: question.solution || "Solution will be updated by the host."
+  }));
+};
+
 const normalizeTest = (test) => ({
   id: test.id,
   sortOrder: Number(test.sortOrder || 999),
   category: test.category || "banking",
+  seriesId: test.seriesId || "",
   courseCode: test.courseCode || test.code || "rrbposecpre",
   seriesTitle: test.seriesTitle || "Mock Test Series",
   type: test.type || "mock",
@@ -662,11 +918,7 @@ const normalizeTest = (test) => ({
   rankEnabled: test.rankEnabled !== false,
   status: test.status || "published",
   source: test.source || "catalog",
-  questionSet: Array.isArray(test.questionSet) && test.questionSet.length
-    ? test.questionSet
-    : Array.isArray(test.demoQuestions) && test.demoQuestions.length
-      ? test.demoQuestions
-      : QUESTION_BANK
+  questionSet: normalizeQuestionSet(test)
 });
 
 const loadJson = (key, fallback) => {
@@ -715,43 +967,93 @@ const getAttemptCounts = (test, answers, markedForReview, visited) => {
 
 const getSummary = (test, answers, markedForReview, timeSpentSeconds) => {
   const sectionMap = {};
+  const topicMap = {};
   let correct = 0;
   let wrong = 0;
-  const marksPerQuestion = Number(test.marksPerQuestion || 1);
-  const negativeMarks = Number(test.negativeMarks ?? 0.25);
+  let scoredMarks = 0;
+  let maxScoreFromQuestions = 0;
 
   test.questionSet.forEach((question) => {
     const section = question.section || "General";
+    const topic = question.topic || getTopicForSection(section, 0);
+    const questionMarks = Number(question.marks || test.marksPerQuestion || 1);
+    const questionNegative = Number(question.negativeMarks ?? test.negativeMarks ?? questionMarks * 0.25);
+    maxScoreFromQuestions += questionMarks;
     if (!sectionMap[section]) {
-      sectionMap[section] = { section, total: 0, attempted: 0, correct: 0, wrong: 0, score: 0 };
+      sectionMap[section] = { section, total: 0, attempted: 0, correct: 0, wrong: 0, score: 0, maxScore: 0 };
+    }
+    if (!topicMap[topic]) {
+      topicMap[topic] = { topic, section, total: 0, attempted: 0, correct: 0, wrong: 0, score: 0 };
     }
 
     sectionMap[section].total += 1;
+    sectionMap[section].maxScore += questionMarks;
+    topicMap[topic].total += 1;
+
     if (answers[question.id] !== undefined) {
       sectionMap[section].attempted += 1;
+      topicMap[topic].attempted += 1;
       if (answers[question.id] === question.answerIndex) {
         correct += 1;
         sectionMap[section].correct += 1;
-        sectionMap[section].score += marksPerQuestion;
+        sectionMap[section].score += questionMarks;
+        topicMap[topic].correct += 1;
+        topicMap[topic].score += questionMarks;
+        scoredMarks += questionMarks;
       } else {
         wrong += 1;
         sectionMap[section].wrong += 1;
-        sectionMap[section].score -= negativeMarks;
+        sectionMap[section].score -= questionNegative;
+        topicMap[topic].wrong += 1;
+        topicMap[topic].score -= questionNegative;
+        scoredMarks -= questionNegative;
       }
     }
   });
 
   const total = test.questionSet.length;
   const attempted = Object.keys(answers).length;
-  const maxScore = Number(test.marks || total * marksPerQuestion);
-  const score = Number((correct * marksPerQuestion - wrong * negativeMarks).toFixed(2));
+  const maxScore = Number(test.marks || maxScoreFromQuestions || total);
+  const score = Number(scoredMarks.toFixed(2));
   const scorePercent = maxScore ? Math.max(0, Math.round((score / maxScore) * 100)) : 0;
   const accuracy = attempted ? Math.round((correct / attempted) * 100) : 0;
   const percentile = Math.min(99.9, Math.max(35, Number((45 + scorePercent * 0.52).toFixed(1))));
   const rank = Math.max(1, Math.round(9500 - percentile * 83 + wrong * 17));
-  const weakSections = Object.values(sectionMap)
+  const sections = Object.values(sectionMap).map((section) => {
+    const sectionAccuracy = section.attempted ? Math.round((section.correct / section.attempted) * 100) : 0;
+    const timeShare = total ? section.total / total : 0;
+    return {
+      ...section,
+      score: Number(section.score.toFixed(2)),
+      accuracy: sectionAccuracy,
+      timeSpentSeconds: Math.round(timeSpentSeconds * timeShare),
+      avgTimeSeconds: section.attempted ? Math.round((timeSpentSeconds * timeShare) / section.attempted) : 0
+    };
+  });
+  const topics = Object.values(topicMap)
+    .map((topic) => ({
+      ...topic,
+      score: Number(topic.score.toFixed(2)),
+      accuracy: topic.attempted ? Math.round((topic.correct / topic.attempted) * 100) : 0,
+      strength: topic.attempted && topic.correct / topic.attempted >= 0.75
+        ? "Strong"
+        : topic.attempted && topic.correct / topic.attempted >= 0.5
+          ? "Needs polish"
+          : "Weak"
+    }))
+    .sort((first, second) => first.accuracy - second.accuracy || second.total - first.total);
+  const weakSections = sections
     .filter((section) => section.total && section.correct / section.total < 0.5)
     .map((section) => section.section);
+  const weakTopics = topics.filter((topic) => topic.strength === "Weak").slice(0, 5).map((topic) => topic.topic);
+  const topperScore = Math.min(maxScore, Math.round(maxScore * 0.88));
+  const topperTimeSeconds = Math.max(1, Math.round(Number(test.durationMinutes || 60) * 60 * 0.72));
+  const speedIndex = timeSpentSeconds ? Math.min(100, Math.round((attempted / Math.max(1, timeSpentSeconds / 60)) * 22)) : 0;
+  const recommendations = [
+    weakTopics.length ? `Revise ${weakTopics.slice(0, 2).join(" and ")} before your next mock.` : "Maintain balanced topic coverage and push speed with sectional drills.",
+    accuracy < 75 ? "Attempt fewer guesses until accuracy crosses 75%." : "Accuracy is strong; increase attempt count in the next mock.",
+    scorePercent < 60 ? "Take one full mock and one weak-area sectional today." : "Move to mains-level or high difficulty practice next."
+  ];
 
   return {
     correct,
@@ -766,10 +1068,17 @@ const getSummary = (test, answers, markedForReview, timeSpentSeconds) => {
     accuracy,
     percentile,
     rank,
+    topperScore,
+    topperTimeSeconds,
+    scoreGap: Number(Math.max(0, topperScore - score).toFixed(2)),
+    speedIndex,
     timeSpentSeconds,
     avgTimeSeconds: attempted ? Math.round(timeSpentSeconds / attempted) : 0,
     weakSections,
-    sections: Object.values(sectionMap)
+    weakTopics,
+    recommendations,
+    sections,
+    topics
   };
 };
 
@@ -840,6 +1149,7 @@ function App() {
   const [liveEnrollments, setLiveEnrollments] = useState(() => loadJson(LOCAL_LIVE_ENROLLMENTS_KEY, []));
   const [testProgress, setTestProgress] = useState(() => loadJson(LOCAL_PROGRESS_KEY, {}));
   const [activeCategory, setActiveCategory] = useState("banking");
+  const [selectedSeriesId, setSelectedSeriesId] = useState("all");
   const [activeNav, setActiveNav] = useState("Tests");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState("recommended");
@@ -865,6 +1175,7 @@ function App() {
   const [hostMode, setHostMode] = useState(false);
   const [hostForm, setHostForm] = useState(createHostForm);
   const [questionDraft, setQuestionDraft] = useState(createEmptyQuestion);
+  const [bulkQuestionText, setBulkQuestionText] = useState("");
 
   useEffect(() => {
     if (!auth) return undefined;
@@ -904,6 +1215,7 @@ function App() {
     const search = searchQuery.trim().toLowerCase();
     const filtered = allTests
       .filter((test) => test.category === activeCategory)
+      .filter((test) => selectedSeriesId === "all" || test.seriesId === selectedSeriesId)
       .filter((test) => {
         if (!search) return true;
         return [test.title, test.exam, test.stage, test.courseCode, test.sections.join(" ")]
@@ -918,10 +1230,12 @@ function App() {
       if (sortMode === "bookmarked") return Number(bookmarkedTests.includes(second.id)) - Number(bookmarkedTests.includes(first.id)) || first.sortOrder - second.sortOrder;
       return first.sortOrder - second.sortOrder;
     });
-  }, [activeCategory, allTests, bookmarkedTests, searchQuery, sortMode]);
+  }, [activeCategory, allTests, bookmarkedTests, searchQuery, selectedSeriesId, sortMode]);
 
   const displayedTests = showAllTests ? visibleTests : visibleTests.slice(0, 10);
   const activeCourse = COURSE_CATALOG.find((course) => course.category === activeCategory) || COURSE_CATALOG[0];
+  const categorySeries = EXAM_SERIES.filter((series) => series.category === activeCategory);
+  const selectedSeries = categorySeries.find((series) => series.id === selectedSeriesId) || null;
   const dashboardStats = useMemo(() => {
     const attempted = attemptHistory.length;
     const bestScore = attemptHistory.reduce((best, attempt) => Math.max(best, Number(getAttemptSummary(attempt).score) || 0), 0);
@@ -1067,7 +1381,14 @@ function App() {
 
   useEffect(() => {
     setShowAllTests(false);
-  }, [activeCategory, searchQuery]);
+  }, [activeCategory, searchQuery, selectedSeriesId]);
+
+  useEffect(() => {
+    const seriesStillVisible = EXAM_SERIES.some((series) => series.category === activeCategory && series.id === selectedSeriesId);
+    if (selectedSeriesId !== "all" && !seriesStillVisible) {
+      setSelectedSeriesId("all");
+    }
+  }, [activeCategory, selectedSeriesId]);
 
   const openTest = (test) => {
     if (!ensureLogin()) return;
@@ -1140,6 +1461,25 @@ function App() {
     }));
   };
 
+  const addQuestionOption = () => {
+    setQuestionDraft((current) => ({
+      ...current,
+      options: current.options.length >= 6 ? current.options : [...current.options, ""]
+    }));
+  };
+
+  const removeQuestionOption = (optionIndex) => {
+    setQuestionDraft((current) => {
+      if (current.options.length <= 2) return current;
+      const nextOptions = current.options.filter((_, index) => index !== optionIndex);
+      return {
+        ...current,
+        options: nextOptions,
+        answerIndex: Math.min(current.answerIndex, nextOptions.length - 1)
+      };
+    });
+  };
+
   const addQuestionToHostForm = () => {
     const cleanQuestion = {
       ...questionDraft,
@@ -1150,8 +1490,8 @@ function App() {
       solution: questionDraft.solution.trim()
     };
 
-    if (!cleanQuestion.text || cleanQuestion.options.some((option) => !option)) {
-      setNotice("Question text and all four options are required.");
+    if (!cleanQuestion.text || cleanQuestion.options.length < 2 || cleanQuestion.options.some((option) => !option)) {
+      setNotice("Question text and at least two filled options are required.");
       return;
     }
 
@@ -1162,6 +1502,50 @@ function App() {
       marks: Math.max(Number(current.marks) || 0, current.questionSet.length + 1)
     }));
     setQuestionDraft(createEmptyQuestion());
+  };
+
+  const importBulkQuestions = () => {
+    const lines = bulkQuestionText
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (!lines.length) {
+      setNotice("Paste at least one question line before importing.");
+      return;
+    }
+
+    const parsedQuestions = lines.map((line, index) => {
+      const parts = line.split("|").map((part) => part.trim());
+      const [section, text, ...rest] = parts;
+      const solution = rest.length > 0 ? rest[rest.length - 1] : "";
+      const answerRaw = rest.length > 1 ? rest[rest.length - 2] : "1";
+      const optionParts = rest.slice(0, Math.max(0, rest.length - 2));
+      const answerIndex = Math.max(0, Math.min(optionParts.length - 1, Number(answerRaw) - 1 || 0));
+
+      return {
+        id: `bulk_q_${Date.now()}_${index}`,
+        section: section || "General",
+        text: text || "",
+        options: optionParts,
+        answerIndex,
+        solution
+      };
+    }).filter((question) => question.text && question.options.length >= 2 && question.options.every(Boolean));
+
+    if (!parsedQuestions.length) {
+      setNotice("Bulk format invalid. Use: Section | Question | Option A | Option B | Option C | Option D | Correct number | Solution");
+      return;
+    }
+
+    setHostForm((current) => ({
+      ...current,
+      questionSet: [...current.questionSet, ...parsedQuestions],
+      questions: Math.max(Number(current.questions) || 0, current.questionSet.length + parsedQuestions.length),
+      marks: Math.max(Number(current.marks) || 0, current.questionSet.length + parsedQuestions.length)
+    }));
+    setBulkQuestionText("");
+    setNotice(`${parsedQuestions.length} manual question${parsedQuestions.length > 1 ? "s" : ""} imported.`);
   };
 
   const removeHostQuestion = (questionId) => {
@@ -1520,6 +1904,19 @@ function App() {
             <div><strong>{selectedTest.durationMinutes} min</strong><span>Duration</span></div>
             <div><strong>-{selectedTest.negativeMarks}</strong><span>Negative marking</span></div>
           </div>
+          <div className="section-rule-grid">
+            {selectedTest.sections.map((section) => {
+              const sectionQuestions = selectedTest.questionSet.filter((question) => question.section === section);
+              const sectionMarks = sectionQuestions.reduce((total, question) => total + Number(question.marks || selectedTest.marksPerQuestion || 1), 0);
+              return (
+                <div key={section}>
+                  <strong>{section}</strong>
+                  <span>{sectionQuestions.length} questions</span>
+                  <span>{Number(sectionMarks.toFixed(2))} marks</span>
+                </div>
+              );
+            })}
+          </div>
           <ul className="rules-list">
             <li>This is a {selectedTest.type} test for {selectedTest.exam}.</li>
             <li>Each question has one correct answer and carries {selectedTest.marksPerQuestion} mark.</li>
@@ -1581,6 +1978,21 @@ function App() {
                 {section}
               </button>
             ))}
+          </div>
+
+          <div className="runner-section-meter">
+            {selectedTest.sections.map((section) => {
+              const sectionQuestions = selectedTest.questionSet.filter((question) => question.section === section);
+              const answeredCount = sectionQuestions.filter((question) => answers[question.id] !== undefined).length;
+              const progress = sectionQuestions.length ? Math.round((answeredCount / sectionQuestions.length) * 100) : 0;
+              return (
+                <div key={section}>
+                  <span>{section}</span>
+                  <strong>{answeredCount}/{sectionQuestions.length}</strong>
+                  <i><b style={{ width: `${progress}%` }} /></i>
+                </div>
+              );
+            })}
           </div>
 
           <div className="runner-layout">
@@ -1678,6 +2090,29 @@ function App() {
               <div><strong>{formatTime(result.timeSpentSeconds)}</strong><span>Time spent</span></div>
             </div>
 
+            <div className="benchmark-grid">
+              <div className="benchmark-card">
+                <span>Topper score</span>
+                <strong>{result.topperScore}/{result.maxScore}</strong>
+                <small>Gap to close: {result.scoreGap} marks</small>
+              </div>
+              <div className="benchmark-card">
+                <span>Topper time</span>
+                <strong>{formatTime(result.topperTimeSeconds)}</strong>
+                <small>Your avg: {formatTime(result.avgTimeSeconds)} per attempted question</small>
+              </div>
+              <div className="benchmark-card">
+                <span>Speed index</span>
+                <strong>{result.speedIndex}/100</strong>
+                <small>Based on attempts per minute</small>
+              </div>
+              <div className="benchmark-card accent">
+                <span>Next action</span>
+                <strong>{result.weakTopics.length ? result.weakTopics[0] : "Advanced mocks"}</strong>
+                <small>{result.recommendations[0]}</small>
+              </div>
+            </div>
+
             <div className="chart-grid">
               <div className="analysis-card chart-card">
                 <h3>Score graph</h3>
@@ -1741,9 +2176,33 @@ function App() {
                   <div key={section.section}>
                     <span>{section.section}</span>
                     <strong>{section.score.toFixed(2)} marks</strong>
-                    <small>{section.correct} correct, {section.wrong} wrong, {section.attempted}/{section.total} attempted</small>
+                    <small>{section.correct} correct, {section.wrong} wrong, {section.attempted}/{section.total} attempted, {formatTime(section.timeSpentSeconds)} est. time</small>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            <div className="deep-analysis-grid">
+              <div className="analysis-card">
+                <h3>AI-style recommendations</h3>
+                <div className="recommendation-list">
+                  {result.recommendations.map((item) => (
+                    <span key={item}><Sparkles size={15} /> {item}</span>
+                  ))}
+                </div>
+              </div>
+              <div className="analysis-card topic-strength-card">
+                <h3>Topic strength</h3>
+                <div className="topic-table">
+                  {result.topics.slice(0, 8).map((topic) => (
+                    <div key={`${topic.section}-${topic.topic}`}>
+                      <strong>{topic.topic}</strong>
+                      <span>{topic.section}</span>
+                      <span>{topic.accuracy}%</span>
+                      <small className={`strength-${topic.strength.toLowerCase().replace(/\s+/g, "-")}`}>{topic.strength}</small>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -1890,6 +2349,26 @@ function App() {
               <div><strong>{dashboardStats.live}</strong><span>Live reminders</span></div>
             </div>
 
+            <div className="pass-panel">
+              <div className="pass-copy">
+                <span className="eyebrow">PrepPass demo</span>
+                <h3>One library for mocks, PYPs, live tests, and analysis.</h3>
+                <p>Built like a real exam-prep pass: unlock tests, reattempt, review solutions, and track weak areas across attempts.</p>
+              </div>
+              <div className="pass-feature-grid">
+                {PASS_FEATURES.map((feature) => (
+                  <div key={feature.title}>
+                    <strong>{feature.value}</strong>
+                    <span>{feature.title}</span>
+                    <small>{feature.detail}</small>
+                  </div>
+                ))}
+              </div>
+              <button type="button" className="secondary-button" onClick={() => setUnlockTest(visibleTests.find((test) => !test.free) || allTests.find((test) => !test.free) || null)}>
+                <UnlockKeyhole size={16} /> Try Unlock Flow
+              </button>
+            </div>
+
             <div className="promo-grid">
               {PROMO_CARDS.map((promo) => (
                 <article key={promo.title} className="promo-card">
@@ -1971,13 +2450,108 @@ function App() {
                 key={item.id}
                 type="button"
                 className={activeCategory === item.id ? "active" : ""}
-                onClick={() => setActiveCategory(item.id)}
+                onClick={() => {
+                  setActiveCategory(item.id);
+                  setSelectedSeriesId("all");
+                }}
               >
                 <strong>{item.label}</strong>
                 <span>{item.exams}</span>
               </button>
             ))}
           </div>
+
+          {categorySeries.length > 0 && (
+            <div className="series-section">
+              <div className="series-filter-row">
+                <button
+                  type="button"
+                  className={selectedSeriesId === "all" ? "active" : ""}
+                  onClick={() => setSelectedSeriesId("all")}
+                >
+                  All {category?.label} Tests
+                </button>
+                {categorySeries.map((series) => (
+                  <button
+                    key={series.id}
+                    type="button"
+                    className={selectedSeriesId === series.id ? "active" : ""}
+                    onClick={() => {
+                      setSelectedSeriesId(series.id);
+                      setSearchQuery("");
+                    }}
+                  >
+                    {series.exam}
+                  </button>
+                ))}
+              </div>
+
+              <div className="series-grid">
+                {categorySeries.map((series) => {
+                  const seriesTests = allTests.filter((test) => test.seriesId === series.id);
+                  return (
+                    <article className={selectedSeriesId === series.id ? "series-card active" : "series-card"} key={series.id}>
+                      <div className="series-card-top">
+                        <span>{series.badge}</span>
+                        <strong>{series.users} users</strong>
+                      </div>
+                      <h3>{series.title}</h3>
+                      <p>{series.description}</p>
+                      <div className="series-stats">
+                        <div><strong>{series.tests}</strong><span>Total tests</span></div>
+                        <div><strong>{series.freeTests}</strong><span>Free tests</span></div>
+                        <div><strong>{series.languages}</strong><span>Languages</span></div>
+                      </div>
+                      <div className="tag-list">
+                        {series.includes.map((item) => <span key={item}>{item}</span>)}
+                      </div>
+                      <div className="series-actions">
+                        <button
+                          type="button"
+                          className="primary-button"
+                          onClick={() => {
+                            setSelectedSeriesId(series.id);
+                            setSearchQuery("");
+                          }}
+                        >
+                          <Play size={16} /> View {seriesTests.length || series.tests} Tests
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => {
+                            const freeTest = seriesTests.find((test) => test.free) || seriesTests[0];
+                            if (freeTest) openTestInWindow(freeTest);
+                          }}
+                        >
+                          <Eye size={16} /> Attempt Free
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+
+              {selectedSeries && (
+                <div className="pattern-panel">
+                  <div>
+                    <span className="eyebrow">Exam pattern</span>
+                    <h3>{selectedSeries.exam} quick pattern</h3>
+                  </div>
+                  <div className="pattern-table">
+                    {selectedSeries.pattern.map((row) => (
+                      <div key={row.section}>
+                        <strong>{row.section}</strong>
+                        <span>{row.questions} Qs</span>
+                        <span>{row.marks} marks</span>
+                        <span>{row.duration}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="test-grid">
             {displayedTests.map((test) => {
@@ -2240,7 +2814,14 @@ function App() {
                   <div className="option-editor">
                     {questionDraft.options.map((option, optionIndex) => (
                       <label key={optionIndex}>
-                        Option {String.fromCharCode(65 + optionIndex)}
+                        <span className="option-title-row">
+                          Option {String.fromCharCode(65 + optionIndex)}
+                          {questionDraft.options.length > 2 && (
+                            <button type="button" onClick={() => removeQuestionOption(optionIndex)} aria-label={`Remove option ${String.fromCharCode(65 + optionIndex)}`}>
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </span>
                         <input
                           value={option}
                           onChange={(event) => updateQuestionOption(optionIndex, event.target.value)}
@@ -2249,6 +2830,9 @@ function App() {
                       </label>
                     ))}
                   </div>
+                  <button type="button" className="secondary-button add-option-button" onClick={addQuestionOption} disabled={questionDraft.options.length >= 6}>
+                    <FilePlus2 size={16} /> Add Option
+                  </button>
                   <div className="form-grid two">
                     <label>
                       Correct Answer
@@ -2256,7 +2840,7 @@ function App() {
                         value={questionDraft.answerIndex}
                         onChange={(event) => setQuestionDraft({ ...questionDraft, answerIndex: Number(event.target.value) })}
                       >
-                        {[0, 1, 2, 3].map((optionIndex) => (
+                        {questionDraft.options.map((_, optionIndex) => (
                           <option key={optionIndex} value={optionIndex}>
                             Option {String.fromCharCode(65 + optionIndex)}
                           </option>
@@ -2295,6 +2879,19 @@ function App() {
                     <FilePlus2 size={16} /> Upload JSON
                     <input type="file" accept="application/json,.json" onChange={uploadHostTests} />
                   </label>
+                </div>
+
+                <div className="host-card bulk-card">
+                  <strong>Bulk manual entry</strong>
+                  <span className="muted-line">One question per line: Section | Question | Option A | Option B | Option C | Option D | Correct number | Solution</span>
+                  <textarea
+                    value={bulkQuestionText}
+                    onChange={(event) => setBulkQuestionText(event.target.value)}
+                    placeholder="Reasoning | Find the odd one out | 12 | 18 | 21 | 24 | 3 | 21 is not divisible by 6"
+                  />
+                  <button type="button" className="secondary-button" onClick={importBulkQuestions}>
+                    <FilePlus2 size={16} /> Import Lines
+                  </button>
                 </div>
 
                 <div className="host-card">
